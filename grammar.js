@@ -30,8 +30,8 @@ module.exports = grammar({
     $._start_mustache_tag_name,
     $._end_mustache_tag_name,
     $._erroneous_end_mustache_tag_name,
-    $.start_delimiter,
-    $.end_delimiter,
+    $.start_mustache_delimiter,
+    $.end_mustache_delimiter,
     $._mustache_identifier,
     $._set_start_mustache_tag_name,
     $._set_end_mustache_tag_name,
@@ -74,7 +74,7 @@ module.exports = grammar({
       seq(
         $.start_tag,
         repeat($._node),
-        choice($.end_tag, $._implicit_end_html_tag),
+        choice($.end_html_tag, $._implicit_end_html_tag),
       ),
       $.self_closing_tag,
     ),
@@ -166,10 +166,10 @@ module.exports = grammar({
 
     comment_statement: ($) =>
       seq(
-        alias($.start_delimiter, $._start_mustache_tag_name),
+        alias($.start_mustache_delimiter, $._start_mustache_tag_name),
         "!",
         $.mustache_comment,
-        alias($.end_delimiter, $._end_mustache_tag_name),
+        alias($.end_mustache_delimiter, $._end_mustache_tag_name),
       ),
 
     _statement: ($) =>
@@ -184,27 +184,27 @@ module.exports = grammar({
         $.raw_text,
       ),
     interpolation_statement: ($) =>
-      seq($.start_delimiter, $._expression, $.end_delimiter),
+      seq($.start_mustache_delimiter, $._expression, $.end_mustache_delimiter),
     triple_statement: ($) =>
-      seq($.start_delimiter, "{", $._expression, "}", $.end_delimiter),
+      seq($.start_mustache_delimiter, "{", $._expression, "}", $.end_mustache_delimiter),
     ampersand_statement: ($) =>
-      seq($.start_delimiter, "&", $._expression, $.end_delimiter),
+      seq($.start_mustache_delimiter, "&", $._expression, $.end_mustache_delimiter),
     set_delimiter_statement: ($) =>
       seq(
-        $.start_delimiter,
+        $.start_mustache_delimiter,
         "=",
         $._set_start_mustache_tag_name,
         /\s/,
         $._set_end_mustache_tag_name,
         "=",
-        alias($._old_end_mustache_tag_name, $.end_delimiter),
+        alias($._old_end_mustache_tag_name, $.end_mustache_delimiter),
       ),
     partial_statement: ($) =>
       seq(
-        $.start_delimiter,
+        $.start_mustache_delimiter,
         ">",
-        alias($._mustache_comment, $.partial_content),
-        $.end_delimiter,
+        alias($.mustache_comment, $.partial_content),
+        $.end_mustache_delimiter,
       ),
 
     section: ($) =>
@@ -216,21 +216,21 @@ module.exports = grammar({
 
     _section_end: ($) =>
       seq(
-        $.start_delimiter,
+        $.start_mustache_delimiter,
         "/",
         choice(
           alias($._end_mustache_tag_name, $.tag_name),
           alias($._erroneous_end_mustache_tag_name, $.erroneous_tag_name),
         ),
-        $.end_delimiter,
+        $.end_mustache_delimiter,
       ),
 
     section_begin: ($) =>
       seq(
-        $.start_delimiter,
+        $.start_mustache_delimiter,
         "#",
         alias($._start_mustache_tag_name, $.tag_name),
-        $.end_delimiter,
+        $.end_mustache_delimiter,
       ),
 
     inverted_section: ($) =>
@@ -241,10 +241,10 @@ module.exports = grammar({
       ),
     inverted_section_begin: ($) =>
       seq(
-        $.start_delimiter,
+        $.start_mustache_delimiter,
         "^",
         alias($._start_mustache_tag_name, $.tag_name),
-        $.end_delimiter,
+        $.end_mustache_delimiter,
       ),
 
     _expression: ($) => choice($.path_expression, $.identifier, "."),

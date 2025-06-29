@@ -11,9 +11,27 @@ enum TokenType {
     ERRONEOUS_END_HTML_TAG_NAME,
     SELF_CLOSING_TAG_DELIMITER,
     IMPLICIT_END_HTML_TAG,
-    HTML_RAW_TEXT,
     HTML_COMMENT,
+    // Mustache
+    START_MUSTACHE_TAG_NAME,
+    END_MUSTACHE_TAG_NAME,
+    ERRONEOUS_END_MUSTACHE_TAG_NAME,
+    START_MUSTACHE_DELIMITER,
+    END_MUSTACHE_DELIMITER,
+    MUSTACHE_COMMENT,
+    MUSTACHE_IDENTIFIER,
+    SET_START_MUSTACHE_DELIMITER_CONTENT,
+    SET_END_MUSTACHE_DELIMITER_CONTENT,
+    OLD_END_MUSTACHE_DELIMITER,
+    // Merged node types
+    RAW_TEXT,
 };
+
+#define DEFAULT_START_DELIMITER '{'
+#define DEFAULT_END_DELIMITER '}'
+#define DEFAULT_SIZE 2
+
+typedef Array(char) String;
 
 typedef struct {
     Array(Tag) tags;
@@ -164,7 +182,7 @@ static bool scan_raw_text(Scanner *scanner, TSLexer *lexer) {
         }
     }
 
-    lexer->result_symbol = HTML_RAW_TEXT;
+    lexer->result_symbol = RAW_TEXT;
     return true;
 }
 
@@ -173,7 +191,7 @@ static void pop_tag(Scanner *scanner) {
     tag_free(&popped_tag);
 }
 
-static bool scan_implicit_end_tag(Scanner *scanner, TSLexer *lexer) {
+static bool scan_implicit_end_html_tag(Scanner *scanner, TSLexer *lexer) {
     Tag *parent = scanner->tags.size == 0 ? NULL : array_back(&scanner->tags);
 
     bool is_closing_tag = false;
@@ -230,7 +248,7 @@ static bool scan_implicit_end_tag(Scanner *scanner, TSLexer *lexer) {
     return false;
 }
 
-static bool scan_start_tag_name(Scanner *scanner, TSLexer *lexer) {
+static bool scan_start_html_tag_name(Scanner *scanner, TSLexer *lexer) {
     String tag_name = scan_tag_name(lexer);
     if (tag_name.size == 0) {
         array_delete(&tag_name);
@@ -253,7 +271,7 @@ static bool scan_start_tag_name(Scanner *scanner, TSLexer *lexer) {
     return true;
 }
 
-static bool scan_end_tag_name(Scanner *scanner, TSLexer *lexer) {
+static bool scan_end_html_tag_name(Scanner *scanner, TSLexer *lexer) {
     String tag_name = scan_tag_name(lexer);
 
     if (tag_name.size == 0) {
@@ -273,7 +291,7 @@ static bool scan_end_tag_name(Scanner *scanner, TSLexer *lexer) {
     return true;
 }
 
-static bool scan_self_closing_tag_delimiter(Scanner *scanner, TSLexer *lexer) {
+static bool scan_self_closing_html_tag_delimiter(Scanner *scanner, TSLexer *lexer) {
     advance(lexer);
     if (lexer->lookahead == '>') {
         advance(lexer);
@@ -287,7 +305,7 @@ static bool scan_self_closing_tag_delimiter(Scanner *scanner, TSLexer *lexer) {
 }
 
 static bool scan(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
-    if (valid_symbols[HTML_RAW_TEXT] && !valid_symbols[START_HTML_TAG_NAME] && !valid_symbols[END_HTML_TAG_NAME]) {
+    if (valid_symbols[RAW_TEXT] && !valid_symbols[START_HTML_TAG_NAME] && !valid_symbols[END_HTML_TAG_NAME]) {
         return scan_raw_text(scanner, lexer);
     }
 
@@ -306,26 +324,26 @@ static bool scan(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
             }
 
             if (valid_symbols[IMPLICIT_END_HTML_TAG]) {
-                return scan_implicit_end_tag(scanner, lexer);
+                return scan_implicit_end_html_tag(scanner, lexer);
             }
             break;
 
         case '\0':
             if (valid_symbols[IMPLICIT_END_HTML_TAG]) {
-                return scan_implicit_end_tag(scanner, lexer);
+                return scan_implicit_end_html_tag(scanner, lexer);
             }
             break;
 
         case '/':
             if (valid_symbols[SELF_CLOSING_TAG_DELIMITER]) {
-                return scan_self_closing_tag_delimiter(scanner, lexer);
+                return scan_self_closing_html_tag_delimiter(scanner, lexer);
             }
             break;
 
         default:
-            if ((valid_symbols[START_HTML_TAG_NAME] || valid_symbols[END_HTML_TAG_NAME]) && !valid_symbols[HTML_RAW_TEXT]) {
-                return valid_symbols[START_HTML_TAG_NAME] ? scan_start_tag_name(scanner, lexer)
-                                                     : scan_end_tag_name(scanner, lexer);
+            if ((valid_symbols[START_HTML_TAG_NAME] || valid_symbols[END_HTML_TAG_NAME]) && !valid_symbols[RAW_TEXT]) {
+                return valid_symbols[START_HTML_TAG_NAME] ? scan_start_html_tag_name(scanner, lexer)
+                                                         : scan_end_html_tag_name(scanner, lexer);
             }
     }
 
