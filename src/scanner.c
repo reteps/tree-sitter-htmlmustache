@@ -1,4 +1,5 @@
 #include "tag.h"
+#include "mustache_tag.h"
 #include "tree_sitter/parser.h"
 
 #include <wctype.h>
@@ -13,10 +14,16 @@ enum TokenType {
     HTML_IMPLICIT_END_TAG,
     HTML_RAW_TEXT,
     HTML_COMMENT,
+    // Mustache tokens
+    MUSTACHE_START_TAG_NAME,
+    MUSTACHE_END_TAG_NAME,
+    MUSTACHE_ERRONEOUS_END_TAG_NAME,
+    MUSTACHE_IDENTIFIER_CONTENT,
 };
 
 typedef struct {
     Array(Tag) tags;
+    Array(MustacheTag) mustache_tags;
 } Scanner;
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -56,6 +63,31 @@ static unsigned serialize(Scanner *scanner, char *buffer) {
     }
 
     memcpy(&buffer[0], &serialized_tag_count, sizeof(serialized_tag_count));
+
+    // Mustache tags
+    uint16_t m_tag_count =
+        scanner->mustache_tags.size > UINT16_MAX ? UINT16_MAX : scanner->mustache_tags.size;
+    uint16_t m_serialized_tag_count = 0;
+
+    unsigned m_size = sizeof(m_tag_count);
+    memcpy(&buffer[size], &m_tag_count, sizeof(m_tag_count));
+    size += sizeof(m_tag_count);
+
+    for (; m_serialized_tag_count < m_tag_count; m_serialized_tag_count++) {
+        MustacheTag tag = scanner->mustache_tags.contents[m_serialized_tag_count];
+        unsigned name_length = tag.tag_name.size;
+        if (name_length > UINT8_MAX) {
+        name_length = UINT8_MAX;
+        }
+        if (size + 2 + name_length >= TREE_SITTER_SERIALIZATION_BUFFER_SIZE) {
+        break;
+        }
+        buffer[size++] = (char)name_length;
+        strncpy(&buffer[size], tag.tag_name.contents, tag.tag_name.size);
+        size += name_length;
+    }
+
+    memcpy(&buffer[0], &m_serialized_tag_count, sizeof(m_serialized_tag_count));
     return size;
 }
 
@@ -63,7 +95,11 @@ static void deserialize(Scanner *scanner, const char *buffer, unsigned length) {
     for (unsigned i = 0; i < scanner->tags.size; i++) {
         tag_free(&scanner->tags.contents[i]);
     }
+    for (unsigned i = 0; i < scanner->mustache_tags.size; i++) {
+        mustache_tag_free(&scanner->mustache_tags.contents[i]);
+    }
     array_clear(&scanner->tags);
+    array_clear(&scanner->mustache_tags);
 
     if (length > 0) {
         unsigned size = 0;
@@ -97,10 +133,40 @@ static void deserialize(Scanner *scanner, const char *buffer, unsigned length) {
                 array_push(&scanner->tags, tag_new());
             }
         }
+
+        // Mustache tags
+        unsigned m_size = 0;
+        uint16_t m_tag_count = 0;
+        uint16_t m_serialized_tag_count = 0;
+
+        memcpy(&m_serialized_tag_count, &buffer[size], sizeof(m_serialized_tag_count));
+        size += sizeof(m_serialized_tag_count);
+
+        memcpy(&m_tag_count, &buffer[size], sizeof(m_tag_count));
+        size += sizeof(m_tag_count);
+
+        array_reserve(&scanner->mustache_tags, m_tag_count);
+        if (m_tag_count > 0) {
+            unsigned iter = 0;
+            for (iter = 0; iter < m_serialized_tag_count; iter++) {
+                MustacheTag tag = mustache_tag_new();
+                uint16_t name_length = (uint8_t)buffer[size++];
+                array_reserve(&tag.tag_name, name_length);
+                tag.tag_name.size = name_length;
+                memcpy(tag.tag_name.contents, &buffer[size], name_length);
+                size += name_length;
+                array_push(&scanner->mustache_tags, tag);
+            }
+            // add zero tags if we didn't read enough, this is because the
+            // buffer had no more room but we held more tags.
+            for (; iter < m_tag_count; iter++) {
+                array_push(&scanner->mustache_tags, mustache_tag_new());
+            }
+        }
     }
 }
 
-static String scan_tag_name(TSLexer *lexer) {
+static String scan_html_tag_name(TSLexer *lexer) {
     String tag_name = array_new();
     while (iswalnum(lexer->lookahead) || lexer->lookahead == '-' || lexer->lookahead == ':') {
         array_push(&tag_name, towupper(lexer->lookahead));
@@ -109,7 +175,7 @@ static String scan_tag_name(TSLexer *lexer) {
     return tag_name;
 }
 
-static bool scan_comment(TSLexer *lexer) {
+static bool scan_html_comment(TSLexer *lexer) {
     if (lexer->lookahead != '-') {
         return false;
     }
@@ -188,7 +254,7 @@ static bool scan_implicit_end_tag(Scanner *scanner, TSLexer *lexer) {
         }
     }
 
-    String tag_name = scan_tag_name(lexer);
+    String tag_name = scan_html_tag_name(lexer);
     if (tag_name.size == 0 && !lexer->eof(lexer)) {
         array_delete(&tag_name);
         return false;
@@ -231,7 +297,7 @@ static bool scan_implicit_end_tag(Scanner *scanner, TSLexer *lexer) {
 }
 
 static bool scan_start_tag_name(Scanner *scanner, TSLexer *lexer) {
-    String tag_name = scan_tag_name(lexer);
+    String tag_name = scan_html_tag_name(lexer);
     if (tag_name.size == 0) {
         array_delete(&tag_name);
         return false;
@@ -254,13 +320,14 @@ static bool scan_start_tag_name(Scanner *scanner, TSLexer *lexer) {
 }
 
 static bool scan_end_tag_name(Scanner *scanner, TSLexer *lexer) {
-    String tag_name = scan_tag_name(lexer);
+    String tag_name = scan_html_tag_name(lexer);
 
     if (tag_name.size == 0) {
         array_delete(&tag_name);
         return false;
     }
 
+    printf("tag_name: %s\n", tag_name.contents);
     Tag tag = tag_for_name(tag_name);
     if (scanner->tags.size > 0 && tag_eq(array_back(&scanner->tags), &tag)) {
         pop_tag(scanner);
@@ -286,6 +353,74 @@ static bool scan_self_closing_tag_delimiter(Scanner *scanner, TSLexer *lexer) {
     return false;
 }
 
+static String scan_mustache_tag_name(Scanner *scanner, TSLexer *lexer) {
+  String tag_name = array_new();
+  while (lexer->lookahead != '}' && !lexer->eof(lexer)) {
+    if (iswspace(lexer->lookahead))
+      break;
+
+    array_push(&tag_name, lexer->lookahead);
+    lexer->advance(lexer, false);
+  }
+  return tag_name;
+}
+
+static bool scan_mustache_identifier_content(TSLexer *lexer) {
+    bool has_content = false;
+    while (lexer->lookahead != '}' && lexer->lookahead != '.' && !iswspace(lexer->lookahead)) {
+        if (lexer->eof(lexer)) {
+            return false;
+        }
+        has_content = true;
+        advance(lexer);
+    }
+    if (has_content) {
+        lexer->result_symbol = MUSTACHE_IDENTIFIER_CONTENT;
+        return true;
+    }
+    return false;
+}
+
+static bool scan_mustache_start_tag_name(Scanner *scanner, TSLexer *lexer) {
+    String tag_name = scan_mustache_tag_name(scanner, lexer);
+    if (tag_name.size == 0) {
+        array_delete(&tag_name);
+        return false;
+    }
+    printf("tag_name: %s\n", tag_name.contents);
+    MustacheTag tag = mustache_tag_new();
+    tag.tag_name = tag_name;
+    array_push(&scanner->mustache_tags, tag);
+    lexer->result_symbol = MUSTACHE_START_TAG_NAME;
+    return true;
+}
+
+static bool scan_mustache_end_tag_name(Scanner *scanner, TSLexer *lexer) {
+  String tag_name = scan_mustache_tag_name(scanner, lexer);
+
+  if (tag_name.size == 0) {
+    array_delete(&tag_name);
+    return false;
+  }
+
+  MustacheTag tag = mustache_tag_new();
+  tag.tag_name = tag_name;
+  printf("tag_name: %s\n", tag.tag_name.contents);
+  if (scanner->mustache_tags.size > 0) {
+    printf("mustache_tags.size: %d\n", scanner->mustache_tags.size);
+    printf("mustache_tags.contents[0].tag_name: %s\n", scanner->mustache_tags.contents[0].tag_name.contents);
+  }
+  if (scanner->mustache_tags.size > 0 && mustache_tag_eq(array_back(&scanner->mustache_tags), &tag)) {
+    pop_tag(scanner);
+    lexer->result_symbol = MUSTACHE_END_TAG_NAME;
+  } else {
+    lexer->result_symbol = MUSTACHE_ERRONEOUS_END_TAG_NAME;
+  }
+
+  mustache_tag_free(&tag);
+  return true;
+}
+
 static bool scan(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
     if (valid_symbols[HTML_RAW_TEXT] && !valid_symbols[HTML_START_TAG_NAME] && !valid_symbols[HTML_END_TAG_NAME]) {
         return scan_raw_text(scanner, lexer);
@@ -294,7 +429,22 @@ static bool scan(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
     while (iswspace(lexer->lookahead)) {
         skip(lexer);
     }
-
+    
+    if (valid_symbols[MUSTACHE_IDENTIFIER_CONTENT]) {
+        printf("scanning mustache identifier content\n");
+        return scan_mustache_identifier_content(lexer);
+    }
+    
+    if (valid_symbols[MUSTACHE_START_TAG_NAME]) {
+        printf("scanning mustache start tag\n");
+        return scan_mustache_start_tag_name(scanner, lexer);
+    }
+    
+    if (valid_symbols[MUSTACHE_END_TAG_NAME] || valid_symbols[MUSTACHE_ERRONEOUS_END_TAG_NAME]) {
+        printf("scanning mustache end tag\n");
+        return scan_mustache_end_tag_name(scanner, lexer);
+    }
+    
     switch (lexer->lookahead) {
         case '<':
             lexer->mark_end(lexer);
@@ -302,7 +452,7 @@ static bool scan(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
 
             if (lexer->lookahead == '!') {
                 advance(lexer);
-                return scan_comment(lexer);
+                return scan_html_comment(lexer);
             }
 
             if (valid_symbols[HTML_IMPLICIT_END_TAG]) {
@@ -358,5 +508,9 @@ void tree_sitter_html_external_scanner_destroy(void *payload) {
         tag_free(&scanner->tags.contents[i]);
     }
     array_delete(&scanner->tags);
+    for (unsigned i = 0; i < scanner->mustache_tags.size; i++) {
+        mustache_tag_free(&scanner->mustache_tags.contents[i]);
+    }
+    array_delete(&scanner->mustache_tags);
     ts_free(scanner);
 }

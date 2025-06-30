@@ -1,0 +1,16 @@
+===================================
+Basic Test
+===================================
+<div>
+{{! comment }}
+</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_comment
+      (mustache_comment_content))
+    (html_end_tag
+      (html_tag_name))))

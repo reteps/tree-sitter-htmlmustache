@@ -26,10 +26,14 @@ module.exports = grammar({
     $._html_implicit_end_tag,
     $.html_raw_text,
     $.html_comment,
+    // Mustache externals
+    $._mustache_start_tag_name,
+    $._mustache_end_tag_name,
+    $._mustache_erroneous_end_tag_name,
   ],
 
   rules: {
-    document: $ => repeat($._html_node),
+    document: $ => repeat($._node),
 
     html_doctype: $ => seq(
       '<!',
@@ -40,20 +44,129 @@ module.exports = grammar({
 
     _html_doctype: _ => /[Dd][Oo][Cc][Tt][Yy][Pp][Ee]/,
 
-    _html_node: $ => choice(
+    _node: $ => choice(
+      $.mustache_triple, // {{{ sub }}}
+      $.mustache_comment, // {{! comment }}
+      $.mustache_ampersand, // {{& sub }}
+      $.mustache_partial, // {{> sub }}
+      $.mustache_section, // Block with opening and closing
+      $.mustache_inverted_section, // Block with opening and closing
+      $.mustache_interpolation, // Actual {{ sub }}
       $.html_doctype,
       $.html_entity,
-      $.html_text,
+      $.text,
       $.html_element,
       $.html_script_element,
       $.html_style_element,
       $.html_erroneous_end_tag,
     ),
+    // Mustache rules - order matters for parsing precedence
+    mustache_triple: $ => seq(
+      '{{{',
+      $._mustache_expression,
+      '}}}',
+    ),
+
+    mustache_comment: $ => seq(
+      '{{!',
+      $.mustache_comment_content,
+      '}}',
+    ),
+
+    mustache_comment_content: $ => /[^}]*/,
+
+    mustache_ampersand: $ => seq(
+      '{{&',
+      $._mustache_expression,
+      '}}',
+    ),
+
+    mustache_partial: $ => seq(
+      '{{>',
+      /[^}]+/,
+      '}}',
+    ),
+
+    mustache_interpolation: $ => seq(
+      '{{',
+      $._mustache_expression,
+      '}}',
+    ),
+
+    mustache_section: $ => seq(
+      $.mustache_section_begin,
+      repeat($._node),
+      choice($.mustache_section_end, $.mustache_erroneous_section_end),
+    ),
+
+    mustache_section_begin: $ => seq(
+      '{{#',
+      optional(/\s*/),
+      alias($._mustache_start_tag_name, $.mustache_tag_name),
+      '}}',
+    ),
+
+    mustache_section_end: $ => seq(
+      '{{/',
+      optional(/\s*/),
+      alias($._mustache_end_tag_name, $.mustache_tag_name),
+      '}}',
+    ),
+
+    mustache_erroneous_section_end: $ => seq(
+      '{{/',
+      optional(/\s*/),
+      alias($._mustache_erroneous_end_tag_name, $.mustache_erroneous_tag_name),
+      optional(/\s*/),
+      '}}',
+    ),
+
+    mustache_inverted_section: $ => seq(
+      $.mustache_inverted_section_begin,
+      repeat($._node),
+      choice($.mustache_inverted_section_end, $.mustache_erroneous_inverted_section_end),
+    ),
+
+    mustache_inverted_section_begin: $ => seq(
+      '{{^',
+      optional(/\s*/),
+      alias($._mustache_start_tag_name, $.mustache_tag_name),
+      '}}',
+    ),
+
+    mustache_inverted_section_end: $ => seq(
+      '{{/',
+      optional(/\s*/),
+      alias($._mustache_end_tag_name, $.mustache_tag_name),
+      optional(/\s*/),
+      '}}',
+    ),
+
+    mustache_erroneous_inverted_section_end: $ => seq(
+      '{{/',
+      optional(/\s*/),
+      alias($._mustache_erroneous_end_tag_name, $.mustache_erroneous_tag_name),
+      optional(/\s*/),
+      '}}',
+    ),
+
+    _mustache_expression: $ => choice(
+      $.mustache_path_expression,
+      $.mustache_identifier,
+      '.',
+    ),
+
+    mustache_identifier: $ => /[a-zA-Z_][a-zA-Z0-9_-]*/,
+
+    mustache_path_expression: $ => seq(
+      $.mustache_identifier,
+      repeat1(seq('.', $.mustache_identifier)),
+    ),
 
     html_element: $ => choice(
       seq(
         $.html_start_tag,
-        repeat($._html_node),
+        repeat($._node),
         choice($.html_end_tag, $._html_implicit_end_tag),
       ),
       $.html_self_closing_tag,
@@ -73,35 +186,35 @@ module.exports = grammar({
 
     html_start_tag: $ => seq(
       '<',
-      alias($._html_start_tag_name, $.tag_name),
+      alias($._html_start_tag_name, $.html_tag_name),
       repeat($.html_attribute),
       '>',
     ),
 
     html_script_start_tag: $ => seq(
       '<',
-      alias($._html_script_start_tag_name, $.tag_name),
+      alias($._html_script_start_tag_name, $.html_tag_name),
       repeat($.html_attribute),
       '>',
     ),
 
     html_style_start_tag: $ => seq(
       '<',
-      alias($._html_style_start_tag_name, $.tag_name),
+      alias($._html_style_start_tag_name, $.html_tag_name),
       repeat($.html_attribute),
       '>',
     ),
 
     html_self_closing_tag: $ => seq(
       '<',
-      alias($._html_start_tag_name, $.tag_name),
+      alias($._html_start_tag_name, $.html_tag_name),
       repeat($.html_attribute),
       '/>',
     ),
 
     html_end_tag: $ => seq(
       '</',
-      alias($._html_end_tag_name, $.tag_name),
+      alias($._html_end_tag_name, $.html_tag_name),
       '>',
     ),
 
@@ -132,10 +245,10 @@ module.exports = grammar({
     html_entity: _ => /&(#([xX][0-9a-fA-F]{1,6}|[0-9]{1,5})|[A-Za-z]{1,30});?/,
 
     html_quoted_attribute_value: $ => choice(
-      seq('\'', optional(alias(/[^']+/, $.html_attribute_value)), '\''),
-      seq('"', optional(alias(/[^"]+/, $.html_attribute_value)), '"'),
+      seq('\'', repeat(choice(alias(/[^'{]+/, $.html_attribute_value), $.mustache_interpolation)), '\''),
+      seq('"', repeat(choice(alias(/[^"{]+/, $.html_attribute_value), $.mustache_interpolation)), '"'),
     ),
 
-    html_text: _ => /[^<>&\s]([^<>&]*[^<>&\s])?/,
+    text: _ => /[^<>{}&\s]([^<>{}&]*[^<>{}&\s])?/,
   },
 });
