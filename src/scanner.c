@@ -69,7 +69,10 @@ static unsigned serialize(Scanner *scanner, char *buffer) {
         scanner->mustache_tags.size > UINT16_MAX ? UINT16_MAX : scanner->mustache_tags.size;
     uint16_t m_serialized_tag_count = 0;
 
-    unsigned m_size = sizeof(m_tag_count);
+    unsigned mustache_start_offset = size;
+    unsigned m_size = sizeof(m_serialized_tag_count);
+    size += sizeof(m_serialized_tag_count);
+    
     memcpy(&buffer[size], &m_tag_count, sizeof(m_tag_count));
     size += sizeof(m_tag_count);
 
@@ -79,15 +82,15 @@ static unsigned serialize(Scanner *scanner, char *buffer) {
         if (name_length > UINT8_MAX) {
         name_length = UINT8_MAX;
         }
-        if (size + 2 + name_length >= TREE_SITTER_SERIALIZATION_BUFFER_SIZE) {
+        if (size + 1 + name_length >= TREE_SITTER_SERIALIZATION_BUFFER_SIZE) {
         break;
         }
         buffer[size++] = (char)name_length;
-        strncpy(&buffer[size], tag.tag_name.contents, tag.tag_name.size);
+        strncpy(&buffer[size], tag.tag_name.contents, name_length);
         size += name_length;
     }
 
-    memcpy(&buffer[0], &m_serialized_tag_count, sizeof(m_serialized_tag_count));
+    memcpy(&buffer[mustache_start_offset], &m_serialized_tag_count, sizeof(m_serialized_tag_count));
     return size;
 }
 
@@ -327,7 +330,6 @@ static bool scan_end_tag_name(Scanner *scanner, TSLexer *lexer) {
         return false;
     }
 
-    printf("tag_name: %s\n", tag_name.contents);
     Tag tag = tag_for_name(tag_name);
     if (scanner->tags.size > 0 && tag_eq(array_back(&scanner->tags), &tag)) {
         pop_html_tag(scanner);
@@ -387,7 +389,6 @@ static bool scan_mustache_start_tag_name(Scanner *scanner, TSLexer *lexer) {
         array_delete(&tag_name);
         return false;
     }
-    printf("tag_name: %s\n", tag_name.contents);
     MustacheTag tag = mustache_tag_new();
     tag.tag_name = tag_name;
     array_push(&scanner->mustache_tags, tag);
@@ -432,17 +433,14 @@ static bool scan(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
     }
     
     if (valid_symbols[MUSTACHE_IDENTIFIER_CONTENT]) {
-        printf("scanning mustache identifier content\n");
         return scan_mustache_identifier_content(lexer);
     }
     
     if (valid_symbols[MUSTACHE_START_TAG_NAME]) {
-        printf("scanning mustache start tag\n");
         return scan_mustache_start_tag_name(scanner, lexer);
     }
     
     if (valid_symbols[MUSTACHE_END_TAG_NAME] || valid_symbols[MUSTACHE_ERRONEOUS_END_TAG_NAME]) {
-        printf("scanning mustache end tag\n");
         return scan_mustache_end_tag_name(scanner, lexer);
     }
     
