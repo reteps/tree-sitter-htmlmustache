@@ -406,11 +406,6 @@ static bool scan_mustache_end_tag_name(Scanner *scanner, TSLexer *lexer) {
 
   MustacheTag tag = mustache_tag_new();
   tag.tag_name = tag_name;
-  printf("tag_name: %s\n", tag.tag_name.contents);
-  if (scanner->mustache_tags.size > 0) {
-    printf("mustache_tags.size: %d\n", scanner->mustache_tags.size);
-    printf("mustache_tags.contents[0].tag_name: %s\n", scanner->mustache_tags.contents[0].tag_name.contents);
-  }
   if (scanner->mustache_tags.size > 0 && mustache_tag_eq(array_back(&scanner->mustache_tags), &tag)) {
     MustacheTag popped_tag = array_pop(&scanner->mustache_tags);
     mustache_tag_free(&popped_tag);

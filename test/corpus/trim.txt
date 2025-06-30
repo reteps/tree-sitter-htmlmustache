@@ -9,4 +9,19 @@ real
 ---
 
 (document
-  ())
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name))
+        (text)
+        (html_end_tag
+          (html_tag_name)))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
