@@ -36,8 +36,8 @@ module.exports = grammar({
     $._set_start_mustache_tag_name,
     $._set_end_mustache_tag_name,
     $._old_end_mustache_tag_name,
-    $.mustache_comment,
-    // $.mustache_raw_text,
+    $._mustache_comment,
+    $.mustache_text,
     // Merged node types
     $.raw_text,
   ],
@@ -80,7 +80,7 @@ module.exports = grammar({
     ),
 
     script_html_element: $ => seq(
-      alias($.script_start_tag, $.start_tag),
+      alias($.script_start_tag, $.start_html_tag),
       optional($.raw_text),
       $.end_html_tag,
     ),
@@ -91,7 +91,7 @@ module.exports = grammar({
       $.end_html_tag,
     ),
 
-    start_tag: $ => seq(
+    start_html_tag: $ => seq(
       '<',
       alias($._start_html_tag_name, $.tag_name),
       repeat($.attribute),
@@ -168,7 +168,7 @@ module.exports = grammar({
       seq(
         alias($.start_mustache_delimiter, $._start_mustache_tag_name),
         "!",
-        $.mustache_comment,
+        $._mustache_comment,
         alias($.end_mustache_delimiter, $._end_mustache_tag_name),
       ),
 
@@ -181,7 +181,7 @@ module.exports = grammar({
         $.interpolation_statement,
         $.set_delimiter_statement,
         $.partial_statement,
-        $.raw_text,
+        $.mustache_text,
       ),
     interpolation_statement: ($) =>
       seq($.start_mustache_delimiter, $._expression, $.end_mustache_delimiter),
@@ -203,7 +203,7 @@ module.exports = grammar({
       seq(
         $.start_mustache_delimiter,
         ">",
-        alias($.mustache_comment, $.partial_content),
+        alias($._mustache_comment, $.partial_content),
         $.end_mustache_delimiter,
       ),
 

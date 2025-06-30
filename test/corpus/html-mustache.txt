@@ -8,4 +8,10 @@ Comments
 
 ---
 
-(document )
+(document
+  (element
+    (start_tag
+      (tag_name))
+    (comment_statement)
+    (end_html_tag
+      (tag_name))))

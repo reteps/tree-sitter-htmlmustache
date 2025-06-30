@@ -456,7 +456,7 @@
     },
     "text": {
       "type": "PATTERN",
-      "value": "[^<>&\\s]([^<>&]*[^<>&\\s])?"
+      "value": "[^<>{}&\\s]([^<>{}&]*[^<>&{}\\s])?"
     },
     "_mustache_node": {
       "type": "CHOICE",
@@ -489,7 +489,7 @@
         },
         {
           "type": "SYMBOL",
-          "name": "mustache_comment"
+          "name": "_mustache_comment"
         },
         {
           "type": "ALIAS",
@@ -535,7 +535,7 @@
         },
         {
           "type": "SYMBOL",
-          "name": "raw_text"
+          "name": "mustache_text"
         }
       ]
     },
@@ -655,7 +655,7 @@
           "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
-            "name": "mustache_comment"
+            "name": "_mustache_comment"
           },
           "named": true,
           "value": "partial_content"
@@ -938,7 +938,11 @@
     },
     {
       "type": "SYMBOL",
-      "name": "mustache_comment"
+      "name": "_mustache_comment"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "mustache_text"
     },
     {
       "type": "SYMBOL",

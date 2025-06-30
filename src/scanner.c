@@ -12,6 +12,7 @@ enum TokenType {
     SELF_CLOSING_TAG_DELIMITER,
     IMPLICIT_END_HTML_TAG,
     HTML_COMMENT,
+    RAW_HTML_TEXT,
     // Mustache
     START_MUSTACHE_TAG_NAME,
     END_MUSTACHE_TAG_NAME,
@@ -23,8 +24,8 @@ enum TokenType {
     SET_START_MUSTACHE_DELIMITER,
     SET_END_MUSTACHE_DELIMITER,
     OLD_END_MUSTACHE_DELIMITER,
+    MUSTACHE_TEXT,
     // Merged node types
-    RAW_TEXT,
 };
 
 #define DEFAULT_START_DELIMITER '{'
@@ -202,7 +203,7 @@ static bool scan_raw_text(Scanner *scanner, TSLexer *lexer) {
         }
     }
 
-    lexer->result_symbol = RAW_TEXT;
+    lexer->result_symbol = RAW_HTML_TEXT;
     return true;
 }
 
@@ -430,6 +431,7 @@ static bool scan_start_html_tag_name(Scanner *scanner, TSLexer *lexer) {
             lexer->result_symbol = STYLE_START_HTML_TAG_NAME;
             break;
         default:
+            printf("START_HTML_TAG_NAME\n");
             lexer->result_symbol = START_HTML_TAG_NAME;
             break;
     }
@@ -534,11 +536,16 @@ static bool scan_mustache_text(Scanner *scanner, TSLexer *lexer) {
     else if (lexer->eof(lexer) && current_size == 0)
       return false;
   }
-  lexer->result_symbol = RAW_TEXT;
+  lexer->result_symbol = RAW_HTML_TEXT;
   return true;
 }
 
 static bool scan(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
+    // HTML text in a script or style tag
+    if (valid_symbols[RAW_HTML_TEXT] && !valid_symbols[START_HTML_TAG_NAME] && !valid_symbols[END_HTML_TAG_NAME]) {
+        return scan_raw_text(scanner, lexer);
+    }
+
     while (iswspace(lexer->lookahead)) {
         skip(lexer);
     }
@@ -588,16 +595,6 @@ static bool scan(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
         return scan_end_mustache_tag_name(scanner, lexer);
     }
 
-    // Mustache text
-    if (valid_symbols[RAW_TEXT] && !lexer->eof(lexer) &&
-        lexer->lookahead != first_start && lexer->lookahead != first_end) {
-        return scan_mustache_text(scanner, lexer);
-    }
-
-    // HTML text
-    if (valid_symbols[RAW_TEXT] && !valid_symbols[START_HTML_TAG_NAME] && !valid_symbols[END_HTML_TAG_NAME]) {
-        return scan_raw_text(scanner, lexer);
-    }
 
     // Process HTML
     switch (lexer->lookahead) {
@@ -628,10 +625,16 @@ static bool scan(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
             break;
 
         default:
-            if ((valid_symbols[START_HTML_TAG_NAME] || valid_symbols[END_HTML_TAG_NAME]) && !valid_symbols[RAW_TEXT]) {
+            if ((valid_symbols[START_HTML_TAG_NAME] || valid_symbols[END_HTML_TAG_NAME]) && !valid_symbols[RAW_HTML_TEXT]) {
                 return valid_symbols[START_HTML_TAG_NAME] ? scan_start_html_tag_name(scanner, lexer)
                                                          : scan_end_html_tag_name(scanner, lexer);
             }
+    }
+
+    // Mustache text
+    if (valid_symbols[MUSTACHE_TEXT] && !lexer->eof(lexer) &&
+        lexer->lookahead != first_start && lexer->lookahead != first_end) {
+        return scan_mustache_text(scanner, lexer);
     }
 
     return false;

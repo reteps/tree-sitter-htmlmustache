@@ -64,10 +64,6 @@
         {
           "type": "_start_mustache_tag_name",
           "named": true
-        },
-        {
-          "type": "mustache_comment",
-          "named": true
         }
       ]
     }
@@ -119,11 +115,11 @@
           "named": true
         },
         {
-          "type": "partial_statement",
+          "type": "mustache_text",
           "named": true
         },
         {
-          "type": "raw_text",
+          "type": "partial_statement",
           "named": true
         },
         {
@@ -198,11 +194,11 @@
           "named": true
         },
         {
-          "type": "partial_statement",
+          "type": "mustache_text",
           "named": true
         },
         {
-          "type": "raw_text",
+          "type": "partial_statement",
           "named": true
         },
         {
@@ -331,11 +327,11 @@
           "named": true
         },
         {
-          "type": "partial_statement",
+          "type": "mustache_text",
           "named": true
         },
         {
-          "type": "raw_text",
+          "type": "partial_statement",
           "named": true
         },
         {
@@ -500,11 +496,11 @@
           "named": true
         },
         {
-          "type": "partial_statement",
+          "type": "mustache_text",
           "named": true
         },
         {
-          "type": "raw_text",
+          "type": "partial_statement",
           "named": true
         },
         {
@@ -785,7 +781,7 @@
     "extra": true
   },
   {
-    "type": "mustache_comment",
+    "type": "mustache_text",
     "named": true
   },
   {
