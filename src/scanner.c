@@ -234,7 +234,7 @@ static bool scan_raw_text(Scanner *scanner, TSLexer *lexer) {
     return true;
 }
 
-static void pop_tag(Scanner *scanner) {
+static void pop_html_tag(Scanner *scanner) {
     Tag popped_tag = array_pop(&scanner->tags);
     tag_free(&popped_tag);
 }
@@ -248,7 +248,7 @@ static bool scan_implicit_end_tag(Scanner *scanner, TSLexer *lexer) {
         advance(lexer);
     } else {
         if (parent && tag_is_void(parent)) {
-            pop_tag(scanner);
+            pop_html_tag(scanner);
             lexer->result_symbol = HTML_IMPLICIT_END_TAG;
             return true;
         }
@@ -273,7 +273,7 @@ static bool scan_implicit_end_tag(Scanner *scanner, TSLexer *lexer) {
         // the case of malformed HTML)
         for (unsigned i = scanner->tags.size; i > 0; i--) {
             if (scanner->tags.contents[i - 1].type == next_tag.type) {
-                pop_tag(scanner);
+                pop_html_tag(scanner);
                 lexer->result_symbol = HTML_IMPLICIT_END_TAG;
                 tag_free(&next_tag);
                 return true;
@@ -286,7 +286,7 @@ static bool scan_implicit_end_tag(Scanner *scanner, TSLexer *lexer) {
             ((parent->type == HTML || parent->type == HEAD || parent->type == BODY) && lexer->eof(lexer))
         )
     ) {
-        pop_tag(scanner);
+        pop_html_tag(scanner);
         lexer->result_symbol = HTML_IMPLICIT_END_TAG;
         tag_free(&next_tag);
         return true;
@@ -330,7 +330,7 @@ static bool scan_end_tag_name(Scanner *scanner, TSLexer *lexer) {
     printf("tag_name: %s\n", tag_name.contents);
     Tag tag = tag_for_name(tag_name);
     if (scanner->tags.size > 0 && tag_eq(array_back(&scanner->tags), &tag)) {
-        pop_tag(scanner);
+        pop_html_tag(scanner);
         lexer->result_symbol = HTML_END_TAG_NAME;
     } else {
         lexer->result_symbol = HTML_ERRONEOUS_END_TAG_NAME;
@@ -345,7 +345,7 @@ static bool scan_self_closing_tag_delimiter(Scanner *scanner, TSLexer *lexer) {
     if (lexer->lookahead == '>') {
         advance(lexer);
         if (scanner->tags.size > 0) {
-            pop_tag(scanner);
+            pop_html_tag(scanner);
             lexer->result_symbol = HTML_SELF_CLOSING_TAG_DELIMITER;
         }
         return true;
@@ -411,7 +411,8 @@ static bool scan_mustache_end_tag_name(Scanner *scanner, TSLexer *lexer) {
     printf("mustache_tags.contents[0].tag_name: %s\n", scanner->mustache_tags.contents[0].tag_name.contents);
   }
   if (scanner->mustache_tags.size > 0 && mustache_tag_eq(array_back(&scanner->mustache_tags), &tag)) {
-    pop_tag(scanner);
+    MustacheTag popped_tag = array_pop(&scanner->mustache_tags);
+    mustache_tag_free(&popped_tag);
     lexer->result_symbol = MUSTACHE_END_TAG_NAME;
   } else {
     lexer->result_symbol = MUSTACHE_ERRONEOUS_END_TAG_NAME;
