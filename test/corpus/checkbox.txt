@@ -1,0 +1,32 @@
+===
+checkbox
+===
+<li {{#inline}}class="list-inline-item"{{/inline}}>
+    {{^hide_letter_keys}}({{key}}){{/hide_letter_keys}} {{{html}}}
+</li>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (mustache_section_attribute
+          (mustache_section_begin
+            (mustache_tag_name))
+          (text)
+          (mustache_section_end
+            (mustache_tag_name)))))
+    (mustache_inverted_section
+      (mustache_inverted_section_begin
+        (mustache_tag_name))
+      (text)
+      (mustache_interpolation
+        (mustache_identifier))
+      (text)
+      (mustache_inverted_section_end
+        (mustache_tag_name)))
+    (mustache_triple
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))

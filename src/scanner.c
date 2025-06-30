@@ -82,12 +82,14 @@ static unsigned serialize(Scanner *scanner, char *buffer) {
         if (name_length > UINT8_MAX) {
         name_length = UINT8_MAX;
         }
-        if (size + 1 + name_length >= TREE_SITTER_SERIALIZATION_BUFFER_SIZE) {
+        if (size + 1 + name_length + sizeof(unsigned) >= TREE_SITTER_SERIALIZATION_BUFFER_SIZE) {
         break;
         }
         buffer[size++] = (char)name_length;
         strncpy(&buffer[size], tag.tag_name.contents, name_length);
         size += name_length;
+        memcpy(&buffer[size], &tag.html_tag_stack_size, sizeof(unsigned));
+        size += sizeof(unsigned);
     }
 
     memcpy(&buffer[mustache_start_offset], &m_serialized_tag_count, sizeof(m_serialized_tag_count));
@@ -158,6 +160,8 @@ static void deserialize(Scanner *scanner, const char *buffer, unsigned length) {
                 tag.tag_name.size = name_length;
                 memcpy(tag.tag_name.contents, &buffer[size], name_length);
                 size += name_length;
+                memcpy(&tag.html_tag_stack_size, &buffer[size], sizeof(unsigned));
+                size += sizeof(unsigned);
                 array_push(&scanner->mustache_tags, tag);
             }
             // add zero tags if we didn't read enough, this is because the
@@ -391,6 +395,7 @@ static bool scan_mustache_start_tag_name(Scanner *scanner, TSLexer *lexer) {
     }
     MustacheTag tag = mustache_tag_new();
     tag.tag_name = tag_name;
+    tag.html_tag_stack_size = scanner->tags.size;
     array_push(&scanner->mustache_tags, tag);
     lexer->result_symbol = MUSTACHE_START_TAG_NAME;
     return true;
@@ -404,9 +409,17 @@ static bool scan_mustache_end_tag_name(Scanner *scanner, TSLexer *lexer) {
     return false;
   }
 
+
+
   MustacheTag tag = mustache_tag_new();
   tag.tag_name = tag_name;
   if (scanner->mustache_tags.size > 0 && mustache_tag_eq(array_back(&scanner->mustache_tags), &tag)) {
+    MustacheTag *current_mustache_tag = array_back(&scanner->mustache_tags);
+    
+    // Close all HTML tags opened after this mustache tag (silently)
+    while (scanner->tags.size > current_mustache_tag->html_tag_stack_size) {
+      pop_html_tag(scanner);
+    }
     MustacheTag popped_tag = array_pop(&scanner->mustache_tags);
     mustache_tag_free(&popped_tag);
     lexer->result_symbol = MUSTACHE_END_TAG_NAME;
@@ -470,6 +483,8 @@ static bool scan(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
             if ((valid_symbols[HTML_START_TAG_NAME] || valid_symbols[HTML_END_TAG_NAME]) && !valid_symbols[HTML_RAW_TEXT]) {
                 return valid_symbols[HTML_START_TAG_NAME] ? scan_start_tag_name(scanner, lexer)
                                                      : scan_end_tag_name(scanner, lexer);
+            } else if (valid_symbols[HTML_ERRONEOUS_END_TAG_NAME]) {
+                return scan_end_tag_name(scanner, lexer);
             }
     }
 

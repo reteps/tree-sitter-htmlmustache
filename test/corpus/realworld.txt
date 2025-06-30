@@ -3,7 +3,7 @@ real
 ===
 <div class="card w-{{width}} my-4">
   {{#img-top-src}}
-  <img src="{{img-top-src}}" alt="{{img-top-alt}}" class="card-img-top">
+  <img src="{{img-top-src}}" alt="{{img-top-alt}}" class="card-img-top" />
   {{/img-top-src}}
   {{#header}}
   <div class="card-header">
@@ -26,7 +26,7 @@ real
     </div>
   </div>
   {{#img-bottom-src}}
-    <img src="{{img-bottom-src}}" alt="{{img-bottom-alt}}" class="card-img-bottom">
+    <img src="{{img-bottom-src}}" alt="{{img-bottom-alt}}" class="card-img-bottom" />
   {{/img-bottom-src}}
   {{#footer}}
     <div class="card-footer">
@@ -37,4 +37,143 @@ real
 ---
 
 (document
-  ())
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (html_attribute_value)
+          (mustache_interpolation
+            (mustache_identifier))
+          (html_attribute_value))))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_self_closing_tag
+          (html_tag_name)
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier))))
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier))))
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (html_attribute_value)))))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name)
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (html_attribute_value))))
+        (mustache_triple
+          (mustache_identifier))
+        (html_end_tag
+          (html_tag_name)))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (html_element
+      (html_start_tag
+        (html_tag_name)
+        (html_attribute
+          (html_attribute_name)
+          (html_quoted_attribute_value
+            (html_attribute_value))))
+      (mustache_section
+        (mustache_section_begin
+          (mustache_tag_name))
+        (html_element
+          (html_start_tag
+            (html_tag_name)
+            (html_attribute
+              (html_attribute_name)
+              (html_quoted_attribute_value
+                (html_attribute_value))))
+          (mustache_interpolation
+            (mustache_identifier))
+          (html_end_tag
+            (html_tag_name)))
+        (mustache_section_end
+          (mustache_tag_name)))
+      (mustache_section
+        (mustache_section_begin
+          (mustache_tag_name))
+        (html_element
+          (html_start_tag
+            (html_tag_name)
+            (html_attribute
+              (html_attribute_name)
+              (html_quoted_attribute_value
+                (html_attribute_value))))
+          (mustache_interpolation
+            (mustache_identifier))
+          (html_end_tag
+            (html_tag_name)))
+        (mustache_section_end
+          (mustache_tag_name)))
+      (html_element
+        (html_start_tag
+          (html_tag_name)
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (html_attribute_value))))
+        (mustache_triple
+          (mustache_identifier))
+        (html_end_tag
+          (html_tag_name)))
+      (html_end_tag
+        (html_tag_name)))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_self_closing_tag
+          (html_tag_name)
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier))))
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier))))
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (html_attribute_value)))))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name)
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (html_attribute_value))))
+        (mustache_triple
+          (mustache_identifier))
+        (html_end_tag
+          (html_tag_name)))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (html_end_tag
+      (html_tag_name))))

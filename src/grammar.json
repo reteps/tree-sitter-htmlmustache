@@ -44,6 +44,52 @@
       "members": [
         {
           "type": "SYMBOL",
+          "name": "_html_node"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_mustache_node"
+        }
+      ]
+    },
+    "_html_node": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "html_doctype"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "html_entity"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "html_element"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "html_script_element"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "html_style_element"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "html_erroneous_end_tag"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "text"
+        }
+      ]
+    },
+    "_mustache_node": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "SYMBOL",
           "name": "mustache_triple"
         },
         {
@@ -69,34 +115,6 @@
         {
           "type": "SYMBOL",
           "name": "mustache_interpolation"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "html_doctype"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "html_entity"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "text"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "html_element"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "html_script_element"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "html_style_element"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "html_erroneous_end_tag"
         }
       ]
     },
@@ -226,18 +244,6 @@
           "value": "{{#"
         },
         {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "PATTERN",
-              "value": "\\s*"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
-        },
-        {
           "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
@@ -258,18 +264,6 @@
         {
           "type": "STRING",
           "value": "{{/"
-        },
-        {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "PATTERN",
-              "value": "\\s*"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
         },
         {
           "type": "ALIAS",
@@ -294,18 +288,6 @@
           "value": "{{/"
         },
         {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "PATTERN",
-              "value": "\\s*"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
-        },
-        {
           "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
@@ -313,18 +295,6 @@
           },
           "named": true,
           "value": "mustache_erroneous_tag_name"
-        },
-        {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "PATTERN",
-              "value": "\\s*"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
         },
         {
           "type": "STRING",
@@ -369,18 +339,6 @@
           "value": "{{^"
         },
         {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "PATTERN",
-              "value": "\\s*"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
-        },
-        {
           "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
@@ -403,18 +361,6 @@
           "value": "{{/"
         },
         {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "PATTERN",
-              "value": "\\s*"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
-        },
-        {
           "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
@@ -422,18 +368,6 @@
           },
           "named": true,
           "value": "mustache_tag_name"
-        },
-        {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "PATTERN",
-              "value": "\\s*"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
         },
         {
           "type": "STRING",
@@ -449,18 +383,6 @@
           "value": "{{/"
         },
         {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "PATTERN",
-              "value": "\\s*"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
-        },
-        {
           "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
@@ -468,18 +390,6 @@
           },
           "named": true,
           "value": "mustache_erroneous_tag_name"
-        },
-        {
-          "type": "CHOICE",
-          "members": [
-            {
-              "type": "PATTERN",
-              "value": "\\s*"
-            },
-            {
-              "type": "BLANK"
-            }
-          ]
         },
         {
           "type": "STRING",
@@ -787,47 +697,122 @@
       ]
     },
     "html_attribute": {
-      "type": "SEQ",
+      "type": "CHOICE",
       "members": [
         {
           "type": "SYMBOL",
-          "name": "html_attribute_name"
+          "name": "mustache_section_attribute"
         },
         {
-          "type": "CHOICE",
+          "type": "SYMBOL",
+          "name": "mustache_inverted_section_attribute"
+        },
+        {
+          "type": "SEQ",
           "members": [
             {
-              "type": "SEQ",
-              "members": [
-                {
-                  "type": "STRING",
-                  "value": "="
-                },
-                {
-                  "type": "CHOICE",
-                  "members": [
-                    {
-                      "type": "SYMBOL",
-                      "name": "html_attribute_value"
-                    },
-                    {
-                      "type": "SYMBOL",
-                      "name": "html_quoted_attribute_value"
-                    }
-                  ]
-                }
-              ]
+              "type": "SYMBOL",
+              "name": "html_attribute_name"
             },
             {
-              "type": "BLANK"
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "SEQ",
+                  "members": [
+                    {
+                      "type": "STRING",
+                      "value": "="
+                    },
+                    {
+                      "type": "CHOICE",
+                      "members": [
+                        {
+                          "type": "SYMBOL",
+                          "name": "html_attribute_value"
+                        },
+                        {
+                          "type": "SYMBOL",
+                          "name": "html_quoted_attribute_value"
+                        },
+                        {
+                          "type": "SYMBOL",
+                          "name": "mustache_interpolation"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "BLANK"
+                }
+              ]
             }
           ]
         }
       ]
     },
+    "mustache_inverted_section_attribute": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "mustache_inverted_section_begin"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "_mustache_node"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "text"
+              }
+            ]
+          }
+        },
+        {
+          "type": "SYMBOL",
+          "name": "mustache_inverted_section_end"
+        }
+      ]
+    },
+    "mustache_section_attribute": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "mustache_section_begin"
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "SYMBOL",
+                "name": "_mustache_node"
+              },
+              {
+                "type": "SYMBOL",
+                "name": "text"
+              }
+            ]
+          }
+        },
+        {
+          "type": "SYMBOL",
+          "name": "mustache_section_end"
+        }
+      ]
+    },
     "html_attribute_name": {
       "type": "PATTERN",
-      "value": "[^<>\"'/=\\s]+"
+      "value": "[^<>{}\"'/=\\s]+"
     },
     "html_attribute_value": {
       "type": "PATTERN",

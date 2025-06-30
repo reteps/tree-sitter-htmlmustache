@@ -3,6 +3,7 @@
 
 typedef struct {
   String tag_name;
+  unsigned html_tag_stack_size;
 } MustacheTag;
 
 static inline void mustache_tag_free(MustacheTag *tag) { array_delete(&tag->tag_name); }
@@ -10,6 +11,7 @@ static inline void mustache_tag_free(MustacheTag *tag) { array_delete(&tag->tag_
 static inline MustacheTag mustache_tag_new() {
   MustacheTag tag;
   tag.tag_name = (String) array_new();
+  tag.html_tag_stack_size = 0;
   return tag;
 }
 

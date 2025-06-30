@@ -1,10 +1,9 @@
 ===
 trim2
 ===
-<div class="card w-{{width}} my-4">
+<div>
   {{#img-bottom-src}}
-    <img src="{{img-bottom-src}}" alt="{{img-bottom-alt}}" class="card-img-bottom">
-    <div>
+    <article>
     <p>
   {{/img-bottom-src}}
 </div>
