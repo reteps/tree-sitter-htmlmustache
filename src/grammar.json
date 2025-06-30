@@ -262,6 +262,18 @@
       "type": "SEQ",
       "members": [
         {
+          "type": "REPEAT",
+          "content": {
+            "type": "ALIAS",
+            "content": {
+              "type": "SYMBOL",
+              "name": "_mustache_end_tag_html_implicit_end_tag"
+            },
+            "named": true,
+            "value": "mustache_html_implicit_end_tag"
+          }
+        },
+        {
           "type": "STRING",
           "value": "{{/"
         },
@@ -1096,6 +1108,10 @@
     {
       "type": "SYMBOL",
       "name": "_mustache_erroneous_end_tag_name"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_mustache_end_tag_html_implicit_end_tag"
     }
   ],
   "inline": [],

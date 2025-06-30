@@ -30,6 +30,7 @@ module.exports = grammar({
     $._mustache_start_tag_name,
     $._mustache_end_tag_name,
     $._mustache_erroneous_end_tag_name,
+    $._mustache_end_tag_html_implicit_end_tag,
   ],
 
   rules: {
@@ -114,6 +115,7 @@ module.exports = grammar({
     ),
 
     mustache_section_end: $ => seq(
+      repeat(alias($._mustache_end_tag_html_implicit_end_tag, $.mustache_html_implicit_end_tag)),
       '{{/',
       alias($._mustache_end_tag_name, $.mustache_tag_name),
       '}}',
@@ -155,7 +157,7 @@ module.exports = grammar({
       '.',
     ),
 
-    mustache_identifier: $ => /[a-zA-Z_][a-zA-Z0-9_-]*/,
+    mustache_identifier: $ => /[a-zA-Z0-9_-]+/,
 
     mustache_path_expression: $ => seq(
       $.mustache_identifier,

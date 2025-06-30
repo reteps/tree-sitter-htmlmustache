@@ -18,7 +18,8 @@ enum TokenType {
     MUSTACHE_START_TAG_NAME,
     MUSTACHE_END_TAG_NAME,
     MUSTACHE_ERRONEOUS_END_TAG_NAME,
-    MUSTACHE_IDENTIFIER_CONTENT,
+    // MUSTACHE_IDENTIFIER_CONTENT,
+    MUSTACHE_END_TAG_HTML_IMPLICIT_END_TAG,
 };
 
 typedef struct {
@@ -371,21 +372,21 @@ static String scan_mustache_tag_name(Scanner *scanner, TSLexer *lexer) {
   return tag_name;
 }
 
-static bool scan_mustache_identifier_content(TSLexer *lexer) {
-    bool has_content = false;
-    while (lexer->lookahead != '}' && lexer->lookahead != '.' && !iswspace(lexer->lookahead)) {
-        if (lexer->eof(lexer)) {
-            return false;
-        }
-        has_content = true;
-        advance(lexer);
-    }
-    if (has_content) {
-        lexer->result_symbol = MUSTACHE_IDENTIFIER_CONTENT;
-        return true;
-    }
-    return false;
-}
+// static bool scan_mustache_identifier_content(TSLexer *lexer) {
+//     bool has_content = false;
+//     while (lexer->lookahead != '}' && lexer->lookahead != '.' && !iswspace(lexer->lookahead)) {
+//         if (lexer->eof(lexer)) {
+//             return false;
+//         }
+//         has_content = true;
+//         advance(lexer);
+//     }
+//     if (has_content) {
+//         lexer->result_symbol = MUSTACHE_IDENTIFIER_CONTENT;
+//         return true;
+//     }
+//     return false;
+// }
 
 static bool scan_mustache_start_tag_name(Scanner *scanner, TSLexer *lexer) {
     String tag_name = scan_mustache_tag_name(scanner, lexer);
@@ -417,9 +418,9 @@ static bool scan_mustache_end_tag_name(Scanner *scanner, TSLexer *lexer) {
     MustacheTag *current_mustache_tag = array_back(&scanner->mustache_tags);
     
     // Close all HTML tags opened after this mustache tag (silently)
-    while (scanner->tags.size > current_mustache_tag->html_tag_stack_size) {
-      pop_html_tag(scanner);
-    }
+    // while (scanner->tags.size > current_mustache_tag->html_tag_stack_size) {
+    //   pop_html_tag(scanner);
+    // }
     MustacheTag popped_tag = array_pop(&scanner->mustache_tags);
     mustache_tag_free(&popped_tag);
     lexer->result_symbol = MUSTACHE_END_TAG_NAME;
@@ -431,6 +432,31 @@ static bool scan_mustache_end_tag_name(Scanner *scanner, TSLexer *lexer) {
   return true;
 }
 
+static bool scan_mustache_end_tag_html_implicit_end_tag(Scanner *scanner, TSLexer *lexer) {
+    lexer->mark_end(lexer);
+    printf("next char: %c\n", lexer->lookahead);
+    if (lexer->lookahead != '{') {
+        return false;
+    }
+    advance(lexer);
+    if (lexer->lookahead != '{') {
+        return false;
+    }
+    advance(lexer);
+    if (lexer->lookahead != '/') {
+        return false;
+    }
+    if (scanner->mustache_tags.size > 0) {
+        MustacheTag *current_mustache_tag = array_back(&scanner->mustache_tags);
+        if (scanner->tags.size > current_mustache_tag->html_tag_stack_size) {
+            pop_html_tag(scanner);
+            lexer->result_symbol = MUSTACHE_END_TAG_HTML_IMPLICIT_END_TAG;
+            return true;
+        }
+    }
+    return false;
+}
+
 static bool scan(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
     if (valid_symbols[HTML_RAW_TEXT] && !valid_symbols[HTML_START_TAG_NAME] && !valid_symbols[HTML_END_TAG_NAME]) {
         return scan_raw_text(scanner, lexer);
@@ -440,9 +466,9 @@ static bool scan(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
         skip(lexer);
     }
     
-    if (valid_symbols[MUSTACHE_IDENTIFIER_CONTENT]) {
-        return scan_mustache_identifier_content(lexer);
-    }
+    // if (valid_symbols[MUSTACHE_IDENTIFIER_CONTENT]) {
+    //     return scan_mustache_identifier_content(lexer);
+    // }
     
     if (valid_symbols[MUSTACHE_START_TAG_NAME]) {
         return scan_mustache_start_tag_name(scanner, lexer);
@@ -450,6 +476,11 @@ static bool scan(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
     
     if (valid_symbols[MUSTACHE_END_TAG_NAME] || valid_symbols[MUSTACHE_ERRONEOUS_END_TAG_NAME]) {
         return scan_mustache_end_tag_name(scanner, lexer);
+    }
+
+    if (valid_symbols[MUSTACHE_END_TAG_HTML_IMPLICIT_END_TAG]) {
+        printf("MUSTACHE_END_TAG_HTML_IMPLICIT_END_TAG\n");
+        return scan_mustache_end_tag_html_implicit_end_tag(scanner, lexer);
     }
     
     switch (lexer->lookahead) {
