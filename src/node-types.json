@@ -229,7 +229,47 @@
           "named": true
         },
         {
+          "type": "mustache_ampersand",
+          "named": true
+        },
+        {
+          "type": "mustache_comment",
+          "named": true
+        },
+        {
           "type": "mustache_interpolation",
+          "named": true
+        },
+        {
+          "type": "mustache_inverted_section",
+          "named": true
+        },
+        {
+          "type": "mustache_inverted_section_begin",
+          "named": true
+        },
+        {
+          "type": "mustache_inverted_section_end",
+          "named": true
+        },
+        {
+          "type": "mustache_partial",
+          "named": true
+        },
+        {
+          "type": "mustache_section",
+          "named": true
+        },
+        {
+          "type": "mustache_section_begin",
+          "named": true
+        },
+        {
+          "type": "mustache_section_end",
+          "named": true
+        },
+        {
+          "type": "mustache_triple",
           "named": true
         }
       ]

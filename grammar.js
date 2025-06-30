@@ -250,7 +250,6 @@ module.exports = grammar({
       $.mustache_section_end,
     ),
 
-
     html_attribute_name: _ => /[^<>{}"'/=\s]+/,
 
     html_attribute_value: _ => /[^<>"'=\s]+/,
@@ -261,8 +260,35 @@ module.exports = grammar({
     html_entity: _ => /&(#([xX][0-9a-fA-F]{1,6}|[0-9]{1,5})|[A-Za-z]{1,30});?/,
 
     html_quoted_attribute_value: $ => choice(
-      seq('\'', repeat(choice(alias(/[^'{]+/, $.html_attribute_value), $.mustache_interpolation)), '\''),
-      seq('"', repeat(choice(alias(/[^"{]+/, $.html_attribute_value), $.mustache_interpolation)), '"'),
+      seq('\'', repeat(choice(
+        alias(/[^'{]+/, $.html_attribute_value),
+        $.mustache_interpolation,
+        // TODO: label this correctly
+        seq(
+          $.mustache_inverted_section_begin,
+          repeat(choice($._mustache_node, alias(/[^'{]+/, $.html_attribute_value))),
+          $.mustache_inverted_section_end,
+        ),
+        seq(
+          $.mustache_section_begin,
+          repeat(choice($._mustache_node, alias(/[^'{]+/, $.html_attribute_value))),
+          $.mustache_section_end,
+        ),
+      )), '\''),
+      seq('"', repeat(choice(
+        alias(/[^"{]+/, $.html_attribute_value),
+        $.mustache_interpolation,
+        seq(
+          $.mustache_inverted_section_begin,
+          repeat(choice($._mustache_node, alias(/[^"{]+/, $.html_attribute_value))),
+          $.mustache_inverted_section_end,
+        ),
+        seq(
+          $.mustache_section_begin,
+          repeat(choice($._mustache_node, alias(/[^"{]+/, $.html_attribute_value))),
+          $.mustache_section_end,
+        ),
+      )), '"'),
     ),
 
     text: _ => /[^<>{}&\s]([^<>{}&]*[^<>{}&\s])?/,
