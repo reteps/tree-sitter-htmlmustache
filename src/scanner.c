@@ -20,8 +20,8 @@ enum TokenType {
     END_MUSTACHE_DELIMITER,
     MUSTACHE_COMMENT,
     MUSTACHE_IDENTIFIER,
-    SET_START_MUSTACHE_DELIMITER_CONTENT,
-    SET_END_MUSTACHE_DELIMITER_CONTENT,
+    SET_START_MUSTACHE_DELIMITER,
+    SET_END_MUSTACHE_DELIMITER,
     OLD_END_MUSTACHE_DELIMITER,
     // Merged node types
     RAW_TEXT,
@@ -31,10 +31,11 @@ enum TokenType {
 #define DEFAULT_END_DELIMITER '}'
 #define DEFAULT_SIZE 2
 
-typedef Array(char) String;
-
 typedef struct {
     Array(Tag) tags;
+    String start_mustache_delimiter;
+    String end_mustache_delimiter;
+    String old_end_mustache_delimiter;
 } Scanner;
 
 #define MAX(a, b) ((a) > (b) ? (a) : (b))
@@ -118,7 +119,26 @@ static void deserialize(Scanner *scanner, const char *buffer, unsigned length) {
     }
 }
 
-static String scan_tag_name(TSLexer *lexer) {
+static int get_mustache_delimiter(String delimiter, uint32_t i, char def) {
+  if (delimiter.size >= i + 1)
+    return *array_get(&delimiter, i);
+  return def;
+}
+
+static String scan_mustache_tag_name(Scanner *scanner, TSLexer *lexer) {
+  String tag_name = array_new();
+  char first = get_mustache_delimiter(scanner->end_mustache_delimiter, 0, DEFAULT_END_DELIMITER);
+  while (lexer->lookahead != first && !lexer->eof(lexer)) {
+    if (iswspace(lexer->lookahead))
+      break;
+
+    array_push(&tag_name, lexer->lookahead);
+    lexer->advance(lexer, false);
+  }
+  return tag_name;
+}
+
+static String scan_html_tag_name(TSLexer *lexer) {
     String tag_name = array_new();
     while (iswalnum(lexer->lookahead) || lexer->lookahead == '-' || lexer->lookahead == ':') {
         array_push(&tag_name, towupper(lexer->lookahead));
@@ -206,7 +226,7 @@ static bool scan_implicit_end_html_tag(Scanner *scanner, TSLexer *lexer) {
         }
     }
 
-    String tag_name = scan_tag_name(lexer);
+    String tag_name = scan_html_tag_name(lexer);
     if (tag_name.size == 0 && !lexer->eof(lexer)) {
         array_delete(&tag_name);
         return false;
@@ -248,8 +268,153 @@ static bool scan_implicit_end_html_tag(Scanner *scanner, TSLexer *lexer) {
     return false;
 }
 
+static bool scan_start_mustache_tag_name(Scanner *scanner, TSLexer *lexer) {
+  String tag_name = scan_mustache_tag_name(scanner, lexer);
+  if (tag_name.size == 0) {
+    array_delete(&tag_name);
+    return false;
+  }
+
+  Tag tag = tag_new();
+  tag.custom_tag_name = tag_name;
+  array_push(&scanner->tags, tag);
+  lexer->result_symbol = START_MUSTACHE_TAG_NAME;
+  return true;
+}
+
+static bool scan_end_mustache_tag_name(Scanner *scanner, TSLexer *lexer) {
+  String tag_name = scan_mustache_tag_name(scanner, lexer);
+
+  if (tag_name.size == 0) {
+    array_delete(&tag_name);
+    return false;
+  }
+
+  Tag tag = tag_new();
+  tag.custom_tag_name = tag_name;
+  if (scanner->tags.size > 0 && tag_eq(array_back(&scanner->tags), &tag)) {
+    pop_tag(scanner);
+    lexer->result_symbol = END_MUSTACHE_TAG_NAME;
+  } else {
+    lexer->result_symbol = ERRONEOUS_END_MUSTACHE_TAG_NAME;
+  }
+
+  tag_free(&tag);
+  return true;
+}
+
+static bool scan_start_mustache_delimiter(Scanner *scanner, TSLexer *lexer) {
+  int start_delimiter_max = scanner->start_mustache_delimiter.size == 0
+                                ? DEFAULT_SIZE
+                                : scanner->start_mustache_delimiter.size;
+  for (int i = 0; i < start_delimiter_max; i++) {
+    int current_delimiter =
+        get_mustache_delimiter(scanner->start_mustache_delimiter, i, DEFAULT_START_DELIMITER);
+    if (lexer->lookahead != current_delimiter) {
+      return false;
+    }
+    lexer->advance(lexer, false);
+  }
+
+  lexer->result_symbol = START_MUSTACHE_DELIMITER;
+  return true;
+}
+
+static bool scan_end_mustache_delimiter(Scanner *scanner, TSLexer *lexer) {
+  int end_delimiter_max = scanner->end_mustache_delimiter.size == 0
+                              ? DEFAULT_SIZE
+                              : scanner->end_mustache_delimiter.size;
+  for (int i = 0; i < end_delimiter_max; i++) {
+    int current_delimiter =
+        get_mustache_delimiter(scanner->end_mustache_delimiter, i, DEFAULT_END_DELIMITER);
+    if (lexer->lookahead != current_delimiter) {
+      return false;
+    }
+    lexer->advance(lexer, false);
+  }
+
+  lexer->result_symbol = END_MUSTACHE_DELIMITER;
+  return true;
+}
+
+static bool scan_mustache_identifier(Scanner *scanner, TSLexer *lexer) {
+  int first_end =
+      get_mustache_delimiter(scanner->end_mustache_delimiter, 0, DEFAULT_END_DELIMITER);
+  lexer->advance(lexer, false);
+  while (lexer->lookahead != first_end && lexer->lookahead != '.') {
+    if (lexer->eof(lexer))
+      return false;
+    if (iswspace(lexer->lookahead))
+      break;
+
+    lexer->advance(lexer, false);
+  }
+  lexer->result_symbol = MUSTACHE_IDENTIFIER;
+  return true;
+}
+
+static bool scan_start_mustache_delimiter_content(Scanner *scanner, TSLexer *lexer) {
+  String content = array_new();
+  while (!iswspace(lexer->lookahead)) {
+    if (lexer->lookahead == '=' || lexer->eof(lexer)) {
+      array_delete(&content);
+      return false;
+    }
+    array_push(&content, lexer->lookahead);
+    lexer->advance(lexer, false);
+  }
+  if (content.size == 0) {
+    array_delete(&content);
+    return false;
+  }
+
+  array_delete(&scanner->start_mustache_delimiter);
+  scanner->start_mustache_delimiter = content;
+  lexer->result_symbol = SET_START_MUSTACHE_DELIMITER;
+  return true;
+}
+
+static bool scan_end_mustache_delimiter_content(Scanner *scanner, TSLexer *lexer) {
+  String content = array_new();
+  while (lexer->lookahead != '=') {
+    if (iswspace(lexer->lookahead) || lexer->eof(lexer)) {
+      array_delete(&content);
+      return false;
+    }
+    array_push(&content, lexer->lookahead);
+    lexer->advance(lexer, false);
+  }
+  if (content.size == 0) {
+    array_delete(&content);
+    return false;
+  }
+
+  array_delete(&scanner->old_end_mustache_delimiter);
+  scanner->old_end_mustache_delimiter = scanner->end_mustache_delimiter;
+  scanner->end_mustache_delimiter = content;
+  lexer->result_symbol = SET_END_MUSTACHE_DELIMITER;
+  return true;
+}
+
+static bool scan_old_end_mustache_delimiter(Scanner *scanner, TSLexer *lexer) {
+  int old_end_delimiter_max = scanner->old_end_mustache_delimiter.size == 0
+                                  ? DEFAULT_SIZE
+                                  : scanner->old_end_mustache_delimiter.size;
+  for (int i = 0; i < old_end_delimiter_max; i++) {
+    int current_delimiter =
+        get_mustache_delimiter(scanner->old_end_mustache_delimiter, i, DEFAULT_END_DELIMITER);
+    if (lexer->lookahead != current_delimiter) {
+      return false;
+    }
+    lexer->advance(lexer, false);
+  }
+
+  lexer->result_symbol = OLD_END_MUSTACHE_DELIMITER;
+  return true;
+}
+
 static bool scan_start_html_tag_name(Scanner *scanner, TSLexer *lexer) {
-    String tag_name = scan_tag_name(lexer);
+    String tag_name = scan_html_tag_name(lexer);
     if (tag_name.size == 0) {
         array_delete(&tag_name);
         return false;
@@ -272,7 +437,7 @@ static bool scan_start_html_tag_name(Scanner *scanner, TSLexer *lexer) {
 }
 
 static bool scan_end_html_tag_name(Scanner *scanner, TSLexer *lexer) {
-    String tag_name = scan_tag_name(lexer);
+    String tag_name = scan_html_tag_name(lexer);
 
     if (tag_name.size == 0) {
         array_delete(&tag_name);
@@ -304,15 +469,137 @@ static bool scan_self_closing_html_tag_delimiter(Scanner *scanner, TSLexer *lexe
     return false;
 }
 
-static bool scan(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
-    if (valid_symbols[RAW_TEXT] && !valid_symbols[START_HTML_TAG_NAME] && !valid_symbols[END_HTML_TAG_NAME]) {
-        return scan_raw_text(scanner, lexer);
-    }
 
+static bool scan_mustache_comment(Scanner *scanner, TSLexer *lexer) {
+  int first = get_mustache_delimiter(scanner->end_mustache_delimiter, 0, DEFAULT_END_DELIMITER);
+  printf("is_mustache_comment: %c\n", first);
+  while (lexer->lookahead != first) {
+    if (lexer->eof(lexer)) {
+        printf("is_mustache_comment: eof\n");
+      return false;
+    }
+    lexer->advance(lexer, false);
+  }
+  lexer->result_symbol = MUSTACHE_COMMENT;
+  printf("MUSTACHE_COMMENT\n");
+  return true;
+}
+
+static bool scan_mustache_text(Scanner *scanner, TSLexer *lexer) {
+  // don't increase the size of the token on advance
+  lexer->mark_end(lexer);
+  int start_delimiter_max = scanner->start_mustache_delimiter.size == 0
+                                ? DEFAULT_SIZE
+                                : scanner->start_mustache_delimiter.size;
+  int end_delimiter_max = scanner->end_mustache_delimiter.size == 0
+                              ? DEFAULT_SIZE
+                              : scanner->end_mustache_delimiter.size;
+  int current_size = 0;
+  int start_i = 0;
+  int end_i = 0;
+  while (true) {
+    int ith_start = get_mustache_delimiter(scanner->start_mustache_delimiter, start_i,
+                                  DEFAULT_START_DELIMITER);
+    int ith_end =
+        get_mustache_delimiter(scanner->end_mustache_delimiter, end_i, DEFAULT_END_DELIMITER);
+
+    if (lexer->lookahead == ith_start) {
+      start_i++;
+      lexer->advance(lexer, false);
+    } else if (lexer->lookahead == ith_end) {
+      end_i++;
+      lexer->advance(lexer, false);
+    } else {
+      lexer->advance(lexer, false);
+      int limit = start_i > 0 ? start_i : end_i;
+      for (int i = 0; i < limit + 1; i++) {
+        lexer->mark_end(lexer);
+        current_size++;
+      }
+      start_i = 0;
+      end_i = 0;
+    }
+    if (start_i == start_delimiter_max && current_size > 0)
+      break;
+    else if (start_i == start_delimiter_max && current_size == 0)
+      return false;
+
+    if (end_i == end_delimiter_max && current_size > 0)
+      break;
+    else if (start_i == end_delimiter_max && current_size == 0)
+      return false;
+
+    if (lexer->eof(lexer) && current_size > 0)
+      break;
+    else if (lexer->eof(lexer) && current_size == 0)
+      return false;
+  }
+  lexer->result_symbol = RAW_TEXT;
+  return true;
+}
+
+static bool scan(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
     while (iswspace(lexer->lookahead)) {
         skip(lexer);
     }
 
+    // Process Mustache
+    int first_start =
+        get_mustache_delimiter(scanner->start_mustache_delimiter, 0, DEFAULT_START_DELIMITER);
+    int first_end =
+        get_mustache_delimiter(scanner->end_mustache_delimiter, 0, DEFAULT_END_DELIMITER);
+
+    if (valid_symbols[START_MUSTACHE_DELIMITER] && lexer->lookahead == first_start) {
+        return scan_start_mustache_delimiter(scanner, lexer);
+    }
+    if (valid_symbols[END_MUSTACHE_DELIMITER] && lexer->lookahead == first_end) {
+        return scan_end_mustache_delimiter(scanner, lexer);
+    }
+    if (valid_symbols[MUSTACHE_COMMENT]) {
+        printf("is_mustache_comment: %c\n", lexer->lookahead);
+        bool result = scan_mustache_comment(scanner, lexer);
+        printf("is_mustache_comment: %d\n", result);
+        return result;
+    }
+    if (valid_symbols[MUSTACHE_IDENTIFIER] && lexer->lookahead != first_start &&
+        lexer->lookahead != first_end && lexer->lookahead != '&' &&
+        lexer->lookahead != '^' && lexer->lookahead != '=' &&
+        lexer->lookahead != '/' && lexer->lookahead != '!' &&
+        lexer->lookahead != '#' && lexer->lookahead != '.' &&
+        lexer->lookahead != '>') {
+        bool result = scan_mustache_identifier(scanner, lexer);
+        printf("is_mustache_identifier: %d\n", result);
+        return result;
+    }
+    if (valid_symbols[SET_START_MUSTACHE_DELIMITER]) {
+        return scan_start_mustache_delimiter_content(scanner, lexer);
+    }
+    if (valid_symbols[SET_END_MUSTACHE_DELIMITER]) {
+        return scan_end_mustache_delimiter_content(scanner, lexer);
+    }
+    if (valid_symbols[OLD_END_MUSTACHE_DELIMITER]) {
+        return scan_old_end_mustache_delimiter(scanner, lexer);
+    }
+
+    if (valid_symbols[START_MUSTACHE_TAG_NAME]) {
+        return scan_start_mustache_tag_name(scanner, lexer);
+    }
+    if (valid_symbols[END_MUSTACHE_TAG_NAME] || valid_symbols[ERRONEOUS_END_MUSTACHE_TAG_NAME]) {
+        return scan_end_mustache_tag_name(scanner, lexer);
+    }
+
+    // Mustache text
+    if (valid_symbols[RAW_TEXT] && !lexer->eof(lexer) &&
+        lexer->lookahead != first_start && lexer->lookahead != first_end) {
+        return scan_mustache_text(scanner, lexer);
+    }
+
+    // HTML text
+    if (valid_symbols[RAW_TEXT] && !valid_symbols[START_HTML_TAG_NAME] && !valid_symbols[END_HTML_TAG_NAME]) {
+        return scan_raw_text(scanner, lexer);
+    }
+
+    // Process HTML
     switch (lexer->lookahead) {
         case '<':
             lexer->mark_end(lexer);
