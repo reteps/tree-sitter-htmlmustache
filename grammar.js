@@ -12,130 +12,130 @@ module.exports = grammar({
   name: 'html',
 
   extras: $ => [
-    $.comment,
+    $.html_comment,
     /\s+/,
   ],
 
   externals: $ => [
-    $._start_tag_name,
-    $._script_start_tag_name,
-    $._style_start_tag_name,
-    $._end_tag_name,
-    $.erroneous_end_tag_name,
+    $._html_start_tag_name,
+    $._html_script_start_tag_name,
+    $._html_style_start_tag_name,
+    $._html_end_tag_name,
+    $.html_erroneous_end_tag_name,
     '/>',
-    $._implicit_end_tag,
-    $.raw_text,
-    $.comment,
+    $._html_implicit_end_tag,
+    $.html_raw_text,
+    $.html_comment,
   ],
 
   rules: {
-    document: $ => repeat($._node),
+    document: $ => repeat($._html_node),
 
-    doctype: $ => seq(
+    html_doctype: $ => seq(
       '<!',
-      alias($._doctype, 'doctype'),
+      alias($._html_doctype, 'doctype'),
       /[^>]+/,
       '>',
     ),
 
-    _doctype: _ => /[Dd][Oo][Cc][Tt][Yy][Pp][Ee]/,
+    _html_doctype: _ => /[Dd][Oo][Cc][Tt][Yy][Pp][Ee]/,
 
-    _node: $ => choice(
-      $.doctype,
-      $.entity,
-      $.text,
-      $.element,
-      $.script_element,
-      $.style_element,
-      $.erroneous_end_tag,
+    _html_node: $ => choice(
+      $.html_doctype,
+      $.html_entity,
+      $.html_text,
+      $.html_element,
+      $.html_script_element,
+      $.html_style_element,
+      $.html_erroneous_end_tag,
     ),
 
-    element: $ => choice(
+    html_element: $ => choice(
       seq(
-        $.start_tag,
-        repeat($._node),
-        choice($.end_tag, $._implicit_end_tag),
+        $.html_start_tag,
+        repeat($._html_node),
+        choice($.html_end_tag, $._html_implicit_end_tag),
       ),
-      $.self_closing_tag,
+      $.html_self_closing_tag,
     ),
 
-    script_element: $ => seq(
-      alias($.script_start_tag, $.start_tag),
-      optional($.raw_text),
-      $.end_tag,
+    html_script_element: $ => seq(
+      alias($.html_script_start_tag, $.html_start_tag),
+      optional($.html_raw_text),
+      $.html_end_tag,
     ),
 
-    style_element: $ => seq(
-      alias($.style_start_tag, $.start_tag),
-      optional($.raw_text),
-      $.end_tag,
+    html_style_element: $ => seq(
+      alias($.html_style_start_tag, $.html_start_tag),
+      optional($.html_raw_text),
+      $.html_end_tag,
     ),
 
-    start_tag: $ => seq(
+    html_start_tag: $ => seq(
       '<',
-      alias($._start_tag_name, $.tag_name),
-      repeat($.attribute),
+      alias($._html_start_tag_name, $.tag_name),
+      repeat($.html_attribute),
       '>',
     ),
 
-    script_start_tag: $ => seq(
+    html_script_start_tag: $ => seq(
       '<',
-      alias($._script_start_tag_name, $.tag_name),
-      repeat($.attribute),
+      alias($._html_script_start_tag_name, $.tag_name),
+      repeat($.html_attribute),
       '>',
     ),
 
-    style_start_tag: $ => seq(
+    html_style_start_tag: $ => seq(
       '<',
-      alias($._style_start_tag_name, $.tag_name),
-      repeat($.attribute),
+      alias($._html_style_start_tag_name, $.tag_name),
+      repeat($.html_attribute),
       '>',
     ),
 
-    self_closing_tag: $ => seq(
+    html_self_closing_tag: $ => seq(
       '<',
-      alias($._start_tag_name, $.tag_name),
-      repeat($.attribute),
+      alias($._html_start_tag_name, $.tag_name),
+      repeat($.html_attribute),
       '/>',
     ),
 
-    end_tag: $ => seq(
+    html_end_tag: $ => seq(
       '</',
-      alias($._end_tag_name, $.tag_name),
+      alias($._html_end_tag_name, $.tag_name),
       '>',
     ),
 
-    erroneous_end_tag: $ => seq(
+    html_erroneous_end_tag: $ => seq(
       '</',
-      $.erroneous_end_tag_name,
+      $.html_erroneous_end_tag_name,
       '>',
     ),
 
-    attribute: $ => seq(
-      $.attribute_name,
+    html_attribute: $ => seq(
+      $.html_attribute_name,
       optional(seq(
         '=',
         choice(
-          $.attribute_value,
-          $.quoted_attribute_value,
+          $.html_attribute_value,
+          $.html_quoted_attribute_value,
         ),
       )),
     ),
 
-    attribute_name: _ => /[^<>"'/=\s]+/,
+    html_attribute_name: _ => /[^<>"'/=\s]+/,
 
-    attribute_value: _ => /[^<>"'=\s]+/,
+    html_attribute_value: _ => /[^<>"'=\s]+/,
 
     // An entity can be named, numeric (decimal), or numeric (hexacecimal). The
     // longest entity name is 29 characters long, and the HTML spec says that
     // no more will ever be added.
-    entity: _ => /&(#([xX][0-9a-fA-F]{1,6}|[0-9]{1,5})|[A-Za-z]{1,30});?/,
+    html_entity: _ => /&(#([xX][0-9a-fA-F]{1,6}|[0-9]{1,5})|[A-Za-z]{1,30});?/,
 
-    quoted_attribute_value: $ => choice(
-      seq('\'', optional(alias(/[^']+/, $.attribute_value)), '\''),
-      seq('"', optional(alias(/[^"]+/, $.attribute_value)), '"'),
+    html_quoted_attribute_value: $ => choice(
+      seq('\'', optional(alias(/[^']+/, $.html_attribute_value)), '\''),
+      seq('"', optional(alias(/[^"]+/, $.html_attribute_value)), '"'),
     ),
 
-    text: _ => /[^<>&\s]([^<>&]*[^<>&\s])?/,
+    html_text: _ => /[^<>&\s]([^<>&]*[^<>&\s])?/,
   },
 });

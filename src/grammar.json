@@ -6,10 +6,10 @@
       "type": "REPEAT",
       "content": {
         "type": "SYMBOL",
-        "name": "_node"
+        "name": "_html_node"
       }
     },
-    "doctype": {
+    "html_doctype": {
       "type": "SEQ",
       "members": [
         {
@@ -20,7 +20,7 @@
           "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
-            "name": "_doctype"
+            "name": "_html_doctype"
           },
           "named": false,
           "value": "doctype"
@@ -35,44 +35,44 @@
         }
       ]
     },
-    "_doctype": {
+    "_html_doctype": {
       "type": "PATTERN",
       "value": "[Dd][Oo][Cc][Tt][Yy][Pp][Ee]"
     },
-    "_node": {
+    "_html_node": {
       "type": "CHOICE",
       "members": [
         {
           "type": "SYMBOL",
-          "name": "doctype"
+          "name": "html_doctype"
         },
         {
           "type": "SYMBOL",
-          "name": "entity"
+          "name": "html_entity"
         },
         {
           "type": "SYMBOL",
-          "name": "text"
+          "name": "html_text"
         },
         {
           "type": "SYMBOL",
-          "name": "element"
+          "name": "html_element"
         },
         {
           "type": "SYMBOL",
-          "name": "script_element"
+          "name": "html_script_element"
         },
         {
           "type": "SYMBOL",
-          "name": "style_element"
+          "name": "html_style_element"
         },
         {
           "type": "SYMBOL",
-          "name": "erroneous_end_tag"
+          "name": "html_erroneous_end_tag"
         }
       ]
     },
-    "element": {
+    "html_element": {
       "type": "CHOICE",
       "members": [
         {
@@ -80,13 +80,13 @@
           "members": [
             {
               "type": "SYMBOL",
-              "name": "start_tag"
+              "name": "html_start_tag"
             },
             {
               "type": "REPEAT",
               "content": {
                 "type": "SYMBOL",
-                "name": "_node"
+                "name": "_html_node"
               }
             },
             {
@@ -94,11 +94,11 @@
               "members": [
                 {
                   "type": "SYMBOL",
-                  "name": "end_tag"
+                  "name": "html_end_tag"
                 },
                 {
                   "type": "SYMBOL",
-                  "name": "_implicit_end_tag"
+                  "name": "_html_implicit_end_tag"
                 }
               ]
             }
@@ -106,28 +106,28 @@
         },
         {
           "type": "SYMBOL",
-          "name": "self_closing_tag"
+          "name": "html_self_closing_tag"
         }
       ]
     },
-    "script_element": {
+    "html_script_element": {
       "type": "SEQ",
       "members": [
         {
           "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
-            "name": "script_start_tag"
+            "name": "html_script_start_tag"
           },
           "named": true,
-          "value": "start_tag"
+          "value": "html_start_tag"
         },
         {
           "type": "CHOICE",
           "members": [
             {
               "type": "SYMBOL",
-              "name": "raw_text"
+              "name": "html_raw_text"
             },
             {
               "type": "BLANK"
@@ -136,28 +136,28 @@
         },
         {
           "type": "SYMBOL",
-          "name": "end_tag"
+          "name": "html_end_tag"
         }
       ]
     },
-    "style_element": {
+    "html_style_element": {
       "type": "SEQ",
       "members": [
         {
           "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
-            "name": "style_start_tag"
+            "name": "html_style_start_tag"
           },
           "named": true,
-          "value": "start_tag"
+          "value": "html_start_tag"
         },
         {
           "type": "CHOICE",
           "members": [
             {
               "type": "SYMBOL",
-              "name": "raw_text"
+              "name": "html_raw_text"
             },
             {
               "type": "BLANK"
@@ -166,11 +166,11 @@
         },
         {
           "type": "SYMBOL",
-          "name": "end_tag"
+          "name": "html_end_tag"
         }
       ]
     },
-    "start_tag": {
+    "html_start_tag": {
       "type": "SEQ",
       "members": [
         {
@@ -181,7 +181,7 @@
           "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
-            "name": "_start_tag_name"
+            "name": "_html_start_tag_name"
           },
           "named": true,
           "value": "tag_name"
@@ -190,7 +190,7 @@
           "type": "REPEAT",
           "content": {
             "type": "SYMBOL",
-            "name": "attribute"
+            "name": "html_attribute"
           }
         },
         {
@@ -199,7 +199,7 @@
         }
       ]
     },
-    "script_start_tag": {
+    "html_script_start_tag": {
       "type": "SEQ",
       "members": [
         {
@@ -210,7 +210,7 @@
           "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
-            "name": "_script_start_tag_name"
+            "name": "_html_script_start_tag_name"
           },
           "named": true,
           "value": "tag_name"
@@ -219,7 +219,7 @@
           "type": "REPEAT",
           "content": {
             "type": "SYMBOL",
-            "name": "attribute"
+            "name": "html_attribute"
           }
         },
         {
@@ -228,7 +228,7 @@
         }
       ]
     },
-    "style_start_tag": {
+    "html_style_start_tag": {
       "type": "SEQ",
       "members": [
         {
@@ -239,7 +239,7 @@
           "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
-            "name": "_style_start_tag_name"
+            "name": "_html_style_start_tag_name"
           },
           "named": true,
           "value": "tag_name"
@@ -248,7 +248,7 @@
           "type": "REPEAT",
           "content": {
             "type": "SYMBOL",
-            "name": "attribute"
+            "name": "html_attribute"
           }
         },
         {
@@ -257,7 +257,7 @@
         }
       ]
     },
-    "self_closing_tag": {
+    "html_self_closing_tag": {
       "type": "SEQ",
       "members": [
         {
@@ -268,7 +268,7 @@
           "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
-            "name": "_start_tag_name"
+            "name": "_html_start_tag_name"
           },
           "named": true,
           "value": "tag_name"
@@ -277,7 +277,7 @@
           "type": "REPEAT",
           "content": {
             "type": "SYMBOL",
-            "name": "attribute"
+            "name": "html_attribute"
           }
         },
         {
@@ -286,7 +286,7 @@
         }
       ]
     },
-    "end_tag": {
+    "html_end_tag": {
       "type": "SEQ",
       "members": [
         {
@@ -297,7 +297,7 @@
           "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
-            "name": "_end_tag_name"
+            "name": "_html_end_tag_name"
           },
           "named": true,
           "value": "tag_name"
@@ -308,7 +308,7 @@
         }
       ]
     },
-    "erroneous_end_tag": {
+    "html_erroneous_end_tag": {
       "type": "SEQ",
       "members": [
         {
@@ -317,7 +317,7 @@
         },
         {
           "type": "SYMBOL",
-          "name": "erroneous_end_tag_name"
+          "name": "html_erroneous_end_tag_name"
         },
         {
           "type": "STRING",
@@ -325,12 +325,12 @@
         }
       ]
     },
-    "attribute": {
+    "html_attribute": {
       "type": "SEQ",
       "members": [
         {
           "type": "SYMBOL",
-          "name": "attribute_name"
+          "name": "html_attribute_name"
         },
         {
           "type": "CHOICE",
@@ -347,11 +347,11 @@
                   "members": [
                     {
                       "type": "SYMBOL",
-                      "name": "attribute_value"
+                      "name": "html_attribute_value"
                     },
                     {
                       "type": "SYMBOL",
-                      "name": "quoted_attribute_value"
+                      "name": "html_quoted_attribute_value"
                     }
                   ]
                 }
@@ -364,19 +364,19 @@
         }
       ]
     },
-    "attribute_name": {
+    "html_attribute_name": {
       "type": "PATTERN",
       "value": "[^<>\"'/=\\s]+"
     },
-    "attribute_value": {
+    "html_attribute_value": {
       "type": "PATTERN",
       "value": "[^<>\"'=\\s]+"
     },
-    "entity": {
+    "html_entity": {
       "type": "PATTERN",
       "value": "&(#([xX][0-9a-fA-F]{1,6}|[0-9]{1,5})|[A-Za-z]{1,30});?"
     },
-    "quoted_attribute_value": {
+    "html_quoted_attribute_value": {
       "type": "CHOICE",
       "members": [
         {
@@ -396,7 +396,7 @@
                     "value": "[^']+"
                   },
                   "named": true,
-                  "value": "attribute_value"
+                  "value": "html_attribute_value"
                 },
                 {
                   "type": "BLANK"
@@ -426,7 +426,7 @@
                     "value": "[^\"]+"
                   },
                   "named": true,
-                  "value": "attribute_value"
+                  "value": "html_attribute_value"
                 },
                 {
                   "type": "BLANK"
@@ -441,7 +441,7 @@
         }
       ]
     },
-    "text": {
+    "html_text": {
       "type": "PATTERN",
       "value": "[^<>&\\s]([^<>&]*[^<>&\\s])?"
     }
@@ -449,7 +449,7 @@
   "extras": [
     {
       "type": "SYMBOL",
-      "name": "comment"
+      "name": "html_comment"
     },
     {
       "type": "PATTERN",
@@ -461,23 +461,23 @@
   "externals": [
     {
       "type": "SYMBOL",
-      "name": "_start_tag_name"
+      "name": "_html_start_tag_name"
     },
     {
       "type": "SYMBOL",
-      "name": "_script_start_tag_name"
+      "name": "_html_script_start_tag_name"
     },
     {
       "type": "SYMBOL",
-      "name": "_style_start_tag_name"
+      "name": "_html_style_start_tag_name"
     },
     {
       "type": "SYMBOL",
-      "name": "_end_tag_name"
+      "name": "_html_end_tag_name"
     },
     {
       "type": "SYMBOL",
-      "name": "erroneous_end_tag_name"
+      "name": "html_erroneous_end_tag_name"
     },
     {
       "type": "STRING",
@@ -485,17 +485,18 @@
     },
     {
       "type": "SYMBOL",
-      "name": "_implicit_end_tag"
+      "name": "_html_implicit_end_tag"
     },
     {
       "type": "SYMBOL",
-      "name": "raw_text"
+      "name": "html_raw_text"
     },
     {
       "type": "SYMBOL",
-      "name": "comment"
+      "name": "html_comment"
     }
   ],
   "inline": [],
-  "supertypes": []
+  "supertypes": [],
+  "reserved": {}
 }

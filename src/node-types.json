@@ -1,33 +1,5 @@
 [
   {
-    "type": "attribute",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "attribute_name",
-          "named": true
-        },
-        {
-          "type": "attribute_value",
-          "named": true
-        },
-        {
-          "type": "quoted_attribute_value",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "doctype",
-    "named": true,
-    "fields": {}
-  },
-  {
     "type": "document",
     "named": true,
     "root": true,
@@ -37,38 +9,38 @@
       "required": false,
       "types": [
         {
-          "type": "doctype",
+          "type": "html_doctype",
           "named": true
         },
         {
-          "type": "element",
+          "type": "html_element",
           "named": true
         },
         {
-          "type": "entity",
+          "type": "html_entity",
           "named": true
         },
         {
-          "type": "erroneous_end_tag",
+          "type": "html_erroneous_end_tag",
           "named": true
         },
         {
-          "type": "script_element",
+          "type": "html_script_element",
           "named": true
         },
         {
-          "type": "style_element",
+          "type": "html_style_element",
           "named": true
         },
         {
-          "type": "text",
+          "type": "html_text",
           "named": true
         }
       ]
     }
   },
   {
-    "type": "element",
+    "type": "html_attribute",
     "named": true,
     "fields": {},
     "children": {
@@ -76,50 +48,78 @@
       "required": true,
       "types": [
         {
-          "type": "doctype",
+          "type": "html_attribute_name",
           "named": true
         },
         {
-          "type": "element",
+          "type": "html_attribute_value",
           "named": true
         },
         {
-          "type": "end_tag",
-          "named": true
-        },
-        {
-          "type": "entity",
-          "named": true
-        },
-        {
-          "type": "erroneous_end_tag",
-          "named": true
-        },
-        {
-          "type": "script_element",
-          "named": true
-        },
-        {
-          "type": "self_closing_tag",
-          "named": true
-        },
-        {
-          "type": "start_tag",
-          "named": true
-        },
-        {
-          "type": "style_element",
-          "named": true
-        },
-        {
-          "type": "text",
+          "type": "html_quoted_attribute_value",
           "named": true
         }
       ]
     }
   },
   {
-    "type": "end_tag",
+    "type": "html_doctype",
+    "named": true,
+    "fields": {}
+  },
+  {
+    "type": "html_element",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "html_doctype",
+          "named": true
+        },
+        {
+          "type": "html_element",
+          "named": true
+        },
+        {
+          "type": "html_end_tag",
+          "named": true
+        },
+        {
+          "type": "html_entity",
+          "named": true
+        },
+        {
+          "type": "html_erroneous_end_tag",
+          "named": true
+        },
+        {
+          "type": "html_script_element",
+          "named": true
+        },
+        {
+          "type": "html_self_closing_tag",
+          "named": true
+        },
+        {
+          "type": "html_start_tag",
+          "named": true
+        },
+        {
+          "type": "html_style_element",
+          "named": true
+        },
+        {
+          "type": "html_text",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "html_end_tag",
     "named": true,
     "fields": {},
     "children": {
@@ -134,7 +134,7 @@
     }
   },
   {
-    "type": "erroneous_end_tag",
+    "type": "html_erroneous_end_tag",
     "named": true,
     "fields": {},
     "children": {
@@ -142,14 +142,14 @@
       "required": true,
       "types": [
         {
-          "type": "erroneous_end_tag_name",
+          "type": "html_erroneous_end_tag_name",
           "named": true
         }
       ]
     }
   },
   {
-    "type": "quoted_attribute_value",
+    "type": "html_quoted_attribute_value",
     "named": true,
     "fields": {},
     "children": {
@@ -157,14 +157,14 @@
       "required": false,
       "types": [
         {
-          "type": "attribute_value",
+          "type": "html_attribute_value",
           "named": true
         }
       ]
     }
   },
   {
-    "type": "script_element",
+    "type": "html_script_element",
     "named": true,
     "fields": {},
     "children": {
@@ -172,22 +172,22 @@
       "required": true,
       "types": [
         {
-          "type": "end_tag",
+          "type": "html_end_tag",
           "named": true
         },
         {
-          "type": "raw_text",
+          "type": "html_raw_text",
           "named": true
         },
         {
-          "type": "start_tag",
+          "type": "html_start_tag",
           "named": true
         }
       ]
     }
   },
   {
-    "type": "self_closing_tag",
+    "type": "html_self_closing_tag",
     "named": true,
     "fields": {},
     "children": {
@@ -195,7 +195,7 @@
       "required": true,
       "types": [
         {
-          "type": "attribute",
+          "type": "html_attribute",
           "named": true
         },
         {
@@ -206,7 +206,7 @@
     }
   },
   {
-    "type": "start_tag",
+    "type": "html_start_tag",
     "named": true,
     "fields": {},
     "children": {
@@ -214,7 +214,7 @@
       "required": true,
       "types": [
         {
-          "type": "attribute",
+          "type": "html_attribute",
           "named": true
         },
         {
@@ -225,7 +225,7 @@
     }
   },
   {
-    "type": "style_element",
+    "type": "html_style_element",
     "named": true,
     "fields": {},
     "children": {
@@ -233,15 +233,15 @@
       "required": true,
       "types": [
         {
-          "type": "end_tag",
+          "type": "html_end_tag",
           "named": true
         },
         {
-          "type": "raw_text",
+          "type": "html_raw_text",
           "named": true
         },
         {
-          "type": "start_tag",
+          "type": "html_start_tag",
           "named": true
         }
       ]
@@ -280,39 +280,40 @@
     "named": false
   },
   {
-    "type": "attribute_name",
-    "named": true
-  },
-  {
-    "type": "attribute_value",
-    "named": true
-  },
-  {
-    "type": "comment",
-    "named": true
-  },
-  {
     "type": "doctype",
     "named": false
   },
   {
-    "type": "entity",
+    "type": "html_attribute_name",
     "named": true
   },
   {
-    "type": "erroneous_end_tag_name",
+    "type": "html_attribute_value",
     "named": true
   },
   {
-    "type": "raw_text",
+    "type": "html_comment",
+    "named": true,
+    "extra": true
+  },
+  {
+    "type": "html_entity",
+    "named": true
+  },
+  {
+    "type": "html_erroneous_end_tag_name",
+    "named": true
+  },
+  {
+    "type": "html_raw_text",
+    "named": true
+  },
+  {
+    "type": "html_text",
     "named": true
   },
   {
     "type": "tag_name",
-    "named": true
-  },
-  {
-    "type": "text",
     "named": true
   }
 ]
