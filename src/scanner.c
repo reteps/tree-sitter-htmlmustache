@@ -188,9 +188,9 @@ static String scan_html_tag_name(TSLexer *lexer) {
         array_push(&tag_name, towupper(lexer->lookahead));
         advance(lexer);
     }
-    printf("tag_name: ");
-    print_tag_name(&tag_name);
-    printf("\n");
+    // printf("tag_name: ");
+    // print_tag_name(&tag_name);
+    // printf("\n");
     return tag_name;
 }
 
@@ -346,6 +346,7 @@ static bool scan_end_tag_name(Scanner *scanner, TSLexer *lexer) {
         return false;
     }
 
+
     Tag tag = tag_for_name(tag_name);
     if (scanner->tags.size > 0 && tag_eq(array_back(&scanner->tags), &tag)) {
         pop_html_tag(scanner);
@@ -380,8 +381,8 @@ static String scan_mustache_tag_name(Scanner *scanner, TSLexer *lexer) {
     array_push(&tag_name, lexer->lookahead);
     advance(lexer);
   }
-  print_tag_name(&tag_name);
-  printf("\n");
+//   print_tag_name(&tag_name);
+//   printf("\n");
   return tag_name;
 }
 
@@ -398,11 +399,13 @@ static bool scan_mustache_start_tag_name(Scanner *scanner, TSLexer *lexer) {
     // print_tag_name(&tag.tag_name);
     // printf("\n");
     array_push(&scanner->mustache_tags, tag);
+    // printf("--------------------------------\n");
     // for (unsigned i = 0; i < scanner->mustache_tags.size; i++) {
     //   printf("\tSTACK (START), tag_name: ");
     //   print_tag_name(&scanner->mustache_tags.contents[i]);
     //   printf("\n");
     // }
+    // printf("--------------------------------\n");
     lexer->result_symbol = MUSTACHE_START_TAG_NAME;
     return true;
 }
@@ -416,14 +419,30 @@ static bool scan_mustache_end_tag_name(Scanner *scanner, TSLexer *lexer) {
   }
 
 
-
+  // Print whole stack
+//   printf("--------------------------------\n");
+//   printf("num tags: %d\n", scanner->mustache_tags.size);
+//   for (unsigned i = 0; i < scanner->mustache_tags.size; i++) {
+//     printf("\tSTACK (END), tag_name: ");
+//     print_tag_name(&scanner->mustache_tags.contents[i].tag_name);
+//     printf("\n");
+//   }
+//   printf("--------------------------------\n");
   MustacheTag tag = mustache_tag_new();
   tag.tag_name = tag_name;
   if (scanner->mustache_tags.size > 0 && mustache_tag_eq(array_back(&scanner->mustache_tags), &tag)) {
     MustacheTag popped_tag = array_pop(&scanner->mustache_tags);
     mustache_tag_free(&popped_tag);
+    // printf("popped tag (correct): ");
+    // print_tag_name(&popped_tag.tag_name);
+    // printf("\n");
     lexer->result_symbol = MUSTACHE_END_TAG_NAME;
   } else {
+    MustacheTag popped_tag = array_pop(&scanner->mustache_tags);
+    mustache_tag_free(&popped_tag);
+    // printf("popped tag (erroneous): ");
+    // print_tag_name(&tag.tag_name);
+    // printf("\n");
     lexer->result_symbol = MUSTACHE_ERRONEOUS_END_TAG_NAME;
   }
 
@@ -475,7 +494,7 @@ static bool scan(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
     }
 
     if (valid_symbols[MUSTACHE_END_TAG_HTML_IMPLICIT_END_TAG]) {
-        printf("MUSTACHE_END_TAG_HTML_IMPLICIT_END_TAG\n");
+        // printf("MUSTACHE_END_TAG_HTML_IMPLICIT_END_TAG\n");
         return scan_mustache_end_tag_html_implicit_end_tag(scanner, lexer);
     }
     

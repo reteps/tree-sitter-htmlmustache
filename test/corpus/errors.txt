@@ -22,5 +22,5 @@ Incorrectly closed mustache
           (html_tag_name)))
       (mustache_erroneous_section_end
         (mustache_erroneous_tag_name)))
-    (mustache_section_end
-      (mustache_tag_name))))
+    (mustache_erroneous_section_end
+      (mustache_erroneous_tag_name))))
