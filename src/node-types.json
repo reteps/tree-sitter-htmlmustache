@@ -164,14 +164,6 @@
         {
           "type": "mustache_interpolation",
           "named": true
-        },
-        {
-          "type": "mustache_inverted_section_attribute",
-          "named": true
-        },
-        {
-          "type": "mustache_section_attribute",
-          "named": true
         }
       ]
     }
@@ -363,6 +355,10 @@
         {
           "type": "html_tag_name",
           "named": true
+        },
+        {
+          "type": "mustache_attribute",
+          "named": true
         }
       ]
     }
@@ -381,6 +377,10 @@
         },
         {
           "type": "html_tag_name",
+          "named": true
+        },
+        {
+          "type": "mustache_attribute",
           "named": true
         }
       ]
@@ -404,6 +404,25 @@
         },
         {
           "type": "html_start_tag",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "mustache_attribute",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "mustache_inverted_section",
+          "named": true
+        },
+        {
+          "type": "mustache_section",
           "named": true
         }
       ]
@@ -490,6 +509,10 @@
           "named": true
         },
         {
+          "type": "html_attribute",
+          "named": true
+        },
+        {
           "type": "html_doctype",
           "named": true
         },
@@ -514,58 +537,15 @@
           "named": true
         },
         {
+          "type": "mustache_attribute",
+          "named": true
+        },
+        {
           "type": "mustache_comment",
           "named": true
         },
         {
           "type": "mustache_erroneous_inverted_section_end",
-          "named": true
-        },
-        {
-          "type": "mustache_interpolation",
-          "named": true
-        },
-        {
-          "type": "mustache_inverted_section",
-          "named": true
-        },
-        {
-          "type": "mustache_inverted_section_begin",
-          "named": true
-        },
-        {
-          "type": "mustache_inverted_section_end",
-          "named": true
-        },
-        {
-          "type": "mustache_partial",
-          "named": true
-        },
-        {
-          "type": "mustache_section",
-          "named": true
-        },
-        {
-          "type": "mustache_triple",
-          "named": true
-        },
-        {
-          "type": "text",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "mustache_inverted_section_attribute",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "mustache_comment",
           "named": true
         },
         {
@@ -680,6 +660,10 @@
           "named": true
         },
         {
+          "type": "html_attribute",
+          "named": true
+        },
+        {
           "type": "html_doctype",
           "named": true
         },
@@ -704,58 +688,15 @@
           "named": true
         },
         {
+          "type": "mustache_attribute",
+          "named": true
+        },
+        {
           "type": "mustache_comment",
           "named": true
         },
         {
           "type": "mustache_erroneous_section_end",
-          "named": true
-        },
-        {
-          "type": "mustache_interpolation",
-          "named": true
-        },
-        {
-          "type": "mustache_inverted_section",
-          "named": true
-        },
-        {
-          "type": "mustache_partial",
-          "named": true
-        },
-        {
-          "type": "mustache_section",
-          "named": true
-        },
-        {
-          "type": "mustache_section_begin",
-          "named": true
-        },
-        {
-          "type": "mustache_section_end",
-          "named": true
-        },
-        {
-          "type": "mustache_triple",
-          "named": true
-        },
-        {
-          "type": "text",
-          "named": true
-        }
-      ]
-    }
-  },
-  {
-    "type": "mustache_section_attribute",
-    "named": true,
-    "fields": {},
-    "children": {
-      "multiple": true,
-      "required": true,
-      "types": [
-        {
-          "type": "mustache_comment",
           "named": true
         },
         {

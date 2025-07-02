@@ -180,28 +180,28 @@ module.exports = grammar({
     html_start_tag: $ => seq(
       '<',
       alias($._html_start_tag_name, $.html_tag_name),
-      repeat($.html_attribute),
+      repeat($._attribute),
       '>',
     ),
 
     html_script_start_tag: $ => seq(
       '<',
       alias($._html_script_start_tag_name, $.html_tag_name),
-      repeat($.html_attribute),
+      repeat($._attribute),
       '>',
     ),
 
     html_style_start_tag: $ => seq(
       '<',
       alias($._html_style_start_tag_name, $.html_tag_name),
-      repeat($.html_attribute),
+      repeat($._attribute),
       '>',
     ),
 
     html_self_closing_tag: $ => seq(
       '<',
       alias($._html_start_tag_name, $.html_tag_name),
-      repeat($.html_attribute),
+      repeat($._attribute),
       '/>',
     ),
 
@@ -217,9 +217,11 @@ module.exports = grammar({
       '>',
     ),
 
-    html_attribute: $ => choice(
-      $.mustache_section_attribute,
-      $.mustache_inverted_section_attribute,
+    _attribute: $ => choice(
+      $.mustache_attribute,
+      $.html_attribute,
+    ),
+    html_attribute: $ => seq(
       seq(
         $.html_attribute_name,
         optional(seq(
@@ -233,14 +235,19 @@ module.exports = grammar({
       ),
     ),
 
+    mustache_attribute: $ => choice(
+      alias($.mustache_inverted_section_attribute, $.mustache_inverted_section),
+      alias($.mustache_section_attribute, $.mustache_section),
+    ),
+
     mustache_inverted_section_attribute: $ => seq(
       $.mustache_inverted_section_begin,
-      repeat(choice($._mustache_node, $.text)),
+      $._attribute,
       $.mustache_inverted_section_end,
     ),
     mustache_section_attribute: $ => seq(
       $.mustache_section_begin,
-      repeat(choice($._mustache_node, $.text)),
+      $._attribute,
       $.mustache_section_end,
     ),
 

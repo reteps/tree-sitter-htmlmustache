@@ -15,7 +15,6 @@ Mustache comment
     (html_end_tag
       (html_tag_name))))
 
-
 ===
 Mustache section as attribute
 ===
@@ -26,11 +25,14 @@ Mustache section as attribute
   (html_element
     (html_start_tag
       (html_tag_name)
-      (html_attribute
-        (mustache_section_attribute
+      (mustache_attribute
+        (mustache_section
           (mustache_section_begin
             (mustache_tag_name))
-          (text)
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (html_attribute_value)))
           (mustache_section_end
             (mustache_tag_name)))))
     (text)
@@ -158,5 +160,28 @@ Mustache triple interpolation
       (html_tag_name))
     (mustache_triple
       (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Mustache attribute inside section
+===
+<div {{#foo}}foo="bar"{{/foo}}></div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (mustache_attribute
+        (mustache_section
+          (mustache_section_begin
+            (mustache_tag_name))
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (html_attribute_value)))
+          (mustache_section_end
+            (mustache_tag_name)))))
     (html_end_tag
       (html_tag_name))))

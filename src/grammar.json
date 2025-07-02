@@ -559,7 +559,7 @@
           "type": "REPEAT",
           "content": {
             "type": "SYMBOL",
-            "name": "html_attribute"
+            "name": "_attribute"
           }
         },
         {
@@ -588,7 +588,7 @@
           "type": "REPEAT",
           "content": {
             "type": "SYMBOL",
-            "name": "html_attribute"
+            "name": "_attribute"
           }
         },
         {
@@ -617,7 +617,7 @@
           "type": "REPEAT",
           "content": {
             "type": "SYMBOL",
-            "name": "html_attribute"
+            "name": "_attribute"
           }
         },
         {
@@ -646,7 +646,7 @@
           "type": "REPEAT",
           "content": {
             "type": "SYMBOL",
-            "name": "html_attribute"
+            "name": "_attribute"
           }
         },
         {
@@ -694,17 +694,22 @@
         }
       ]
     },
-    "html_attribute": {
+    "_attribute": {
       "type": "CHOICE",
       "members": [
         {
           "type": "SYMBOL",
-          "name": "mustache_section_attribute"
+          "name": "mustache_attribute"
         },
         {
           "type": "SYMBOL",
-          "name": "mustache_inverted_section_attribute"
-        },
+          "name": "html_attribute"
+        }
+      ]
+    },
+    "html_attribute": {
+      "type": "SEQ",
+      "members": [
         {
           "type": "SEQ",
           "members": [
@@ -750,6 +755,29 @@
         }
       ]
     },
+    "mustache_attribute": {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "mustache_inverted_section_attribute"
+          },
+          "named": true,
+          "value": "mustache_inverted_section"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "mustache_section_attribute"
+          },
+          "named": true,
+          "value": "mustache_section"
+        }
+      ]
+    },
     "mustache_inverted_section_attribute": {
       "type": "SEQ",
       "members": [
@@ -758,20 +786,8 @@
           "name": "mustache_inverted_section_begin"
         },
         {
-          "type": "REPEAT",
-          "content": {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "SYMBOL",
-                "name": "_mustache_node"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "text"
-              }
-            ]
-          }
+          "type": "SYMBOL",
+          "name": "_attribute"
         },
         {
           "type": "SYMBOL",
@@ -787,20 +803,8 @@
           "name": "mustache_section_begin"
         },
         {
-          "type": "REPEAT",
-          "content": {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "SYMBOL",
-                "name": "_mustache_node"
-              },
-              {
-                "type": "SYMBOL",
-                "name": "text"
-              }
-            ]
-          }
+          "type": "SYMBOL",
+          "name": "_attribute"
         },
         {
           "type": "SYMBOL",
