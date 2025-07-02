@@ -1,5 +1,5 @@
 ===================================
-Basic Test
+Mustache comment
 ===================================
 <div>
 {{! comment }}
@@ -12,5 +12,151 @@ Basic Test
       (html_tag_name))
     (mustache_comment
       (mustache_comment_content))
+    (html_end_tag
+      (html_tag_name))))
+
+
+===
+Mustache section as attribute
+===
+<div {{#inline}}class="list-inline-item"{{/inline}}>content</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (mustache_section_attribute
+          (mustache_section_begin
+            (mustache_tag_name))
+          (text)
+          (mustache_section_end
+            (mustache_tag_name)))))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Simple quoted attribute
+===
+<div foo="bar">content</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (html_attribute_value))))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Quoted attribute with mustache interpolation
+===
+<div value="{{variable}}">content</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Unquoted mustache interpolation attribute
+===
+<div value={{variable}}>content</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (mustache_interpolation
+          (mustache_identifier))))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Quoted attribute with multiple mustache sections
+===
+<div value="{{#foo}}bar{{/foo}} {{#baz}}qux{{/baz}}">content</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_section
+            (mustache_section_begin
+              (mustache_tag_name))
+            (text)
+            (mustache_section_end
+              (mustache_tag_name)))
+          (html_attribute_value)
+          (mustache_section
+            (mustache_section_begin
+              (mustache_tag_name))
+            (text)
+            (mustache_section_end
+              (mustache_tag_name))))))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Mustache inverted section in content
+===
+<div>
+    {{^hide_content}}({{key}}){{/hide_content}}
+</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_inverted_section
+      (mustache_inverted_section_begin
+        (mustache_tag_name))
+      (text)
+      (mustache_interpolation
+        (mustache_identifier))
+      (text)
+      (mustache_inverted_section_end
+        (mustache_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Mustache triple interpolation
+===
+<div>{{{html_content}}}</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_triple
+      (mustache_identifier))
     (html_end_tag
       (html_tag_name))))

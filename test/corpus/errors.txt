@@ -1,0 +1,26 @@
+===
+Incorrectly closed mustache
+===
+{{#img-bottom-src}}
+{{#foo}}
+<div></div>
+{{/img-bottom-src}}
+{{/foo}}
+---
+
+(document
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name))
+        (html_end_tag
+          (html_tag_name)))
+      (mustache_erroneous_section_end
+        (mustache_erroneous_tag_name)))
+    (mustache_section_end
+      (mustache_tag_name))))

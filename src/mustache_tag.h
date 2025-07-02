@@ -1,6 +1,8 @@
 #include "tree_sitter/array.h"
 #include <string.h>
 
+// typedef Array(char) String;
+
 typedef struct {
   String tag_name;
   unsigned html_tag_stack_size;

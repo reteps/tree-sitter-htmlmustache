@@ -63,7 +63,6 @@ module.exports = grammar({
     _mustache_node: $ => choice(
       $.mustache_triple,
       $.mustache_comment,
-      $.mustache_ampersand,
       $.mustache_partial,
       $.mustache_section,
       $.mustache_inverted_section,
@@ -78,21 +77,15 @@ module.exports = grammar({
 
     mustache_comment: $ => seq(
       '{{!',
-      $.mustache_comment_content,
+      alias($._mustache_content, $.mustache_comment_content),
       '}}',
     ),
 
-    mustache_comment_content: $ => /[^}]*/,
-
-    mustache_ampersand: $ => seq(
-      '{{&',
-      $._mustache_expression,
-      '}}',
-    ),
+    _mustache_content: $ => /[^}]+/,
 
     mustache_partial: $ => seq(
       '{{>',
-      /[^}]+/,
+      alias($._mustache_content, $.mustache_partial_content),
       '}}',
     ),
 
@@ -115,7 +108,6 @@ module.exports = grammar({
     ),
 
     mustache_section_end: $ => seq(
-      repeat(alias($._mustache_end_tag_html_implicit_end_tag, $.mustache_html_implicit_end_tag)),
       '{{/',
       alias($._mustache_end_tag_name, $.mustache_tag_name),
       '}}',
@@ -167,8 +159,8 @@ module.exports = grammar({
     html_element: $ => choice(
       seq(
         $.html_start_tag,
-        repeat($._node),
-        choice($.html_end_tag, $._html_implicit_end_tag),
+        repeat($._node), // 0 or more times
+        choice($.html_end_tag, $._html_implicit_end_tag, alias($._mustache_end_tag_html_implicit_end_tag, $.html_forced_end_tag)),
       ),
       $.html_self_closing_tag,
     ),
@@ -254,42 +246,80 @@ module.exports = grammar({
 
     html_attribute_name: _ => /[^<>{}"'/=\s]+/,
 
-    html_attribute_value: _ => /[^<>"'=\s]+/,
+    html_attribute_value: _ => /[^<>"{}'=\s]+/,
 
     // An entity can be named, numeric (decimal), or numeric (hexacecimal). The
     // longest entity name is 29 characters long, and the HTML spec says that
     // no more will ever be added.
     html_entity: _ => /&(#([xX][0-9a-fA-F]{1,6}|[0-9]{1,5})|[A-Za-z]{1,30});?/,
 
+    _html_attribute_value_no_single_quote: $ => /[^'{]+/,
+    _html_attribute_value_no_double_quote: $ => /[^"{]+/,
+    _attribute_value_no_double_quote: $  => choice($._mustache_node, alias($._html_attribute_value_no_single_quote, $.text)),
+    _attribute_value_no_single_quote: $  => choice($._mustache_node, alias($._html_attribute_value_no_double_quote, $.text)),
+    _mustache_section_no_single_quote: $ => seq(
+      $.mustache_section_begin,
+      repeat(alias($._attribute_value_no_single_quote, $._mustache_section_content)),
+      $.mustache_section_end,
+    ),
+    _mustache_section_no_double_quote: $ => seq(
+      $.mustache_section_begin,
+      repeat(alias($._attribute_value_no_double_quote, '_mustache_section_content')),
+      $.mustache_section_end,
+    ),
+    _mustache_inverted_section_no_single_quote: $ => seq(
+      $.mustache_inverted_section_begin,
+      repeat(alias($._attribute_value_no_single_quote, $._mustache_inverted_section_content)),
+      $.mustache_inverted_section_end,
+    ),
+    _mustache_inverted_section_no_double_quote: $ => seq(
+      $.mustache_inverted_section_begin,
+      repeat(alias($._attribute_value_no_double_quote, $._mustache_inverted_section_content)),
+      $.mustache_inverted_section_end,
+    ),
+    _mustache_comment_no_single_quote: $ => seq(
+      '{{!',
+      alias($._html_attribute_value_no_single_quote, $._mustache_comment_content),
+      '}}',
+    ),
+    _mustache_comment_no_double_quote: $ => seq(
+      '{{!',
+      alias($._html_attribute_value_no_double_quote, $._mustache_comment_content),
+      '}}',
+    ),
+    _mustache_partial_no_single_quote: $ => seq(
+      '{{>',
+      alias($._html_attribute_value_no_single_quote, $._mustache_partial_content),
+      '}}',
+    ),
+    _mustache_partial_no_double_quote: $ => seq(
+      '{{>',
+      alias($._html_attribute_value_no_double_quote, $._mustache_partial_content),
+      '}}',
+    ),
+    _mustache_node_no_single_quote: $ => choice(
+      $.mustache_interpolation,
+      alias($._mustache_comment_no_single_quote, $.mustache_comment),
+      alias($._mustache_partial_no_single_quote, $.mustache_partial),
+      alias($._mustache_section_no_single_quote, $.mustache_section),
+      alias($._mustache_inverted_section_no_single_quote, $.mustache_inverted_section),
+    ),
+    _mustache_node_no_double_quote: $ => choice(
+      $.mustache_interpolation,
+      alias($._mustache_comment_no_double_quote, $.mustache_comment),
+      alias($._mustache_partial_no_double_quote, $.mustache_partial),
+      alias($._mustache_section_no_double_quote, $.mustache_section),
+      alias($._mustache_inverted_section_no_double_quote, $.mustache_inverted_section),
+    ),
+
     html_quoted_attribute_value: $ => choice(
       seq('\'', repeat(choice(
-        alias(/[^'{]+/, $.html_attribute_value),
-        $.mustache_interpolation,
-        // TODO: label this correctly
-        seq(
-          $.mustache_inverted_section_begin,
-          repeat(choice($._mustache_node, alias(/[^'{]+/, $.html_attribute_value))),
-          $.mustache_inverted_section_end,
-        ),
-        seq(
-          $.mustache_section_begin,
-          repeat(choice($._mustache_node, alias(/[^'{]+/, $.html_attribute_value))),
-          $.mustache_section_end,
-        ),
+        alias($._html_attribute_value_no_single_quote, $.html_attribute_value),
+        $._mustache_node_no_single_quote,
       )), '\''),
       seq('"', repeat(choice(
-        alias(/[^"{]+/, $.html_attribute_value),
-        $.mustache_interpolation,
-        seq(
-          $.mustache_inverted_section_begin,
-          repeat(choice($._mustache_node, alias(/[^"{]+/, $.html_attribute_value))),
-          $.mustache_inverted_section_end,
-        ),
-        seq(
-          $.mustache_section_begin,
-          repeat(choice($._mustache_node, alias(/[^"{]+/, $.html_attribute_value))),
-          $.mustache_section_end,
-        ),
+        alias($._html_attribute_value_no_double_quote, $.html_attribute_value),
+        $._mustache_node_no_double_quote,
       )), '"'),
     ),
 

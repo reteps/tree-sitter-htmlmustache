@@ -1,9 +1,10 @@
 ===
-real
+Implicit end tag from closing mustache context
 ===
 <div>
   {{#img-bottom-src}}
-  <div>bar</div>
+    <article>
+    <p>
   {{/img-bottom-src}}
 </div>
 ---
@@ -18,9 +19,11 @@ real
       (html_element
         (html_start_tag
           (html_tag_name))
-        (text)
-        (html_end_tag
-          (html_tag_name)))
+        (html_element
+          (html_start_tag
+            (html_tag_name))
+          (html_forced_end_tag))
+        (html_forced_end_tag))
       (mustache_section_end
         (mustache_tag_name)))
     (html_end_tag
