@@ -52,5 +52,9 @@ zig-out/
 # OS
 .DS_Store
 
+# Debug/test files
+lsp/server/debug-*.ts
+lsp/test-files/
+
 # TypeScript build info
 *.tsbuildinfo

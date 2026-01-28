@@ -1,0 +1,8 @@
+# Allow tree-sitter packages to run their postinstall scripts
+esbuild@0.25.5:
+  - install
+tree-sitter@0.25.0:
+  - install
+tree-sitter-cli@0.26.3:
+  - install
+  - postinstall

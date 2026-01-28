@@ -47,6 +47,13 @@
       "optional": true
     }
   },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "tree-sitter",
+      "tree-sitter-cli"
+    ]
+  },
   "scripts": {
     "install": "node-gyp-build",
     "build": "tree-sitter build --wasm",
@@ -55,6 +62,6 @@
     "format:check": "prettier --check .",
     "prestart": "tree-sitter build --wasm",
     "start": "tree-sitter playground",
-    "test": "node --test bindings/node/*_test.js"
+    "test": "tree-sitter test && node --test bindings/node/*_test.js"
   }
 }

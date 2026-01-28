@@ -63,16 +63,15 @@
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run build",
-    "build": "npm run build:client && npm run build:server",
-    "build:client": "cd client && npm run build",
-    "build:server": "cd server && npm run build",
-    "watch": "concurrently \"cd client && npm run watch\" \"cd server && npm run watch\"",
+    "vscode:prepublish": "pnpm run build",
+    "build": "pnpm run build:client && pnpm run build:server",
+    "build:client": "pnpm --filter htmlmustache-lsp-client run build",
+    "build:server": "pnpm --filter htmlmustache-lsp-server run build",
+    "watch": "concurrently \"pnpm --filter htmlmustache-lsp-client run watch\" \"pnpm --filter htmlmustache-lsp-server run watch\"",
     "lint": "eslint ./client/src ./server/src",
-    "postinstall": "cd client && npm install && cd ../server && npm install",
-    "test": "cd server && npm test",
-    "test:watch": "cd server && npm run test:watch",
-    "test:e2e": "npm run build && node ./client/out/test/runTest.js"
+    "test": "pnpm --filter htmlmustache-lsp-server run test",
+    "test:watch": "pnpm --filter htmlmustache-lsp-server run test:watch",
+    "test:e2e": "pnpm run build && node ./client/out/test/runTest.js"
   },
   "devDependencies": {
     "@eslint/js": "^9.14.0",
