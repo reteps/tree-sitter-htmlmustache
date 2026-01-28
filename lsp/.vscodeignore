@@ -1,0 +1,15 @@
+.vscode/**
+.vscode-test/**
+node_modules/**
+client/node_modules/**
+server/node_modules/**
+client/src/**
+server/src/**
+*.ts
+!*.d.ts
+tsconfig.json
+tsconfig.base.json
+client/tsconfig.json
+server/tsconfig.json
+.eslintrc*
+.gitignore

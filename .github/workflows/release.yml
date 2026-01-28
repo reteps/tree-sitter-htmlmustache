@@ -1,0 +1,75 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-wasm:
+    name: Build WASM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up tree-sitter
+        uses: tree-sitter/setup-action/cli@v2
+
+      - name: Generate parser
+        run: tree-sitter generate
+
+      - name: Build WASM
+        run: tree-sitter build --wasm
+
+      - name: Upload WASM to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: tree-sitter-htmlmustache.wasm
+
+  build-vscode-extension:
+    name: Build VS Code Extension
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Set up tree-sitter
+        uses: tree-sitter/setup-action/cli@v2
+
+      - name: Generate parser
+        run: tree-sitter generate
+
+      - name: Build WASM (needed by extension)
+        run: tree-sitter build --wasm
+
+      - name: Copy WASM to extension directory
+        run: cp tree-sitter-htmlmustache.wasm lsp/
+
+      - name: Install extension dependencies
+        working-directory: lsp
+        run: npm install
+
+      - name: Build extension
+        working-directory: lsp
+        run: npm run build
+
+      - name: Install vsce
+        run: npm install -g @vscode/vsce
+
+      - name: Package extension
+        working-directory: lsp
+        run: vsce package --out htmlmustache-lsp.vsix
+
+      - name: Upload extension to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: lsp/htmlmustache-lsp.vsix

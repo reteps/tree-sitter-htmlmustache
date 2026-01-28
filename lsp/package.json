@@ -3,8 +3,13 @@
   "displayName": "HTML Mustache Language Support",
   "description": "Language server for HTML with Mustache template syntax",
   "version": "0.1.0",
+  "publisher": "reteps",
   "private": true,
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tree-sitter/tree-sitter-htmlmustache"
+  },
   "engines": {
     "vscode": "^1.75.0"
   },
@@ -12,7 +17,6 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onLanguage:htmlmustache",
     "onLanguage:mustache",
     "onLanguage:handlebars"
   ],
