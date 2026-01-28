@@ -1,15 +1,15 @@
-package tree_sitter_html_test
+package tree_sitter_htmlmustache_test
 
 import (
 	"testing"
 
 	tree_sitter "github.com/tree-sitter/go-tree-sitter"
-	tree_sitter_html "github.com/tree-sitter/tree-sitter-html/bindings/go"
+	tree_sitter_htmlmustache "github.com/reteps/tree-sitter-htmlmustache/bindings/go"
 )
 
 func TestCanLoadGrammar(t *testing.T) {
-	language := tree_sitter.NewLanguage(tree_sitter_html.Language())
+	language := tree_sitter.NewLanguage(tree_sitter_htmlmustache.Language())
 	if language == nil {
-		t.Errorf("Error loading HTML grammar")
+		t.Errorf("Error loading Htmlmustache grammar")
 	}
 }
