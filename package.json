@@ -1,6 +1,6 @@
 {
   "name": "tree-sitter-htmlmustache",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "HTML with Mustache/Handlebars template syntax grammar for tree-sitter",
   "repository": "https://github.com/reteps/tree-sitter-htmlmustache",
   "license": "MIT",
@@ -49,7 +49,8 @@
   },
   "scripts": {
     "install": "node-gyp-build",
-    "lint": "eslint grammar.js",
+    "build": "tree-sitter build --wasm",
+    "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prestart": "tree-sitter build --wasm",

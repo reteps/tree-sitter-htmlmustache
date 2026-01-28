@@ -2,7 +2,6 @@
   "name": "htmlmustache-lsp-server",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "main": "./out/server.js",
   "scripts": {
     "build": "tsc -b",

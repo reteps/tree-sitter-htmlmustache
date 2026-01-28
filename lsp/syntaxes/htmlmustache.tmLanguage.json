@@ -2,5 +2,21 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "HTML Mustache",
   "scopeName": "text.html.htmlmustache",
-  "patterns": []
+  "_comment": "Minimal TextMate grammar for mustache comments. VS Code's semantic tokens overlay (not replace) TextMate highlighting, so without this, comment delimiters {{! and }} get colored incorrectly by VS Code's fallback tokenization. The LSP semantic tokens handle all other highlighting.",
+  "patterns": [
+    { "include": "#mustache-comment" }
+  ],
+  "repository": {
+    "mustache-comment": {
+      "name": "comment.block.mustache",
+      "begin": "\\{\\{!",
+      "end": "\\}\\}",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.comment.begin.mustache" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.comment.end.mustache" }
+      }
+    }
+  }
 }

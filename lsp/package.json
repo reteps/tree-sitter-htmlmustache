@@ -68,18 +68,18 @@
     "build:client": "cd client && npm run build",
     "build:server": "cd server && npm run build",
     "watch": "concurrently \"cd client && npm run watch\" \"cd server && npm run watch\"",
-    "lint": "eslint ./client/src ./server/src --ext .ts",
+    "lint": "eslint ./client/src ./server/src",
     "postinstall": "cd client && npm install && cd ../server && npm install",
     "test": "cd server && npm test",
     "test:watch": "cd server && npm run test:watch",
     "test:e2e": "npm run build && node ./client/out/test/runTest.js"
   },
   "devDependencies": {
+    "@eslint/js": "^9.14.0",
     "@types/node": "^20.10.0",
-    "@typescript-eslint/eslint-plugin": "^6.13.0",
-    "@typescript-eslint/parser": "^6.13.0",
     "concurrently": "^8.2.2",
-    "eslint": "^8.54.0",
-    "typescript": "^5.3.2"
+    "eslint": "^9.14.0",
+    "typescript": "^5.3.2",
+    "typescript-eslint": "^8.14.0"
   }
 }
