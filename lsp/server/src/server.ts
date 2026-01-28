@@ -11,9 +11,9 @@ import { TextDocument } from 'vscode-languageserver-textdocument';
 import { initializeParser, parseDocument, getLanguage, createQuery, Tree, Query } from './parser';
 import {
   buildSemanticTokens,
-  buildSemanticTokensWithQuery,
   tokenTypesLegend,
   tokenModifiersLegend,
+  HIGHLIGHT_QUERY,
 } from './semanticTokens';
 import { getDocumentSymbols } from './documentSymbols';
 import { getHoverInfo } from './hover';
@@ -35,24 +35,13 @@ connection.onInitialize(async (params: InitializeParams): Promise<InitializeResu
     await initializeParser();
     connection.console.log('Tree-sitter parser initialized successfully');
 
-    // Try to load highlight query
+    // Load highlight query
     const language = getLanguage();
     if (language) {
       try {
-        // You can load this from highlights.scm file instead
-        const querySource = `
-          (html_tag_name) @tag
-          (html_erroneous_end_tag_name) @tag.error
-          (html_attribute_name) @attribute
-          (html_attribute_value) @string
-          (html_comment) @comment
-          (mustache_tag_name) @variable
-          (mustache_identifier) @variable
-          (mustache_comment) @comment
-        `;
-        highlightQuery = createQuery(querySource);
+        highlightQuery = createQuery(HIGHLIGHT_QUERY);
       } catch (e) {
-        connection.console.warn('Failed to load highlight query, using fallback');
+        connection.console.warn(`Failed to create highlight query: ${e}`);
       }
     }
   } catch (error) {
@@ -155,12 +144,11 @@ connection.languages.semanticTokens.on((params) => {
     return { data: [] };
   }
 
-  // Use query-based highlighting if available, otherwise use node-type based
-  const builder = highlightQuery
-    ? buildSemanticTokensWithQuery(tree, highlightQuery, document.getText())
-    : buildSemanticTokens(tree, document.getText());
+  if (!highlightQuery) {
+    return { data: [] };
+  }
 
-  return builder.build();
+  return buildSemanticTokens(tree, highlightQuery).build();
 });
 
 // Document symbols handler (outline)

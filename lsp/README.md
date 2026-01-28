@@ -79,6 +79,7 @@ This opens a new VS Code window with the extension loaded. Open any `.mustache`,
 ### Verifying It Works
 
 Once running, you should see:
+
 - Syntax highlighting for HTML and Mustache constructs
 - Outline view (Cmd+Shift+O) showing HTML elements and Mustache sections
 - Hover tooltips when hovering over tags, attributes, or Mustache expressions
@@ -89,6 +90,7 @@ Once running, you should see:
 ### "Failed to load tree-sitter-htmlmustache.wasm"
 
 The WASM file wasn't found. Make sure you built it:
+
 ```bash
 cd /path/to/tree-sitter-htmlmustache
 tree-sitter build --wasm

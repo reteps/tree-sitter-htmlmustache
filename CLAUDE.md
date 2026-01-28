@@ -44,13 +44,17 @@ npm start
 When a Mustache section ends (`{{/...}}`), it may need to implicitly close HTML tags opened within that section. The scanner tracks `html_tag_stack_size` at mustache section start to know how many HTML tags to pop when the section closes. This enables parsing patterns like:
 
 ```html
-{{#items}}<li>{{name}}{{/items}}
-<!-- The </li> is implicit when {{/items}} is encountered -->
+{{#items}}
+<li>
+  {{name}}{{/items}}
+  <!-- The </li> is implicit when {{/items}} is encountered -->
+</li>
 ```
 
 ### Test Files
 
 Tests live in `test/corpus/*.txt` using tree-sitter's test format:
+
 - Each test has a name, input, and expected S-expression tree
 - `htmlmustache.txt` contains Mustache-specific tests
 - `errors.txt` and `errors2.txt` test error recovery

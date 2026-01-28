@@ -5,15 +5,8 @@
       "camelcase": "HTMLMustache",
       "scope": "source.htmlmustache",
       "path": ".",
-      "external-files": [
-        "src/tag.h",
-        "src/mustache_tag.h"
-      ],
-      "file-types": [
-        "mustache",
-        "hbs",
-        "handlebars"
-      ],
+      "external-files": ["src/tag.h", "src/mustache_tag.h"],
+      "file-types": ["mustache", "hbs", "handlebars"],
       "highlights": "queries/highlights.scm",
       "injections": "queries/injections.scm",
       "injection-regex": "htmlmustache"

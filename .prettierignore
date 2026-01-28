@@ -1,0 +1,15 @@
+node_modules/
+lsp/node_modules/
+lsp/client/node_modules/
+lsp/server/node_modules/
+build/
+target/
+src/
+lsp/client/out/
+lsp/server/out/
+examples/
+test/
+*.wasm
+*.a
+*.dylib
+package-lock.json

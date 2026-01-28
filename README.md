@@ -5,6 +5,7 @@
 HTML with Mustache/Handlebars template syntax grammar for [tree-sitter](https://github.com/tree-sitter/tree-sitter).
 
 This grammar extends standard HTML parsing to support Mustache constructs:
+
 - Variables: `{{name}}`, `{{{unescaped}}}`
 - Sections: `{{#items}}...{{/items}}`
 - Inverted sections: `{{^items}}...{{/items}}`
@@ -16,6 +17,7 @@ This grammar extends standard HTML parsing to support Mustache constructs:
 ### VS Code Extension
 
 Download `htmlmustache-lsp.vsix` from the [latest release](https://github.com/reteps/tree-sitter-htmlmustache/releases) and install via:
+
 ```
 code --install-extension htmlmustache-lsp.vsix
 ```
