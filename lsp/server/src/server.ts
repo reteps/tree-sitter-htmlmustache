@@ -7,9 +7,8 @@ import {
   TextDocumentSyncKind,
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import Parser from 'web-tree-sitter';
 
-import { initializeParser, parseDocument, getLanguage, createQuery } from './parser';
+import { initializeParser, parseDocument, getLanguage, createQuery, Tree, Query } from './parser';
 import {
   buildSemanticTokens,
   buildSemanticTokensWithQuery,
@@ -25,10 +24,10 @@ const connection = createConnection(ProposedFeatures.all);
 const documents = new TextDocuments(TextDocument);
 
 // Cache parsed trees for each document
-const trees = new Map<string, Parser.Tree>();
+const trees = new Map<string, Tree>();
 
 // Highlight query (loaded from highlights.scm)
-let highlightQuery: Parser.Query | null = null;
+let highlightQuery: Query | null = null;
 
 connection.onInitialize(async (params: InitializeParams): Promise<InitializeResult> => {
   // Initialize tree-sitter parser
@@ -122,7 +121,7 @@ documents.onDidClose((event) => {
 /**
  * Parse a document and cache the tree.
  */
-function parseAndCacheDocument(document: TextDocument): Parser.Tree | null {
+function parseAndCacheDocument(document: TextDocument): Tree | null {
   const text = document.getText();
   const tree = parseDocument(text);
 
@@ -136,7 +135,7 @@ function parseAndCacheDocument(document: TextDocument): Parser.Tree | null {
 /**
  * Get the cached tree for a document, parsing if necessary.
  */
-function getTree(document: TextDocument): Parser.Tree | null {
+function getTree(document: TextDocument): Tree | null {
   let tree = trees.get(document.uri);
   if (!tree) {
     tree = parseAndCacheDocument(document) ?? undefined;

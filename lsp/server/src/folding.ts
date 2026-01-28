@@ -1,11 +1,12 @@
-import Parser from 'web-tree-sitter';
+import { Node as SyntaxNode } from 'web-tree-sitter';
+import type { Tree } from './parser';
 import { FoldingRange, FoldingRangeKind } from 'vscode-languageserver/node';
 
 /**
  * Extract folding ranges from the syntax tree.
  * Allows collapsing HTML elements, Mustache sections, and comments.
  */
-export function getFoldingRanges(tree: Parser.Tree): FoldingRange[] {
+export function getFoldingRanges(tree: Tree): FoldingRange[] {
   const ranges: FoldingRange[] = [];
 
   walkForFolding(tree.rootNode, ranges);
@@ -13,7 +14,7 @@ export function getFoldingRanges(tree: Parser.Tree): FoldingRange[] {
   return ranges;
 }
 
-function walkForFolding(node: Parser.SyntaxNode, ranges: FoldingRange[]): void {
+function walkForFolding(node: SyntaxNode, ranges: FoldingRange[]): void {
   const range = nodeToFoldingRange(node);
 
   if (range) {
@@ -29,7 +30,7 @@ function walkForFolding(node: Parser.SyntaxNode, ranges: FoldingRange[]): void {
   }
 }
 
-function nodeToFoldingRange(node: Parser.SyntaxNode): FoldingRange | null {
+function nodeToFoldingRange(node: SyntaxNode): FoldingRange | null {
   const type = node.type;
 
   // Only fold multi-line nodes

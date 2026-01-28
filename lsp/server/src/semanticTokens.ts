@@ -1,5 +1,6 @@
-import Parser from 'web-tree-sitter';
+import { Node as SyntaxNode } from 'web-tree-sitter';
 import { SemanticTokensBuilder } from 'vscode-languageserver/node';
+import type { Tree, Query } from './parser';
 
 /**
  * Semantic token types supported by this server.
@@ -73,7 +74,7 @@ const mustacheDelimiters = new Set([
 /**
  * Build semantic tokens for a parsed document.
  */
-export function buildSemanticTokens(tree: Parser.Tree, text: string): SemanticTokensBuilder {
+export function buildSemanticTokens(tree: Tree, text: string): SemanticTokensBuilder {
   const builder = new SemanticTokensBuilder();
 
   // Walk the tree and collect tokens
@@ -83,7 +84,7 @@ export function buildSemanticTokens(tree: Parser.Tree, text: string): SemanticTo
 }
 
 function walkTree(
-  node: Parser.SyntaxNode,
+  node: SyntaxNode,
   builder: SemanticTokensBuilder,
   text: string
 ): void {
@@ -134,8 +135,8 @@ function walkTree(
  * This uses your highlights.scm file directly.
  */
 export function buildSemanticTokensWithQuery(
-  tree: Parser.Tree,
-  query: Parser.Query,
+  tree: Tree,
+  query: Query,
   _text: string
 ): SemanticTokensBuilder {
   const builder = new SemanticTokensBuilder();

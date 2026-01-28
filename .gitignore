@@ -48,3 +48,9 @@ zig-out/
 *.tar.gz
 *.tgz
 *.zip
+
+# OS
+.DS_Store
+
+# TypeScript build info
+*.tsbuildinfo

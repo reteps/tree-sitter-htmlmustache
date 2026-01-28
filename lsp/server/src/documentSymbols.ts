@@ -1,4 +1,5 @@
-import Parser from 'web-tree-sitter';
+import { Node as SyntaxNode } from 'web-tree-sitter';
+import type { Tree } from './parser';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { DocumentSymbol, SymbolKind, Range } from 'vscode-languageserver/node';
 
@@ -7,7 +8,7 @@ import { DocumentSymbol, SymbolKind, Range } from 'vscode-languageserver/node';
  * Shows HTML elements and Mustache sections in the outline.
  */
 export function getDocumentSymbols(
-  tree: Parser.Tree,
+  tree: Tree,
   document: TextDocument
 ): DocumentSymbol[] {
   const symbols: DocumentSymbol[] = [];
@@ -18,7 +19,7 @@ export function getDocumentSymbols(
 }
 
 function walkForSymbols(
-  node: Parser.SyntaxNode,
+  node: SyntaxNode,
   symbols: DocumentSymbol[],
   document: TextDocument
 ): void {
@@ -47,7 +48,7 @@ function walkForSymbols(
 }
 
 function nodeToSymbol(
-  node: Parser.SyntaxNode,
+  node: SyntaxNode,
   _document: TextDocument
 ): DocumentSymbol | null {
   const type = node.type;
@@ -115,7 +116,7 @@ function nodeToSymbol(
   return null;
 }
 
-function findTagName(node: Parser.SyntaxNode): string | null {
+function findTagName(node: SyntaxNode): string | null {
   // Look for html_tag_name in start_tag or the element itself
   const startTag = node.childForFieldName('start_tag') ?? node.child(0);
   if (startTag) {
@@ -138,7 +139,7 @@ function findTagName(node: Parser.SyntaxNode): string | null {
   return null;
 }
 
-function findMustacheSectionName(node: Parser.SyntaxNode): string | null {
+function findMustacheSectionName(node: SyntaxNode): string | null {
   // Look for mustache_tag_name in section_begin
   const begin = node.child(0);
   if (begin) {
@@ -152,7 +153,7 @@ function findMustacheSectionName(node: Parser.SyntaxNode): string | null {
   return null;
 }
 
-function toRange(node: Parser.SyntaxNode): Range {
+function toRange(node: SyntaxNode): Range {
   return {
     start: {
       line: node.startPosition.row,

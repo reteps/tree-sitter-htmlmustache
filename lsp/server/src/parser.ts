@@ -1,8 +1,11 @@
 import * as path from 'path';
-import Parser from 'web-tree-sitter';
+import { Parser, Language, Query, Tree, Edit } from 'web-tree-sitter';
 
 let parser: Parser | null = null;
-let language: Parser.Language | null = null;
+let language: Language | null = null;
+
+// Re-export types for other modules
+export type { Tree, Query, Edit };
 
 /**
  * Initialize the tree-sitter parser with the htmlmustache grammar.
@@ -17,7 +20,7 @@ export async function initializeParser(): Promise<void> {
   const wasmPath = path.resolve(__dirname, '..', '..', '..', 'tree-sitter-htmlmustache.wasm');
 
   try {
-    language = await Parser.Language.load(wasmPath);
+    language = await Language.load(wasmPath);
     parser.setLanguage(language);
   } catch (error) {
     console.error(`Failed to load tree-sitter-htmlmustache.wasm from ${wasmPath}:`, error);
@@ -28,7 +31,7 @@ export async function initializeParser(): Promise<void> {
 /**
  * Parse a document and return the syntax tree.
  */
-export function parseDocument(text: string): Parser.Tree | null {
+export function parseDocument(text: string): Tree | null {
   if (!parser) {
     console.error('Parser not initialized. Call initializeParser() first.');
     return null;
@@ -37,14 +40,32 @@ export function parseDocument(text: string): Parser.Tree | null {
 }
 
 /**
+ * Get the current parser language for running queries.
+ */
+export function getLanguage(): Language | null {
+  return language;
+}
+
+/**
+ * Create a tree-sitter query from a query string.
+ */
+export function createQuery(queryString: string): Query | null {
+  if (!language) {
+    console.error('Language not loaded. Call initializeParser() first.');
+    return null;
+  }
+  return new Query(language, queryString);
+}
+
+/**
  * Incrementally update a parse tree with edits.
  * This is more efficient than reparsing the entire document.
  */
 export function updateTree(
-  oldTree: Parser.Tree,
+  oldTree: Tree,
   text: string,
-  edits: Parser.Edit[]
-): Parser.Tree | null {
+  edits: Edit[]
+): Tree | null {
   if (!parser) {
     console.error('Parser not initialized. Call initializeParser() first.');
     return null;
@@ -60,40 +81,22 @@ export function updateTree(
 }
 
 /**
- * Get the current parser language for running queries.
- */
-export function getLanguage(): Parser.Language | null {
-  return language;
-}
-
-/**
- * Create a tree-sitter query from a query string.
- */
-export function createQuery(queryString: string): Parser.Query | null {
-  if (!language) {
-    console.error('Language not loaded. Call initializeParser() first.');
-    return null;
-  }
-  return language.query(queryString);
-}
-
-/**
  * Convert LSP position changes to tree-sitter edits.
  */
 export function toTreeSitterEdit(
-  startOffset: number,
-  oldEndOffset: number,
-  newEndOffset: number,
+  startIndex: number,
+  oldEndIndex: number,
+  newEndIndex: number,
   startPosition: { line: number; character: number },
   oldEndPosition: { line: number; character: number },
   newEndPosition: { line: number; character: number }
-): Parser.Edit {
-  return {
-    startIndex: startOffset,
-    oldEndIndex: oldEndOffset,
-    newEndIndex: newEndOffset,
+): Edit {
+  return new Edit({
+    startIndex,
+    oldEndIndex,
+    newEndIndex,
     startPosition: { row: startPosition.line, column: startPosition.character },
     oldEndPosition: { row: oldEndPosition.line, column: oldEndPosition.character },
     newEndPosition: { row: newEndPosition.line, column: newEndPosition.character },
-  };
+  });
 }

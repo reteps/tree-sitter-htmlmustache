@@ -1,4 +1,5 @@
-import Parser from 'web-tree-sitter';
+import { Node as SyntaxNode } from 'web-tree-sitter';
+import type { Tree } from './parser';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { Hover, Position, MarkupKind } from 'vscode-languageserver/node';
 
@@ -6,12 +7,12 @@ import { Hover, Position, MarkupKind } from 'vscode-languageserver/node';
  * Provide hover information for nodes in the document.
  */
 export function getHoverInfo(
-  tree: Parser.Tree,
+  tree: Tree,
   document: TextDocument,
   position: Position
 ): Hover | null {
   // Convert LSP position to tree-sitter point
-  const point: Parser.Point = {
+  const point = {
     row: position.line,
     column: position.character,
   };
@@ -46,7 +47,7 @@ export function getHoverInfo(
   };
 }
 
-function getHoverContent(node: Parser.SyntaxNode, _document: TextDocument): string | null {
+function getHoverContent(node: SyntaxNode, _document: TextDocument): string | null {
   const type = node.type;
 
   // HTML tag names

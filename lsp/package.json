@@ -17,8 +17,7 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onLanguage:mustache",
-    "onLanguage:handlebars"
+    "onLanguage:htmlmustache"
   ],
   "main": "./client/out/extension.js",
   "contributes": {
@@ -36,6 +35,13 @@
           ".handlebars"
         ],
         "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "htmlmustache",
+        "scopeName": "text.html.htmlmustache",
+        "path": "./syntaxes/htmlmustache.tmLanguage.json"
       }
     ],
     "configuration": {
