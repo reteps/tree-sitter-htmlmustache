@@ -24,6 +24,10 @@ code --install-extension htmlmustache-lsp.vsix
 
 Download `tree-sitter-htmlmustache.wasm` from the [latest release](https://github.com/reteps/tree-sitter-htmlmustache/releases).
 
+## Acknowledgments
+
+This project is based on [tree-sitter-html](https://github.com/tree-sitter/tree-sitter-html) by Max Brunsfeld and Amaan Qureshi.
+
 ## References
 
 - [The HTML5 Spec](https://www.w3.org/TR/html5/syntax.html)

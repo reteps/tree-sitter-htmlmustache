@@ -9,7 +9,7 @@
 // @ts-check
 
 module.exports = grammar({
-  name: 'html',
+  name: 'htmlmustache',
 
   extras: $ => [
     $.html_comment,
