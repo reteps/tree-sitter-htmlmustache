@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tree-sitter-htmlmustache"
-description = "HTML grammar for tree-sitter"
+description = "HTML with Mustache/Handlebars template syntax grammar for tree-sitter"
 version = "0.0.1"
-keywords = ["incremental", "parsing", "tree-sitter", "html"]
+keywords = ["incremental", "parsing", "tree-sitter", "html", "mustache", "handlebars"]
 classifiers = [
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
@@ -15,15 +15,14 @@ classifiers = [
   "Typing :: Typed",
 ]
 authors = [
-  { name = "Max Brunsfeld", email = "maxbrunsfeld@gmail.com" },
-  { name = "Amaan Qureshi", email = "amaanq12@gmail.com" },
+  { name = "Peter Stenger" },
 ]
 requires-python = ">=3.10"
 license.text = "MIT"
 readme = "README.md"
 
 [project.urls]
-Homepage = "https://github.com/tree-sitter/tree-sitter-htmlmustache"
+Homepage = "https://github.com/reteps/tree-sitter-htmlmustache"
 
 [project.optional-dependencies]
 core = ["tree-sitter~=0.24"]
