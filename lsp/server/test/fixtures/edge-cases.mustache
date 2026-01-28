@@ -1,0 +1,38 @@
+{{! Test edge cases }}
+
+<!-- HTML comment -->
+{{! Mustache comment }}
+
+{{! Empty sections }}
+{{#empty}}{{/empty}}
+{{^empty}}{{/empty}}
+
+{{! Mustache in attributes }}
+<div class="{{className}}" id="item-{{id}}" data-value="{{value}}">
+  Content
+</div>
+
+{{! Triple mustache }}
+{{{rawHtml}}}
+
+{{! Partials }}
+{{> header}}
+{{> footer}}
+
+{{! Dotted paths }}
+{{user.profile.name}}
+{{user.address.city}}
+
+{{! Void elements with mustache }}
+<input type="{{inputType}}" value="{{inputValue}}">
+<img src="{{imageUrl}}" alt="{{imageAlt}}">
+<br>
+<hr>
+
+{{! Mixed content }}
+<ul>
+{{#items}}<li>{{.}}</li>{{/items}}
+</ul>
+
+{{! Self-closing style }}
+<div/>

@@ -30,7 +30,6 @@ export const HIGHLIGHT_QUERY = `
   "}}"
   "{{{"
   "}}}"
-  "{{!"
   "{{>"
   "{{#"
   "{{/"
@@ -93,12 +92,22 @@ const captureNameToTokenType: Record<string, number> = {
   'keyword': TokenType.keyword,
 };
 
+interface TokenInfo {
+  row: number;
+  col: number;
+  length: number;
+  tokenType: number;
+}
+
 /**
  * Build semantic tokens using tree-sitter query captures.
  */
 export function buildSemanticTokens(tree: Tree, query: Query): SemanticTokensBuilder {
   const builder = new SemanticTokensBuilder();
   const captures = query.captures(tree.rootNode);
+
+  // Collect all tokens first
+  const tokens: TokenInfo[] = [];
 
   for (const capture of captures) {
     const { node, name } = capture;
@@ -114,7 +123,7 @@ export function buildSemanticTokens(tree: Tree, query: Query): SemanticTokensBui
     if (startRow === endRow) {
       // Single-line token
       const length = node.endPosition.column - node.startPosition.column;
-      builder.push(startRow, node.startPosition.column, length, tokenType, 0);
+      tokens.push({ row: startRow, col: node.startPosition.column, length, tokenType });
     } else {
       // Multi-line token: emit one token per line
       const text = node.text;
@@ -126,9 +135,35 @@ export function buildSemanticTokens(tree: Tree, query: Query): SemanticTokensBui
 
         const row = startRow + i;
         const col = i === 0 ? node.startPosition.column : 0;
-        builder.push(row, col, line.length, tokenType, 0);
+        tokens.push({ row, col, length: line.length, tokenType });
       }
     }
+  }
+
+  // Sort tokens by position
+  tokens.sort((a, b) => {
+    if (a.row !== b.row) return a.row - b.row;
+    return a.col - b.col;
+  });
+
+  // Push tokens, skipping overlaps
+  let lastRow = -1;
+  let lastEnd = 0;
+
+  for (const token of tokens) {
+    // Reset tracking on new row
+    if (token.row !== lastRow) {
+      lastRow = token.row;
+      lastEnd = 0;
+    }
+
+    // Skip if this token overlaps with previous
+    if (token.col < lastEnd) {
+      continue;
+    }
+
+    builder.push(token.row, token.col, token.length, token.tokenType, 0);
+    lastEnd = token.col + token.length;
   }
 
   return builder;

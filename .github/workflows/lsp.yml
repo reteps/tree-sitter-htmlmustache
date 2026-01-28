@@ -5,9 +5,11 @@ on:
     branches: [master]
     paths:
       - lsp/**
+      - tree-sitter-htmlmustache.wasm
   pull_request:
     paths:
       - lsp/**
+      - tree-sitter-htmlmustache.wasm
 
 jobs:
   build:
@@ -27,6 +29,9 @@ jobs:
       - name: Build
         run: npm run build
         working-directory: lsp
+      - name: Run server tests
+        run: npm test
+        working-directory: lsp/server
       - name: Lint
         run: npm run lint
         working-directory: lsp

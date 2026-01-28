@@ -1,0 +1,24 @@
+<div class="container">
+  {{#users}}
+  <div class="user">
+    <h2>{{name}}</h2>
+    {{#posts}}
+    <article class="post">
+      <h3>{{title}}</h3>
+      <p>{{{content}}}</p>
+      {{#comments}}
+      <div class="comment">
+        <span>{{author}}</span>: {{text}}
+      </div>
+      {{/comments}}
+      {{^comments}}
+      <p class="no-comments">No comments yet.</p>
+      {{/comments}}
+    </article>
+    {{/posts}}
+    {{^posts}}
+    <p>This user has no posts.</p>
+    {{/posts}}
+  </div>
+  {{/users}}
+</div>

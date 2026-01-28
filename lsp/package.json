@@ -70,7 +70,9 @@
     "watch": "concurrently \"cd client && npm run watch\" \"cd server && npm run watch\"",
     "lint": "eslint ./client/src ./server/src --ext .ts",
     "postinstall": "cd client && npm install && cd ../server && npm install",
-    "test": "npm run build && node ./client/out/test/runTest.js"
+    "test": "cd server && npm test",
+    "test:watch": "cd server && npm run test:watch",
+    "test:e2e": "npm run build && node ./client/out/test/runTest.js"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

@@ -71,7 +71,7 @@ function nodeToSymbol(
     const tagName = findTagName(node);
     if (tagName) {
       return {
-        name: `<${tagName} />`,
+        name: `<${tagName}>`,
         kind: SymbolKind.Class,
         range: toRange(node),
         selectionRange: toRange(node),

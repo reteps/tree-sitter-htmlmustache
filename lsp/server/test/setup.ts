@@ -1,7 +1,10 @@
-import * as path from 'path';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { Parser, Language, Query, Tree } from 'web-tree-sitter';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { beforeAll, vi } from 'vitest';
+import { beforeAll } from 'vitest';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Global instances shared across tests
 let parser: Parser;
@@ -25,7 +28,11 @@ export function getTestLanguage(): Language {
  * Parse text into a tree-sitter Tree.
  */
 export function parseText(text: string): Tree {
-  return parser.parse(text);
+  const tree = parser.parse(text);
+  if (!tree) {
+    throw new Error('Failed to parse text');
+  }
+  return tree;
 }
 
 /**
@@ -47,8 +54,8 @@ beforeAll(async () => {
   await Parser.init();
   parser = new Parser();
 
-  // Path to WASM file relative to compiled test location (out/test/)
-  const wasmPath = path.resolve(__dirname, '..', '..', '..', '..', 'tree-sitter-htmlmustache.wasm');
+  // Path to WASM file: from lsp/server/test/ go up to project root
+  const wasmPath = path.resolve(__dirname, '..', '..', '..', 'tree-sitter-htmlmustache.wasm');
 
   try {
     language = await Language.load(wasmPath);
