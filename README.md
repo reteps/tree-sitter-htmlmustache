@@ -1,21 +1,33 @@
-# tree-sitter-html
+# tree-sitter-htmlmustache
 
-[![CI][ci]](https://github.com/tree-sitter/tree-sitter-html/actions/workflows/ci.yml)
-[![discord][discord]](https://discord.gg/w7nTvsVJhm)
-[![matrix][matrix]](https://matrix.to/#/#tree-sitter-chat:matrix.org)
-[![crates][crates]](https://crates.io/crates/tree-sitter-html)
-[![npm][npm]](https://www.npmjs.com/package/tree-sitter-html)
-[![pypi][pypi]](https://pypi.org/project/tree-sitter-html)
+[![CI][ci]](https://github.com/reteps/tree-sitter-htmlmustache/actions/workflows/ci.yml)
 
-HTML grammar for [tree-sitter](https://github.com/tree-sitter/tree-sitter).
+HTML with Mustache/Handlebars template syntax grammar for [tree-sitter](https://github.com/tree-sitter/tree-sitter).
 
-References
+This grammar extends standard HTML parsing to support Mustache constructs:
+- Variables: `{{name}}`, `{{{unescaped}}}`
+- Sections: `{{#items}}...{{/items}}`
+- Inverted sections: `{{^items}}...{{/items}}`
+- Comments: `{{! comment }}`
+- Partials: `{{> partial}}`
+
+## Installation
+
+### VS Code Extension
+
+Download `htmlmustache-lsp.vsix` from the [latest release](https://github.com/reteps/tree-sitter-htmlmustache/releases) and install via:
+```
+code --install-extension htmlmustache-lsp.vsix
+```
+
+### WASM
+
+Download `tree-sitter-htmlmustache.wasm` from the [latest release](https://github.com/reteps/tree-sitter-htmlmustache/releases).
+
+## References
 
 - [The HTML5 Spec](https://www.w3.org/TR/html5/syntax.html)
+- [Mustache Manual](https://mustache.github.io/mustache.5.html)
+- [Handlebars Language Guide](https://handlebarsjs.com/guide/)
 
-[ci]: https://img.shields.io/github/actions/workflow/status/tree-sitter/tree-sitter-html/ci.yml?logo=github&label=CI
-[discord]: https://img.shields.io/discord/1063097320771698699?logo=discord&label=discord
-[matrix]: https://img.shields.io/matrix/tree-sitter-chat%3Amatrix.org?logo=matrix&label=matrix
-[npm]: https://img.shields.io/npm/v/tree-sitter-html?logo=npm
-[crates]: https://img.shields.io/crates/v/tree-sitter-html?logo=rust
-[pypi]: https://img.shields.io/pypi/v/tree-sitter-html?logo=pypi&logoColor=ffd242
+[ci]: https://img.shields.io/github/actions/workflow/status/reteps/tree-sitter-htmlmustache/ci.yml?logo=github&label=CI

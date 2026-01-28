@@ -25,9 +25,6 @@ jobs:
       - name: Build WASM
         run: tree-sitter build --wasm
 
-      - name: Rename WASM file
-        run: mv tree-sitter-html.wasm tree-sitter-htmlmustache.wasm
-
       - name: Upload WASM to release
         if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
@@ -56,7 +53,7 @@ jobs:
         run: tree-sitter build --wasm
 
       - name: Copy WASM to extension directory
-        run: cp tree-sitter-html.wasm lsp/tree-sitter-htmlmustache.wasm
+        run: cp tree-sitter-htmlmustache.wasm lsp/
 
       - name: Install extension dependencies
         working-directory: lsp

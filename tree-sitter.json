@@ -1,37 +1,35 @@
 {
   "grammars": [
     {
-      "name": "html",
-      "camelcase": "HTML",
-      "scope": "source.html",
+      "name": "htmlmustache",
+      "camelcase": "HTMLMustache",
+      "scope": "source.htmlmustache",
       "path": ".",
       "external-files": [
-        "src/tag.h"
+        "src/tag.h",
+        "src/mustache_tag.h"
       ],
       "file-types": [
-        "html"
+        "mustache",
+        "hbs",
+        "handlebars"
       ],
       "highlights": "queries/highlights.scm",
       "injections": "queries/injections.scm",
-      "injection-regex": "html"
+      "injection-regex": "htmlmustache"
     }
   ],
   "metadata": {
-    "version": "0.23.2",
+    "version": "0.1.0",
     "license": "MIT",
-    "description": "HTML grammar for tree-sitter",
+    "description": "HTML with Mustache/Handlebars template syntax grammar for tree-sitter",
     "authors": [
       {
-        "name": "Max Brunsfeld",
-        "email": "maxbrunsfeld@gmail.com"
-      },
-      {
-        "name": "Amaan Qureshi",
-        "email": "amaanq12@gmail.com"
+        "name": "Peter Stenger"
       }
     ],
     "links": {
-      "repository": "https://github.com/tree-sitter/tree-sitter-html"
+      "repository": "https://github.com/reteps/tree-sitter-htmlmustache"
     }
   },
   "bindings": {
