@@ -13,3 +13,4 @@ test/
 *.a
 *.dylib
 package-lock.json
+pnpm-lock.yaml
