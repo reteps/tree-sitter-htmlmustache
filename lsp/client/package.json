@@ -1,0 +1,16 @@
+{
+  "name": "htmlmustache-lsp-client",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./out/extension.js",
+  "scripts": {
+    "build": "tsc -b",
+    "watch": "tsc -b -w"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.75.0"
+  }
+}

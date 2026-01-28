@@ -1,0 +1,18 @@
+{
+  "name": "htmlmustache-lsp-server",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./out/server.js",
+  "scripts": {
+    "build": "tsc -b",
+    "watch": "tsc -b -w"
+  },
+  "dependencies": {
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.11",
+    "web-tree-sitter": "^0.22.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0"
+  }
+}

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{{title}}</title>
+</head>
+<body>
+  <header>
+    <h1>{{siteName}}</h1>
+    {{#user}}
+      <nav>
+        <a href="/profile">{{user.name}}</a>
+        <a href="/logout">Logout</a>
+      </nav>
+    {{/user}}
+    {{^user}}
+      <a href="/login">Login</a>
+    {{/user}}
+  </header>
+
+  <main>
+    {{! This is a comment }}
+
+    <h2>{{pageTitle}}</h2>
+
+    {{#items}}
+    <article class="item">
+      <h3>{{name}}</h3>
+      <p>{{{description}}}</p>
+      <span class="price">{{price}}</span>
+    </article>
+    {{/items}}
+
+    {{^items}}
+    <p>No items found.</p>
+    {{/items}}
+
+    {{> footer}}
+  </main>
+</body>
+</html>

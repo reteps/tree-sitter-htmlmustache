@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Build output
+client/out/
+server/out/
+*.js
+*.js.map
+*.d.ts
+
+# VS Code
+.vscode-test/
+*.vsix
+
+# OS
+.DS_Store

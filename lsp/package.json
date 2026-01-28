@@ -1,0 +1,73 @@
+{
+  "name": "htmlmustache-lsp",
+  "displayName": "HTML Mustache Language Support",
+  "description": "Language server for HTML with Mustache template syntax",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:htmlmustache",
+    "onLanguage:mustache",
+    "onLanguage:handlebars"
+  ],
+  "main": "./client/out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "htmlmustache",
+        "aliases": [
+          "HTML Mustache",
+          "Mustache",
+          "Handlebars"
+        ],
+        "extensions": [
+          ".mustache",
+          ".hbs",
+          ".handlebars"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "HTML Mustache",
+      "properties": {
+        "htmlmustache.trace.server": {
+          "scope": "window",
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the language server."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "cd client && npm run build",
+    "build:server": "cd server && npm run build",
+    "watch": "concurrently \"cd client && npm run watch\" \"cd server && npm run watch\"",
+    "lint": "eslint ./client/src ./server/src --ext .ts",
+    "postinstall": "cd client && npm install && cd ../server && npm install",
+    "test": "npm run build && node ./client/out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.13.0",
+    "@typescript-eslint/parser": "^6.13.0",
+    "concurrently": "^8.2.2",
+    "eslint": "^8.54.0",
+    "typescript": "^5.3.2"
+  }
+}
