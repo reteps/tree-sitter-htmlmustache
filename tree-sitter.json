@@ -20,7 +20,7 @@
     }
   ],
   "metadata": {
-    "version": "0.1.0",
+    "version": "0.0.1",
     "license": "MIT",
     "description": "HTML with Mustache/Handlebars template syntax grammar for tree-sitter",
     "authors": [

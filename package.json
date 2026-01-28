@@ -1,6 +1,6 @@
 {
   "name": "tree-sitter-htmlmustache",
-  "version": "0.23.2",
+  "version": "0.0.1",
   "description": "HTML grammar for tree-sitter",
   "repository": "https://github.com/tree-sitter/tree-sitter-htmlmustache",
   "license": "MIT",
