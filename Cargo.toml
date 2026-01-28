@@ -1,7 +1,7 @@
 [package]
 name = "tree-sitter-htmlmustache"
 description = "HTML with Mustache/Handlebars template syntax grammar for tree-sitter"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Peter Stenger"]
 license = "MIT"
 readme = "README.md"

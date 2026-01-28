@@ -1,6 +1,6 @@
 {
   "name": "tree-sitter-htmlmustache",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "HTML with Mustache/Handlebars template syntax grammar for tree-sitter",
   "repository": "https://github.com/reteps/tree-sitter-htmlmustache",
   "license": "MIT",
