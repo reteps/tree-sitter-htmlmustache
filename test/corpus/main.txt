@@ -7,10 +7,10 @@ Tags
 (document
   (html_element
     (html_start_tag
-      (tag_name))
-    (html_text)
+      (html_tag_name))
+    (text)
     (html_end_tag
-      (tag_name))))
+      (html_tag_name))))
 
 ===================================
 Tags with attributes
@@ -21,7 +21,7 @@ Tags with attributes
 (document
   (html_element
     (html_start_tag
-      (tag_name)
+      (html_tag_name)
       (html_attribute
         (html_attribute_name)
         (html_attribute_value))
@@ -30,9 +30,9 @@ Tags with attributes
         (html_quoted_attribute_value
           (html_attribute_value)))
       (html_attribute
-        (html_attribute_name)))
-    (html_end_tag
-      (tag_name))))
+        (html_attribute_name))))
+  (html_erroneous_end_tag
+    (html_erroneous_end_tag_name)))
 
 ===================================
 Nested tags
@@ -49,23 +49,23 @@ Nested tags
 (document
   (html_element
     (html_start_tag
-      (tag_name))
+      (html_tag_name))
     (html_element
       (html_start_tag
-        (tag_name))
-      (html_text)
+        (html_tag_name))
+      (text)
       (html_end_tag
-        (tag_name)))
-    (html_text)
+        (html_tag_name)))
+    (text)
     (html_element
       (html_start_tag
-        (tag_name))
-      (html_text)
+        (html_tag_name))
+      (text)
       (html_end_tag
-        (tag_name)))
-    (html_text)
+        (html_tag_name)))
+    (text)
     (html_end_tag
-      (tag_name))))
+      (html_tag_name))))
 
 ==================================
 Void tags
@@ -76,20 +76,20 @@ Void tags
 (document
   (html_element
     (html_start_tag
-      (tag_name))
+      (html_tag_name))
     (html_element
       (html_start_tag
-        (tag_name)
+        (html_tag_name)
         (html_attribute
           (html_attribute_name)
           (html_quoted_attribute_value
             (html_attribute_value)))))
     (html_element
       (html_start_tag
-        (tag_name)))
+        (html_tag_name)))
     (html_element
       (html_self_closing_tag
-        (tag_name)
+        (html_tag_name)
         (html_attribute
           (html_attribute_name)
           (html_attribute_value))
@@ -97,7 +97,7 @@ Void tags
           (html_attribute_name)
           (html_attribute_value))))
     (html_end_tag
-      (tag_name))))
+      (html_tag_name))))
 
 ==================================
 Void tags at EOF
@@ -108,7 +108,7 @@ Void tags at EOF
 (document
   (html_element
     (html_start_tag
-      (tag_name)
+      (html_tag_name)
       (html_attribute
         (html_attribute_name)
         (html_quoted_attribute_value
@@ -127,17 +127,17 @@ Custom tags
 (document
   (html_element
     (html_start_tag
-      (tag_name))
+      (html_tag_name))
     (html_element
       (html_start_tag
-        (tag_name)
+        (html_tag_name)
         (html_attribute
           (html_attribute_name)))
-      (html_text)
+      (text)
       (html_end_tag
-        (tag_name)))
+        (html_tag_name)))
     (html_end_tag
-      (tag_name))))
+      (html_tag_name))))
 
 ==================================
 Comments
@@ -154,10 +154,10 @@ Comments
   (html_comment)
   (html_element
     (html_start_tag
-      (tag_name))
+      (html_tag_name))
     (html_comment)
     (html_end_tag
-      (tag_name))))
+      (html_tag_name))))
 
 ==================================
 Raw text elements
@@ -182,22 +182,22 @@ Raw text elements
 (document
   (html_script_element
     (html_start_tag
-      (tag_name))
+      (html_tag_name))
     (html_raw_text)
     (html_end_tag
-      (tag_name)))
+      (html_tag_name)))
   (html_style_element
     (html_start_tag
-      (tag_name))
+      (html_tag_name))
     (html_raw_text)
     (html_end_tag
-      (tag_name)))
+      (html_tag_name)))
   (html_script_element
     (html_start_tag
-      (tag_name))
+      (html_tag_name))
     (html_raw_text)
     (html_end_tag
-      (tag_name))))
+      (html_tag_name))))
 
 ==================================
 All-caps doctype
@@ -231,17 +231,17 @@ LI elements without close tags
 (document
   (html_element
     (html_start_tag
-      (tag_name))
+      (html_tag_name))
     (html_element
       (html_start_tag
-        (tag_name))
-      (html_text))
+        (html_tag_name))
+      (text))
     (html_element
       (html_start_tag
-        (tag_name))
-      (html_text))
+        (html_tag_name))
+      (text))
     (html_end_tag
-      (tag_name))))
+      (html_tag_name))))
 
 ======================================
 DT and DL elements without close tags
@@ -258,29 +258,29 @@ DT and DL elements without close tags
 (document
   (html_element
     (html_start_tag
-      (tag_name))
+      (html_tag_name))
     (html_element
       (html_start_tag
-        (tag_name))
-      (html_text))
+        (html_tag_name))
+      (text))
     (html_element
       (html_start_tag
-        (tag_name))
-      (html_text))
+        (html_tag_name))
+      (text))
     (html_element
       (html_start_tag
-        (tag_name))
-      (html_text))
+        (html_tag_name))
+      (text))
     (html_element
       (html_start_tag
-        (tag_name))
-      (html_text))
+        (html_tag_name))
+      (text))
     (html_element
       (html_start_tag
-        (tag_name))
-      (html_text))
+        (html_tag_name))
+      (text))
     (html_end_tag
-      (tag_name))))
+      (html_tag_name))))
 
 ======================================
 P elements without close tags
@@ -295,28 +295,28 @@ P elements without close tags
 (document
   (html_element
     (html_start_tag
-      (tag_name))
-    (html_text))
+      (html_tag_name))
+    (text))
   (html_element
     (html_start_tag
-      (tag_name))
-    (html_text)
+      (html_tag_name))
+    (text)
     (html_end_tag
-      (tag_name)))
+      (html_tag_name)))
   (html_element
     (html_start_tag
-      (tag_name))
-    (html_text))
+      (html_tag_name))
+    (text))
   (html_element
     (html_start_tag
-      (tag_name))
-    (html_text))
+      (html_tag_name))
+    (text))
   (html_element
     (html_start_tag
-      (tag_name))
-    (html_text)
+      (html_tag_name))
+    (text)
     (html_end_tag
-      (tag_name))))
+      (html_tag_name))))
 
 ======================================
 Ruby annotation elements without close tags
@@ -327,22 +327,22 @@ Ruby annotation elements without close tags
 (document
   (html_element
     (html_start_tag
-      (tag_name))
-    (html_text)
+      (html_tag_name))
+    (text)
     (html_element
       (html_start_tag
-        (tag_name))
-      (html_text))
+        (html_tag_name))
+      (text))
     (html_element
       (html_start_tag
-        (tag_name))
-      (html_text))
+        (html_tag_name))
+      (text))
     (html_element
       (html_start_tag
-        (tag_name))
-      (html_text))
+        (html_tag_name))
+      (text))
     (html_end_tag
-      (tag_name))))
+      (html_tag_name))))
 
 =======================================
 COLGROUP elements without end tags
@@ -362,49 +362,49 @@ COLGROUP elements without end tags
 (document
   (html_element
     (html_start_tag
-      (tag_name))
+      (html_tag_name))
     (html_element
       (html_start_tag
-        (tag_name))
+        (html_tag_name))
       (html_element
         (html_start_tag
-          (tag_name)
+          (html_tag_name)
           (html_attribute
             (html_attribute_name)
             (html_quoted_attribute_value
               (html_attribute_value)))))
       (html_element
         (html_start_tag
-          (tag_name)
+          (html_tag_name)
           (html_attribute
             (html_attribute_name)
             (html_quoted_attribute_value
               (html_attribute_value))))))
     (html_element
       (html_start_tag
-        (tag_name))
+        (html_tag_name))
       (html_element
         (html_start_tag
-          (tag_name))
-        (html_text)
+          (html_tag_name))
+        (text)
         (html_end_tag
-          (tag_name)))
+          (html_tag_name)))
       (html_element
         (html_start_tag
-          (tag_name))
-        (html_text)
+          (html_tag_name))
+        (text)
         (html_end_tag
-          (tag_name)))
+          (html_tag_name)))
       (html_element
         (html_start_tag
-          (tag_name))
-        (html_text)
+          (html_tag_name))
+        (text)
         (html_end_tag
-          (tag_name)))
+          (html_tag_name)))
       (html_end_tag
-        (tag_name)))
+        (html_tag_name)))
     (html_end_tag
-      (tag_name))))
+      (html_tag_name))))
 
 =========================================
 TR, TD, and TH elements without end tags
@@ -422,31 +422,31 @@ TR, TD, and TH elements without end tags
 (document
   (html_element
     (html_start_tag
-      (tag_name))
+      (html_tag_name))
     (html_element
       (html_start_tag
-        (tag_name))
+        (html_tag_name))
       (html_element
         (html_start_tag
-          (tag_name))
-        (html_text))
+          (html_tag_name))
+        (text))
       (html_element
         (html_start_tag
-          (tag_name))
-        (html_text)))
+          (html_tag_name))
+        (text)))
     (html_element
       (html_start_tag
-        (tag_name))
+        (html_tag_name))
       (html_element
         (html_start_tag
-          (tag_name))
-        (html_text))
+          (html_tag_name))
+        (text))
       (html_element
         (html_start_tag
-          (tag_name))
-        (html_text)))
+          (html_tag_name))
+        (text)))
     (html_end_tag
-      (tag_name))))
+      (html_tag_name))))
 
 ==============================
 Named entities in tag contents
@@ -458,14 +458,14 @@ Named entities in tag contents
 (document
   (html_element
     (html_start_tag
-      (tag_name))
-    (html_text)
+      (html_tag_name))
+    (text)
     (html_entity)
-    (html_text)
+    (text)
     (html_entity)
-    (html_text)
+    (text)
     (html_end_tag
-      (tag_name))))
+      (html_tag_name))))
 
 ================================
 Numeric entities in tag contents
@@ -477,14 +477,14 @@ Numeric entities in tag contents
 (document
   (html_element
     (html_start_tag
-      (tag_name))
-    (html_text)
+      (html_tag_name))
+    (text)
     (html_entity)
-    (html_text)
+    (text)
     (html_entity)
-    (html_text)
+    (text)
     (html_end_tag
-      (tag_name))))
+      (html_tag_name))))
 
 =================================
 Multiple entities in tag contents
@@ -496,16 +496,16 @@ Multiple entities in tag contents
 (document
   (html_element
     (html_start_tag
-      (tag_name))
-    (html_text)
+      (html_tag_name))
+    (text)
     (html_entity)
-    (html_text)
+    (text)
     (html_entity)
-    (html_text)
+    (text)
     (html_entity)
-    (html_text)
+    (text)
     (html_end_tag
-      (tag_name))))
+      (html_tag_name))))
 
 ==================================
 Omitted end tags for html and head
@@ -519,7 +519,7 @@ Omitted end tags for html and head
   (html_doctype)
   (html_element
     (html_start_tag
-      (tag_name))
+      (html_tag_name))
     (html_element
       (html_start_tag
-        (tag_name)))))
+        (html_tag_name)))))

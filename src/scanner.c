@@ -483,21 +483,35 @@ static bool scan(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
     while (iswspace(lexer->lookahead)) {
         skip(lexer);
     }
-    
+
+
     if (valid_symbols[MUSTACHE_START_TAG_NAME]) {
         // printf("MUSTACHE_START_TAG_NAME\n");
         return scan_mustache_start_tag_name(scanner, lexer);
     }
-    
+
     if (valid_symbols[MUSTACHE_END_TAG_NAME] || valid_symbols[MUSTACHE_ERRONEOUS_END_TAG_NAME]) {
         return scan_mustache_end_tag_name(scanner, lexer);
     }
 
     if (valid_symbols[MUSTACHE_END_TAG_HTML_IMPLICIT_END_TAG]) {
-        // printf("MUSTACHE_END_TAG_HTML_IMPLICIT_END_TAG\n");
-        return scan_mustache_end_tag_html_implicit_end_tag(scanner, lexer);
+        if (scan_mustache_end_tag_html_implicit_end_tag(scanner, lexer)) {
+            return true;
+        }
+        // Don't return false - continue to other checks
     }
-    
+
+    // Check for void element implicit end tag before other processing
+    // This handles cases where a void element is followed by EOF or content other than '<'
+    if (valid_symbols[HTML_IMPLICIT_END_TAG]) {
+        Tag *parent = scanner->tags.size == 0 ? NULL : array_back(&scanner->tags);
+        if (parent && tag_is_void(parent)) {
+            pop_html_tag(scanner);
+            lexer->result_symbol = HTML_IMPLICIT_END_TAG;
+            return true;
+        }
+    }
+
     switch (lexer->lookahead) {
         case '<':
             lexer->mark_end(lexer);

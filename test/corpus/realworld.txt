@@ -380,7 +380,7 @@ Second real-world example
               (mustache_section
                 (mustache_section_begin
                   (mustache_tag_name))
-                (text)
+                  (text)
                 (mustache_section_end
                   (mustache_tag_name)))
               (mustache_inverted_section
@@ -435,53 +435,72 @@ Second real-world example
                   (mustache_identifier))
                 (html_attribute_value)
                 (mustache_interpolation
+                  (mustache_identifier))))))
+        (html_element
+          (html_start_tag
+            (html_tag_name)
+            (html_attribute
+              (html_attribute_name)
+              (html_quoted_attribute_value
+                (html_attribute_value)))
+            (html_attribute
+              (html_attribute_name)
+              (html_quoted_attribute_value
+                (mustache_interpolation
+                  (mustache_identifier))
+                (html_attribute_value)
+                (mustache_interpolation
                   (mustache_identifier)))))
+          (mustache_inverted_section
+            (mustache_inverted_section_begin
+              (mustache_tag_name))
+            (html_element
+              (html_start_tag
+                (html_tag_name)
+                (html_attribute
+                  (html_attribute_name)
+                  (html_quoted_attribute_value
+                    (html_attribute_value))))
+              (text)
+              (mustache_interpolation
+                (mustache_identifier))
+              (text)
+              (html_end_tag
+                (html_tag_name)))
+            (mustache_inverted_section_end
+              (mustache_tag_name)))
           (html_element
             (html_start_tag
               (html_tag_name)
               (html_attribute
                 (html_attribute_name)
                 (html_quoted_attribute_value
-                  (html_attribute_value)))
+                  (html_attribute_value))))
+            (mustache_triple
+              (mustache_identifier))
+            (html_end_tag
+              (html_tag_name)))
+          (html_end_tag
+            (html_tag_name)))
+        (mustache_section
+          (mustache_section_begin
+            (mustache_tag_name))
+          (html_element
+            (html_start_tag
+              (html_tag_name)
               (html_attribute
                 (html_attribute_name)
                 (html_quoted_attribute_value
-                  (mustache_interpolation
-                    (mustache_identifier))
-                  (html_attribute_value)
-                  (mustache_interpolation
-                    (mustache_identifier)))))
-            (mustache_inverted_section
-              (mustache_inverted_section_begin
-                (mustache_tag_name))
-              (html_element
-                (html_start_tag
-                  (html_tag_name)
-                  (html_attribute
-                    (html_attribute_name)
-                    (html_quoted_attribute_value
-                      (html_attribute_value))))
-                (text)
-                (mustache_interpolation
-                  (mustache_identifier))
-                (text)
-                (html_end_tag
-                  (html_tag_name)))
-              (mustache_inverted_section_end
-                (mustache_tag_name)))
-            (html_element
-              (html_start_tag
-                (html_tag_name)
-                (html_attribute
-                  (html_attribute_name)
-                  (html_quoted_attribute_value
-                    (html_attribute_value))))
-              (mustache_triple
-                (mustache_identifier))
-              (html_end_tag
-                (html_tag_name)))
+                  (html_attribute_value))))
+            (mustache_triple
+              (mustache_identifier))
             (html_end_tag
               (html_tag_name)))
+          (mustache_section_end
+            (mustache_tag_name)))
+        (mustache_section
+          (mustache_section_begin
+            (mustache_tag_name))
           (mustache_section
             (mustache_section_begin
               (mustache_tag_name))
@@ -492,8 +511,19 @@ Second real-world example
                   (html_attribute_name)
                   (html_quoted_attribute_value
                     (html_attribute_value))))
-              (mustache_triple
-                (mustache_identifier))
+              (html_element
+                (html_start_tag
+                  (html_tag_name)
+                  (html_attribute
+                    (html_attribute_name)
+                    (html_quoted_attribute_value
+                      (html_attribute_value)))
+                  (html_attribute
+                    (html_attribute_name)
+                    (html_quoted_attribute_value
+                      (html_attribute_value))))
+                (html_end_tag
+                  (html_tag_name)))
               (html_end_tag
                 (html_tag_name)))
             (mustache_section_end
@@ -501,66 +531,34 @@ Second real-world example
           (mustache_section
             (mustache_section_begin
               (mustache_tag_name))
-            (mustache_section
-              (mustache_section_begin
-                (mustache_tag_name))
+            (html_element
+              (html_start_tag
+                (html_tag_name)
+                (html_attribute
+                  (html_attribute_name)
+                  (html_quoted_attribute_value
+                    (html_attribute_value))))
               (html_element
                 (html_start_tag
                   (html_tag_name)
                   (html_attribute
                     (html_attribute_name)
                     (html_quoted_attribute_value
-                      (html_attribute_value))))
-                (html_element
-                  (html_start_tag
-                    (html_tag_name)
-                    (html_attribute
-                      (html_attribute_name)
-                      (html_quoted_attribute_value
-                        (html_attribute_value)))
-                    (html_attribute
-                      (html_attribute_name)
-                      (html_quoted_attribute_value
-                        (html_attribute_value))))
-                  (html_end_tag
-                    (html_tag_name)))
-                (html_end_tag
-                  (html_tag_name)))
-              (mustache_section_end
-                (mustache_tag_name)))
-            (mustache_section
-              (mustache_section_begin
-                (mustache_tag_name))
-              (html_element
-                (html_start_tag
-                  (html_tag_name)
+                      (html_attribute_value)))
                   (html_attribute
                     (html_attribute_name)
                     (html_quoted_attribute_value
                       (html_attribute_value))))
-                (html_element
-                  (html_start_tag
-                    (html_tag_name)
-                    (html_attribute
-                      (html_attribute_name)
-                      (html_quoted_attribute_value
-                        (html_attribute_value)))
-                    (html_attribute
-                      (html_attribute_name)
-                      (html_quoted_attribute_value
-                        (html_attribute_value))))
-                  (html_end_tag
-                    (html_tag_name)))
                 (html_end_tag
                   (html_tag_name)))
-              (mustache_section_end
-                (mustache_tag_name)))
+              (html_end_tag
+                (html_tag_name)))
             (mustache_section_end
               (mustache_tag_name)))
-          (html_erroneous_end_tag
-            (html_erroneous_end_tag_name))
-          (html_forced_end_tag))
-        (html_forced_end_tag))
+          (mustache_section_end
+            (mustache_tag_name)))
+        (html_end_tag
+          (html_tag_name)))
       (mustache_section_end
         (mustache_tag_name)))
     (mustache_section

@@ -1,0 +1,3233 @@
+===
+Empty mustache section
+===
+{{#empty}}{{/empty}}
+---
+
+(document
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (mustache_section_end
+      (mustache_tag_name))))
+
+===
+Empty inverted section
+===
+{{^empty}}{{/empty}}
+---
+
+(document
+  (mustache_inverted_section
+    (mustache_inverted_section_begin
+      (mustache_tag_name))
+    (mustache_inverted_section_end
+      (mustache_tag_name))))
+
+===
+Dot expression (current context)
+===
+<li>{{.}}</li>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Path expression with multiple levels
+===
+{{user.profile.name.first}}
+---
+
+(document
+  (mustache_interpolation
+    (mustache_path_expression
+      (mustache_identifier)
+      (mustache_identifier)
+      (mustache_identifier)
+      (mustache_identifier))))
+
+===
+Numeric identifier
+===
+{{123}}
+---
+
+(document
+  (mustache_interpolation
+    (mustache_identifier)))
+
+===
+Underscore in identifier
+===
+{{my_variable_name}}
+---
+
+(document
+  (mustache_interpolation
+    (mustache_identifier)))
+
+===
+Partial template
+===
+{{> header }}
+---
+
+(document
+  (mustache_partial
+    (mustache_partial_content)))
+
+===
+Partial template in element
+===
+<div>{{> user_card }}</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_partial
+      (mustache_partial_content))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Single-quoted attribute with mustache
+===
+<div class='{{className}}'>content</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Single-quoted attribute with text and mustache
+===
+<div class='prefix-{{name}}-suffix'>content</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (html_attribute_value)
+          (mustache_interpolation
+            (mustache_identifier))
+          (html_attribute_value))))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Void element br with surrounding mustache
+===
+{{#condition}}<br>{{/condition}}
+---
+
+(document
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (html_forced_end_tag))
+    (mustache_section_end
+      (mustache_tag_name))))
+
+===
+HR void element with mustache conditional
+===
+{{#showDivider}}<hr class="{{hrClass}}">{{/showDivider}}
+---
+
+(document
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name)
+        (html_attribute
+          (html_attribute_name)
+          (html_quoted_attribute_value
+            (mustache_interpolation
+              (mustache_identifier)))))
+      (html_forced_end_tag))
+    (mustache_section_end
+      (mustache_tag_name))))
+
+===
+Multiple consecutive interpolations
+===
+{{first}}{{second}}{{third}}
+---
+
+(document
+  (mustache_interpolation
+    (mustache_identifier))
+  (mustache_interpolation
+    (mustache_identifier))
+  (mustache_interpolation
+    (mustache_identifier)))
+
+===
+Section followed by inverted section (else pattern)
+===
+{{#items}}
+<li>{{name}}</li>
+{{/items}}
+{{^items}}
+<p>No items</p>
+{{/items}}
+---
+
+(document
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (mustache_interpolation
+        (mustache_identifier))
+      (html_end_tag
+        (html_tag_name)))
+    (mustache_section_end
+      (mustache_tag_name)))
+  (mustache_inverted_section
+    (mustache_inverted_section_begin
+      (mustache_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (text)
+      (html_end_tag
+        (html_tag_name)))
+    (mustache_inverted_section_end
+      (mustache_tag_name))))
+
+===
+Deeply nested sections (5 levels)
+===
+{{#a}}{{#b}}{{#c}}{{#d}}{{#e}}deep{{/e}}{{/d}}{{/c}}{{/b}}{{/a}}
+---
+
+(document
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (mustache_section
+        (mustache_section_begin
+          (mustache_tag_name))
+        (mustache_section
+          (mustache_section_begin
+            (mustache_tag_name))
+          (mustache_section
+            (mustache_section_begin
+              (mustache_tag_name))
+            (text)
+            (mustache_section_end
+              (mustache_tag_name)))
+          (mustache_section_end
+            (mustache_tag_name)))
+        (mustache_section_end
+          (mustache_tag_name)))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (mustache_section_end
+      (mustache_tag_name))))
+
+===
+Comment with special characters
+===
+{{! This is a comment with <html> and "quotes" }}
+---
+
+(document
+  (mustache_comment
+    (mustache_comment_content)))
+
+===
+Triple mustache with path expression
+===
+{{{user.bio.html}}}
+---
+
+(document
+  (mustache_triple
+    (mustache_path_expression
+      (mustache_identifier)
+      (mustache_identifier)
+      (mustache_identifier))))
+
+===
+Data attribute with mustache
+===
+<div data-id="{{id}}" data-config="{{config}}">content</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier))))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Inverted section wrapping attribute
+===
+<button {{^disabled}}type="submit"{{/disabled}}>Submit</button>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (mustache_attribute
+        (mustache_inverted_section
+          (mustache_inverted_section_begin
+            (mustache_tag_name))
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (html_attribute_value)))
+          (mustache_inverted_section_end
+            (mustache_tag_name)))))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Entity mixed with mustache
+===
+<p>&copy; {{year}} &mdash; {{company}}</p>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (html_entity)
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_entity)
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Self-closing tag with mustache section around attribute
+===
+<img src="{{src}}" {{#hasAlt}}alt="{{alt}}"{{/hasAlt}} />
+---
+
+(document
+  (html_element
+    (html_self_closing_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier))))
+      (mustache_attribute
+        (mustache_section
+          (mustache_section_begin
+            (mustache_tag_name))
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier))))
+          (mustache_section_end
+            (mustache_tag_name)))))))
+
+===
+Multiple mustache types in one element
+===
+<div>
+{{! comment }}
+{{variable}}
+{{{raw}}}
+{{> partial }}
+{{#section}}content{{/section}}
+{{^inverted}}fallback{{/inverted}}
+</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_comment
+      (mustache_comment_content))
+    (mustache_interpolation
+      (mustache_identifier))
+    (mustache_triple
+      (mustache_identifier))
+    (mustache_partial
+      (mustache_partial_content))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (text)
+      (mustache_section_end
+        (mustache_tag_name)))
+    (mustache_inverted_section
+      (mustache_inverted_section_begin
+        (mustache_tag_name))
+      (text)
+      (mustache_inverted_section_end
+        (mustache_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Mustache inside HTML comment
+===
+<!-- {{variable}} -->
+<div>content</div>
+---
+
+(document
+  (html_comment)
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Doctype followed by mustache
+===
+<!DOCTYPE html>
+{{#showHeader}}<header>{{title}}</header>{{/showHeader}}
+---
+
+(document
+  (html_doctype)
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (mustache_interpolation
+        (mustache_identifier))
+      (html_end_tag
+        (html_tag_name)))
+    (mustache_section_end
+      (mustache_tag_name))))
+
+===
+Multiple attributes some with mustache sections
+===
+<div id="main" {{#class}}class="{{class}}"{{/class}} {{#style}}style="{{style}}"{{/style}}>content</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (html_attribute_value)))
+      (mustache_attribute
+        (mustache_section
+          (mustache_section_begin
+            (mustache_tag_name))
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier))))
+          (mustache_section_end
+            (mustache_tag_name))))
+      (mustache_attribute
+        (mustache_section
+          (mustache_section_begin
+            (mustache_tag_name))
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier))))
+          (mustache_section_end
+            (mustache_tag_name)))))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Mustache in textarea
+===
+<textarea>{{content}}</textarea>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Mustache in title element
+===
+<title>{{pageTitle}} - {{siteName}}</title>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (text)
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Standalone mustache section without HTML
+===
+{{#show}}visible{{/show}}
+---
+
+(document
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (text)
+    (mustache_section_end
+      (mustache_tag_name))))
+
+===
+Whitespace only in section
+===
+{{#spacer}}   {{/spacer}}
+---
+
+(document
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (mustache_section_end
+      (mustache_tag_name))))
+
+===
+Section containing only interpolation
+===
+{{#wrapper}}{{value}}{{/wrapper}}
+---
+
+(document
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (mustache_section_end
+      (mustache_tag_name))))
+
+===
+Multiple sections at same level
+===
+{{#first}}1{{/first}}{{#second}}2{{/second}}{{#third}}3{{/third}}
+---
+
+(document
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (text)
+    (mustache_section_end
+      (mustache_tag_name)))
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (text)
+    (mustache_section_end
+      (mustache_tag_name)))
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (text)
+    (mustache_section_end
+      (mustache_tag_name))))
+
+===
+Section in attribute value with text before and after
+===
+<div class="base {{#active}}active{{/active}} end">content</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (html_attribute_value)
+          (mustache_section
+            (mustache_section_begin
+              (mustache_tag_name))
+            (text)
+            (mustache_section_end
+              (mustache_tag_name)))
+          (html_attribute_value))))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Input void element with mustache attributes
+===
+<input type="{{type}}" name="{{name}}" value="{{value}}">
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier))))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier))))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))))
+
+===
+Input with conditional boolean attribute
+===
+<input type="checkbox" {{#checked}}checked{{/checked}}>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (html_attribute_value)))
+      (mustache_attribute
+        (mustache_section
+          (mustache_section_begin
+            (mustache_tag_name))
+          (html_attribute
+            (html_attribute_name))
+          (mustache_section_end
+            (mustache_tag_name)))))))
+
+===
+Input with conditional disabled attribute (inverted)
+===
+<input type="text" {{^editable}}disabled{{/editable}}>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (html_attribute_value)))
+      (mustache_attribute
+        (mustache_inverted_section
+          (mustache_inverted_section_begin
+            (mustache_tag_name))
+          (html_attribute
+            (html_attribute_name))
+          (mustache_inverted_section_end
+            (mustache_tag_name)))))))
+
+===
+Select with options using mustache
+===
+<select name="{{name}}">
+  {{#options}}
+  <option value="{{value}}">{{label}}</option>
+  {{/options}}
+</select>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name)
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier)))))
+        (mustache_interpolation
+          (mustache_identifier))
+        (html_end_tag
+          (html_tag_name)))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Optgroup with mustache
+===
+<select>
+  {{#groups}}
+  <optgroup label="{{label}}">
+    {{#options}}
+    <option value="{{value}}">{{text}}</option>
+    {{/options}}
+  </optgroup>
+  {{/groups}}
+</select>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name)
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier)))))
+        (mustache_section
+          (mustache_section_begin
+            (mustache_tag_name))
+          (html_element
+            (html_start_tag
+              (html_tag_name)
+              (html_attribute
+                (html_attribute_name)
+                (html_quoted_attribute_value
+                  (mustache_interpolation
+                    (mustache_identifier)))))
+            (mustache_interpolation
+              (mustache_identifier))
+            (html_end_tag
+              (html_tag_name)))
+          (mustache_section_end
+            (mustache_tag_name)))
+        (html_end_tag
+          (html_tag_name)))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Table with mustache in rows
+===
+<table>
+  {{#rows}}
+  <tr>
+    <td>{{cell1}}</td>
+    <td>{{cell2}}</td>
+  </tr>
+  {{/rows}}
+</table>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name))
+        (html_element
+          (html_start_tag
+            (html_tag_name))
+          (mustache_interpolation
+            (mustache_identifier))
+          (html_end_tag
+            (html_tag_name)))
+        (html_element
+          (html_start_tag
+            (html_tag_name))
+          (mustache_interpolation
+            (mustache_identifier))
+          (html_end_tag
+            (html_tag_name)))
+        (html_end_tag
+          (html_tag_name)))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Table with implicit tr and td closures and mustache
+===
+<table>
+  {{#rows}}
+  <tr>
+    <td>{{cell1}}
+    <td>{{cell2}}
+  {{/rows}}
+</table>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name))
+        (html_element
+          (html_start_tag
+            (html_tag_name))
+          (mustache_interpolation
+            (mustache_identifier)))
+        (html_element
+          (html_start_tag
+            (html_tag_name))
+          (mustache_interpolation
+            (mustache_identifier))
+          (html_forced_end_tag))
+        (html_forced_end_tag))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Pre element with mustache preserving content
+===
+<pre>{{code}}</pre>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Link void element in head with mustache
+===
+<head>
+  <link rel="stylesheet" href="{{cssUrl}}">
+</head>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name)
+        (html_attribute
+          (html_attribute_name)
+          (html_quoted_attribute_value
+            (html_attribute_value)))
+        (html_attribute
+          (html_attribute_name)
+          (html_quoted_attribute_value
+            (mustache_interpolation
+              (mustache_identifier))))))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Meta void element with mustache
+===
+<meta name="description" content="{{description}}">
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (html_attribute_value)))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))))
+
+===
+Hyphenated identifier in mustache
+===
+{{my-variable-name}}
+---
+
+(document
+  (mustache_interpolation
+    (mustache_identifier)))
+
+===
+Hyphenated identifier in section
+===
+{{#my-section}}content{{/my-section}}
+---
+
+(document
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (text)
+    (mustache_section_end
+      (mustache_tag_name))))
+
+===
+Path expression with hyphens
+===
+{{my-object.my-property}}
+---
+
+(document
+  (mustache_interpolation
+    (mustache_path_expression
+      (mustache_identifier)
+      (mustache_identifier))))
+
+===
+Partial with path-like content
+===
+{{> partials/header }}
+---
+
+(document
+  (mustache_partial
+    (mustache_partial_content)))
+
+===
+Multiple interpolations in attribute without separator
+===
+<div id="{{prefix}}{{suffix}}">content</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier))
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Mustache section wrapping multiple sibling elements
+===
+{{#show}}
+<span>first</span>
+<span>second</span>
+<span>third</span>
+{{/show}}
+---
+
+(document
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (text)
+      (html_end_tag
+        (html_tag_name)))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (text)
+      (html_end_tag
+        (html_tag_name)))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (text)
+      (html_end_tag
+        (html_tag_name)))
+    (mustache_section_end
+      (mustache_tag_name))))
+
+===
+Mustache immediately after closing tag
+===
+<div>content</div>{{variable}}
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (text)
+    (html_end_tag
+      (html_tag_name)))
+  (mustache_interpolation
+    (mustache_identifier)))
+
+===
+Mustache immediately before opening tag
+===
+{{variable}}<div>content</div>
+---
+
+(document
+  (mustache_interpolation
+    (mustache_identifier))
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Adjacent section and inverted section same name
+===
+{{#items}}<li>{{name}}</li>{{/items}}{{^items}}<p>none</p>{{/items}}
+---
+
+(document
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (mustache_interpolation
+        (mustache_identifier))
+      (html_end_tag
+        (html_tag_name)))
+    (mustache_section_end
+      (mustache_tag_name)))
+  (mustache_inverted_section
+    (mustache_inverted_section_begin
+      (mustache_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (text)
+      (html_end_tag
+        (html_tag_name)))
+    (mustache_inverted_section_end
+      (mustache_tag_name))))
+
+===
+Nested inverted sections
+===
+{{^a}}{{^b}}content{{/b}}{{/a}}
+---
+
+(document
+  (mustache_inverted_section
+    (mustache_inverted_section_begin
+      (mustache_tag_name))
+    (mustache_inverted_section
+      (mustache_inverted_section_begin
+        (mustache_tag_name))
+      (text)
+      (mustache_inverted_section_end
+        (mustache_tag_name)))
+    (mustache_inverted_section_end
+      (mustache_tag_name))))
+
+===
+Mixed section types nested
+===
+{{#outer}}{{^inner}}fallback{{/inner}}{{/outer}}
+---
+
+(document
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (mustache_inverted_section
+      (mustache_inverted_section_begin
+        (mustache_tag_name))
+      (text)
+      (mustache_inverted_section_end
+        (mustache_tag_name)))
+    (mustache_section_end
+      (mustache_tag_name))))
+
+===
+Uppercase HTML tags with mustache
+===
+<DIV>{{content}}</DIV>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Mixed case identifier
+===
+{{MyVariable}}
+---
+
+(document
+  (mustache_interpolation
+    (mustache_identifier)))
+
+===
+Single character identifier
+===
+{{x}}
+---
+
+(document
+  (mustache_interpolation
+    (mustache_identifier)))
+
+===
+Attribute with only mustache section no text
+===
+<div class="{{#active}}active{{/active}}">content</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_section
+            (mustache_section_begin
+              (mustache_tag_name))
+            (text)
+            (mustache_section_end
+              (mustache_tag_name))))))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Empty quoted attribute with mustache after
+===
+<div class="" data-id="{{id}}">content</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Noscript element with mustache
+===
+<noscript>{{fallback}}</noscript>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Picture element with source and mustache
+===
+<picture>
+  {{#sources}}
+  <source srcset="{{srcset}}" type="{{type}}">
+  {{/sources}}
+  <img src="{{fallback}}" alt="{{alt}}">
+</picture>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name)
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier))))
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier)))))
+        (html_forced_end_tag))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (html_element
+      (html_start_tag
+        (html_tag_name)
+        (html_attribute
+          (html_attribute_name)
+          (html_quoted_attribute_value
+            (mustache_interpolation
+              (mustache_identifier))))
+        (html_attribute
+          (html_attribute_name)
+          (html_quoted_attribute_value
+            (mustache_interpolation
+              (mustache_identifier))))))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+DL list with mustache iteration
+===
+<dl>
+  {{#terms}}
+  <dt>{{term}}
+  <dd>{{definition}}
+  {{/terms}}
+</dl>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name))
+        (mustache_interpolation
+          (mustache_identifier)))
+      (html_element
+        (html_start_tag
+          (html_tag_name))
+        (mustache_interpolation
+          (mustache_identifier))
+        (html_forced_end_tag))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+P elements with implicit closure and mustache
+===
+<p>{{para1}}
+<p>{{para2}}
+<p>{{para3}}</p>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier)))
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier)))
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Li elements without close tags with mustache
+===
+<ul>
+  {{#items}}
+  <li>{{item}}
+  {{/items}}
+</ul>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name))
+        (mustache_interpolation
+          (mustache_identifier))
+        (html_forced_end_tag))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Area void element in map with mustache
+===
+<map name="{{mapName}}">
+  {{#areas}}
+  <area shape="{{shape}}" coords="{{coords}}" href="{{href}}">
+  {{/areas}}
+</map>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name)
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier))))
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier))))
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier)))))
+        (html_forced_end_tag))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Track void element in video with mustache
+===
+<video controls>
+  {{#tracks}}
+  <track kind="{{kind}}" src="{{src}}" srclang="{{lang}}">
+  {{/tracks}}
+</video>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name)
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier))))
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier))))
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier)))))
+        (html_forced_end_tag))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Wbr void element with mustache
+===
+<p>{{longWord1}}<wbr>{{longWord2}}</p>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_element
+      (html_start_tag
+        (html_tag_name)))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Embed void element with mustache
+===
+<embed type="{{type}}" src="{{src}}">
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier))))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))))
+
+===
+Keygen void element with mustache (deprecated but valid)
+===
+<keygen name="{{name}}" challenge="{{challenge}}">
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier))))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))))
+
+===
+Base void element with mustache
+===
+<base href="{{baseUrl}}">
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))))
+
+===
+Col void element in colgroup with mustache
+===
+<table>
+  <colgroup>
+    {{#cols}}
+    <col span="{{span}}" style="{{style}}">
+    {{/cols}}
+  </colgroup>
+</table>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (mustache_section
+        (mustache_section_begin
+          (mustache_tag_name))
+        (html_element
+          (html_start_tag
+            (html_tag_name)
+            (html_attribute
+              (html_attribute_name)
+              (html_quoted_attribute_value
+                (mustache_interpolation
+                  (mustache_identifier))))
+            (html_attribute
+              (html_attribute_name)
+              (html_quoted_attribute_value
+                (mustache_interpolation
+                  (mustache_identifier)))))
+          (html_forced_end_tag))
+        (mustache_section_end
+          (mustache_tag_name)))
+      (html_end_tag
+        (html_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Param void element in object with mustache
+===
+<object data="{{data}}">
+  {{#params}}
+  <param name="{{name}}" value="{{value}}">
+  {{/params}}
+</object>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name)
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier))))
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier)))))
+        (html_forced_end_tag))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Custom element with mustache
+===
+<my-component data-value="{{value}}">{{content}}</my-component>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Details and summary with mustache
+===
+<details>
+  <summary>{{summaryText}}</summary>
+  {{content}}
+</details>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (mustache_interpolation
+        (mustache_identifier))
+      (html_end_tag
+        (html_tag_name)))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Dialog element with mustache
+===
+<dialog open>
+  <p>{{message}}</p>
+</dialog>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (mustache_interpolation
+        (mustache_identifier))
+      (html_end_tag
+        (html_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Figure and figcaption with mustache
+===
+<figure>
+  <img src="{{src}}" alt="{{alt}}">
+  <figcaption>{{caption}}</figcaption>
+</figure>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name)
+        (html_attribute
+          (html_attribute_name)
+          (html_quoted_attribute_value
+            (mustache_interpolation
+              (mustache_identifier))))
+        (html_attribute
+          (html_attribute_name)
+          (html_quoted_attribute_value
+            (mustache_interpolation
+              (mustache_identifier))))))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (mustache_interpolation
+        (mustache_identifier))
+      (html_end_tag
+        (html_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Aria attributes with mustache
+===
+<button aria-label="{{ariaLabel}}" aria-describedby="{{descId}}">{{text}}</button>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier))))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Role attribute with mustache
+===
+<div role="{{role}}" aria-expanded="{{expanded}}">{{content}}</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier))))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+SVG element with mustache attributes
+===
+<svg width="{{width}}" height="{{height}}">
+  <rect x="{{x}}" y="{{y}}" fill="{{fill}}"/>
+</svg>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier))))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (html_element
+      (html_self_closing_tag
+        (html_tag_name)
+        (html_attribute
+          (html_attribute_name)
+          (html_quoted_attribute_value
+            (mustache_interpolation
+              (mustache_identifier))))
+        (html_attribute
+          (html_attribute_name)
+          (html_quoted_attribute_value
+            (mustache_interpolation
+              (mustache_identifier))))
+        (html_attribute
+          (html_attribute_name)
+          (html_quoted_attribute_value
+            (mustache_interpolation
+              (mustache_identifier))))))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+MathML element with mustache
+===
+<math>
+  <mi>{{variable}}</mi>
+</math>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (mustache_interpolation
+        (mustache_identifier))
+      (html_end_tag
+        (html_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Template element with mustache content
+===
+<template id="{{templateId}}">
+  {{#items}}
+  <div>{{content}}</div>
+  {{/items}}
+</template>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name))
+        (mustache_interpolation
+          (mustache_identifier))
+        (html_end_tag
+          (html_tag_name)))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Slot element with mustache
+===
+<slot name="{{slotName}}">{{fallback}}</slot>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Output element with mustache
+===
+<output name="{{name}}" for="{{for}}">{{result}}</output>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier))))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Progress element with mustache
+===
+<progress value="{{value}}" max="{{max}}">{{percent}}%</progress>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier))))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (mustache_interpolation
+      (mustache_identifier))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Meter element with mustache
+===
+<meter value="{{value}}" min="{{min}}" max="{{max}}">{{label}}</meter>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier))))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier))))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Time element with mustache
+===
+<time datetime="{{datetime}}">{{display}}</time>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Data element with mustache
+===
+<data value="{{machineValue}}">{{humanValue}}</data>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Fieldset and legend with mustache
+===
+<fieldset>
+  <legend>{{legendText}}</legend>
+  {{content}}
+</fieldset>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (mustache_interpolation
+        (mustache_identifier))
+      (html_end_tag
+        (html_tag_name)))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Datalist with mustache options
+===
+<datalist id="{{listId}}">
+  {{#options}}
+  <option value="{{value}}">
+  {{/options}}
+</datalist>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name)
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier)))))
+        (html_forced_end_tag))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Ruby element with rb and rt mustache
+===
+<ruby>
+  {{#annotations}}
+  <rb>{{base}}</rb><rt>{{annotation}}</rt>
+  {{/annotations}}
+</ruby>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name))
+        (mustache_interpolation
+          (mustache_identifier))
+        (html_end_tag
+          (html_tag_name)))
+      (html_element
+        (html_start_tag
+          (html_tag_name))
+        (mustache_interpolation
+          (mustache_identifier))
+        (html_end_tag
+          (html_tag_name)))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Abbr element with mustache title
+===
+<abbr title="{{fullText}}">{{abbr}}</abbr>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Mark element with mustache
+===
+<p>Search result: <mark>{{match}}</mark> found</p>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (text)
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (mustache_interpolation
+        (mustache_identifier))
+      (html_end_tag
+        (html_tag_name)))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Ins and del elements with mustache
+===
+<p><del>{{oldText}}</del> <ins>{{newText}}</ins></p>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (mustache_interpolation
+        (mustache_identifier))
+      (html_end_tag
+        (html_tag_name)))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (mustache_interpolation
+        (mustache_identifier))
+      (html_end_tag
+        (html_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Multiple path expressions in same element
+===
+<div data-user="{{user.name}}" data-email="{{user.email}}">{{user.bio}}</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_path_expression
+              (mustache_identifier)
+              (mustache_identifier)))))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_path_expression
+              (mustache_identifier)
+              (mustache_identifier))))))
+    (mustache_interpolation
+      (mustache_path_expression
+        (mustache_identifier)
+        (mustache_identifier)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Section with path expression as name
+===
+{{#user.posts}}<li>{{title}}</li>{{/user.posts}}
+---
+
+(document
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (mustache_interpolation
+        (mustache_identifier))
+      (html_end_tag
+        (html_tag_name)))
+    (mustache_section_end
+      (mustache_tag_name))))
+
+===
+Inverted section with path expression
+===
+{{^user.admin}}<span>Regular user</span>{{/user.admin}}
+---
+
+(document
+  (mustache_inverted_section
+    (mustache_inverted_section_begin
+      (mustache_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (text)
+      (html_end_tag
+        (html_tag_name)))
+    (mustache_inverted_section_end
+      (mustache_tag_name))))
+
+===
+Triple mustache with dot expression
+===
+{{{.}}}
+---
+
+(document
+  (mustache_triple))
+
+===
+Multiple dots should not parse as path
+===
+<div>{{single}}</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Iframe with mustache attributes
+===
+<iframe src="{{src}}" width="{{width}}" height="{{height}}"></iframe>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier))))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier))))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Audio element with source and mustache
+===
+<audio controls>
+  {{#sources}}
+  <source src="{{src}}" type="{{type}}">
+  {{/sources}}
+</audio>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name)
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier))))
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier)))))
+        (html_forced_end_tag))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Canvas with mustache dimensions
+===
+<canvas id="{{canvasId}}" width="{{width}}" height="{{height}}"></canvas>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier))))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier))))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Address element with mustache
+===
+<address>
+  {{#contact}}
+  {{name}}<br>
+  {{email}}
+  {{/contact}}
+</address>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (mustache_interpolation
+        (mustache_identifier))
+      (html_element
+        (html_start_tag
+          (html_tag_name)))
+      (mustache_interpolation
+        (mustache_identifier))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Blockquote with cite and mustache
+===
+<blockquote cite="{{citeUrl}}">
+  {{quote}}
+  <footer>— {{author}}</footer>
+</blockquote>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (text)
+      (mustache_interpolation
+        (mustache_identifier))
+      (html_end_tag
+        (html_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Code element with mustache
+===
+<code>{{snippet}}</code>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Kbd element with mustache
+===
+<kbd>{{key}}</kbd>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Samp element with mustache
+===
+<samp>{{output}}</samp>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Var element with mustache
+===
+<var>{{variable}}</var>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Bdo element with mustache
+===
+<bdo dir="{{direction}}">{{text}}</bdo>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Cite element with mustache
+===
+<cite>{{source}}</cite>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Q element with mustache
+===
+<q cite="{{citeUrl}}">{{quote}}</q>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Dfn element with mustache
+===
+<dfn>{{term}}</dfn>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Sub and sup elements with mustache
+===
+<p>H<sub>{{subscript}}</sub>O and E=mc<sup>{{exponent}}</sup></p>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (text)
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (mustache_interpolation
+        (mustache_identifier))
+      (html_end_tag
+        (html_tag_name)))
+    (text)
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (mustache_interpolation
+        (mustache_identifier))
+      (html_end_tag
+        (html_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Small element with mustache
+===
+<small>{{disclaimer}}</small>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+S element with mustache
+===
+<s>{{strikethrough}}</s>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Main element with mustache
+===
+<main>{{mainContent}}</main>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Aside element with mustache
+===
+<aside>{{sideContent}}</aside>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Section element with mustache
+===
+<section>{{sectionContent}}</section>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Article element with mustache
+===
+<article>{{articleContent}}</article>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Nav element with mustache
+===
+<nav>{{navigation}}</nav>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Footer element with mustache
+===
+<footer>{{footerContent}}</footer>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Header element with mustache
+===
+<header>{{headerContent}}</header>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Heading elements with mustache
+===
+<h1>{{h1}}</h1>
+<h2>{{h2}}</h2>
+<h3>{{h3}}</h3>
+<h4>{{h4}}</h4>
+<h5>{{h5}}</h5>
+<h6>{{h6}}</h6>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name)))
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name)))
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name)))
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name)))
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name)))
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Hgroup element with mustache
+===
+<hgroup>
+  <h1>{{title}}</h1>
+  <p>{{subtitle}}</p>
+</hgroup>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (mustache_interpolation
+        (mustache_identifier))
+      (html_end_tag
+        (html_tag_name)))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (mustache_interpolation
+        (mustache_identifier))
+      (html_end_tag
+        (html_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Multiple sections wrapping same element type
+===
+{{#a}}<div>A</div>{{/a}}{{#b}}<div>B</div>{{/b}}
+---
+
+(document
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (text)
+      (html_end_tag
+        (html_tag_name)))
+    (mustache_section_end
+      (mustache_tag_name)))
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (text)
+      (html_end_tag
+        (html_tag_name)))
+    (mustache_section_end
+      (mustache_tag_name))))
+
+===
+Deeply nested HTML inside mustache section
+===
+{{#outer}}<div><span><strong>{{text}}</strong></span></div>{{/outer}}
+---
+
+(document
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name))
+        (html_element
+          (html_start_tag
+            (html_tag_name))
+          (mustache_interpolation
+            (mustache_identifier))
+          (html_end_tag
+            (html_tag_name)))
+        (html_end_tag
+          (html_tag_name)))
+      (html_end_tag
+        (html_tag_name)))
+    (mustache_section_end
+      (mustache_tag_name))))
+
+===
+Thead tbody tfoot with mustache
+===
+<table>
+  <thead>
+    <tr><th>{{header}}</th></tr>
+  </thead>
+  <tbody>
+    {{#rows}}
+    <tr><td>{{cell}}</td></tr>
+    {{/rows}}
+  </tbody>
+  <tfoot>
+    <tr><td>{{footer}}</td></tr>
+  </tfoot>
+</table>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name))
+        (html_element
+          (html_start_tag
+            (html_tag_name))
+          (mustache_interpolation
+            (mustache_identifier))
+          (html_end_tag
+            (html_tag_name)))
+        (html_end_tag
+          (html_tag_name)))
+      (html_end_tag
+        (html_tag_name)))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (mustache_section
+        (mustache_section_begin
+          (mustache_tag_name))
+        (html_element
+          (html_start_tag
+            (html_tag_name))
+          (html_element
+            (html_start_tag
+              (html_tag_name))
+            (mustache_interpolation
+              (mustache_identifier))
+            (html_end_tag
+              (html_tag_name)))
+          (html_end_tag
+            (html_tag_name)))
+        (mustache_section_end
+          (mustache_tag_name)))
+      (html_end_tag
+        (html_tag_name)))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name))
+        (html_element
+          (html_start_tag
+            (html_tag_name))
+          (mustache_interpolation
+            (mustache_identifier))
+          (html_end_tag
+            (html_tag_name)))
+        (html_end_tag
+          (html_tag_name)))
+      (html_end_tag
+        (html_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Caption in table with mustache
+===
+<table>
+  <caption>{{caption}}</caption>
+  <tr><td>{{cell}}</td></tr>
+</table>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (mustache_interpolation
+        (mustache_identifier))
+      (html_end_tag
+        (html_tag_name)))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name))
+        (mustache_interpolation
+          (mustache_identifier))
+        (html_end_tag
+          (html_tag_name)))
+      (html_end_tag
+        (html_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Table with th scope attribute and mustache
+===
+<table>
+  <tr>
+    <th scope="{{scope}}">{{header}}</th>
+    <td>{{data}}</td>
+  </tr>
+</table>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name)
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier)))))
+        (mustache_interpolation
+          (mustache_identifier))
+        (html_end_tag
+          (html_tag_name)))
+      (html_element
+        (html_start_tag
+          (html_tag_name))
+        (mustache_interpolation
+          (mustache_identifier))
+        (html_end_tag
+          (html_tag_name)))
+      (html_end_tag
+        (html_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Form with labels and inputs with mustache
+===
+<form action="{{action}}" method="{{method}}">
+  {{#fields}}
+  <label for="{{id}}">{{label}}</label>
+  <input type="{{type}}" id="{{id}}" name="{{name}}">
+  {{/fields}}
+</form>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier))))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name)
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier)))))
+        (mustache_interpolation
+          (mustache_identifier))
+        (html_end_tag
+          (html_tag_name)))
+      (html_element
+        (html_start_tag
+          (html_tag_name)
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier))))
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier))))
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier)))))
+        (html_forced_end_tag))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Button with multiple conditional classes
+===
+<button class="btn {{#primary}}btn-primary{{/primary}}{{#secondary}}btn-secondary{{/secondary}}">{{label}}</button>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (html_attribute_value)
+          (mustache_section
+            (mustache_section_begin
+              (mustache_tag_name))
+            (text)
+            (mustache_section_end
+              (mustache_tag_name)))
+          (mustache_section
+            (mustache_section_begin
+              (mustache_tag_name))
+            (text)
+            (mustache_section_end
+              (mustache_tag_name))))))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Anchor with conditional attributes
+===
+<a href="{{href}}" {{#target}}target="{{target}}"{{/target}} {{#rel}}rel="{{rel}}"{{/rel}}>{{text}}</a>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier))))
+      (mustache_attribute
+        (mustache_section
+          (mustache_section_begin
+            (mustache_tag_name))
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier))))
+          (mustache_section_end
+            (mustache_tag_name))))
+      (mustache_attribute
+        (mustache_section
+          (mustache_section_begin
+            (mustache_tag_name))
+          (html_attribute
+            (html_attribute_name)
+            (html_quoted_attribute_value
+              (mustache_interpolation
+                (mustache_identifier))))
+          (mustache_section_end
+            (mustache_tag_name)))))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Span with data attributes using mustache
+===
+<span data-tooltip="{{tooltip}}" data-placement="{{placement}}">{{text}}</span>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier))))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Style attribute with mustache values
+===
+<div style="color: {{color}}; background: {{bg}};">{{content}}</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (html_attribute_value)
+          (mustache_interpolation
+            (mustache_identifier))
+          (html_attribute_value)
+          (mustache_interpolation
+            (mustache_identifier))
+          (html_attribute_value))))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Inline event handler with mustache (for completeness)
+===
+<button onclick="{{handler}}">{{text}}</button>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_interpolation
+            (mustache_identifier)))))
+    (mustache_interpolation
+      (mustache_identifier))
+    (html_end_tag
+      (html_tag_name))))

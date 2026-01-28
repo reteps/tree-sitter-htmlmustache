@@ -343,6 +343,11 @@ static inline bool tag_eq(const Tag *self, const Tag *other) {
 }
 
 static bool tag_can_contain(Tag *self, const Tag *other) {
+    // Void elements cannot contain any children
+    if (tag_is_void(self)) {
+        return false;
+    }
+
     TagType child = other->type;
 
     switch (self->type) {
