@@ -3,9 +3,7 @@
   "name": "HTML Mustache",
   "scopeName": "text.html.htmlmustache",
   "_comment": "Minimal TextMate grammar for mustache comments. VS Code's semantic tokens overlay (not replace) TextMate highlighting, so without this, comment delimiters {{! and }} get colored incorrectly by VS Code's fallback tokenization. The LSP semantic tokens handle all other highlighting.",
-  "patterns": [
-    { "include": "#mustache-comment" }
-  ],
+  "patterns": [{ "include": "#mustache-comment" }],
   "repository": {
     "mustache-comment": {
       "name": "comment.block.mustache",
