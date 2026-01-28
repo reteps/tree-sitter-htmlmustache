@@ -17,21 +17,25 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          cache: npm
-          cache-dependency-path: lsp/package-lock.json
+          cache: pnpm
+          cache-dependency-path: lsp/pnpm-lock.yaml
           node-version: ${{ vars.NODE_VERSION }}
       - name: Install dependencies
-        run: npm install
+        run: pnpm install
         working-directory: lsp
       - name: Build
-        run: npm run build
+        run: pnpm run build
         working-directory: lsp
       - name: Run server tests
-        run: npm test
-        working-directory: lsp/server
+        run: pnpm run test
+        working-directory: lsp
       - name: Lint
-        run: npm run lint
+        run: pnpm run lint
         working-directory: lsp
