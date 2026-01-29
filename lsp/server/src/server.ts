@@ -8,7 +8,7 @@ import {
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-import { initializeParser, parseDocument, getLanguage, createQuery, Tree, Query } from './parser';
+import { initializeParser, parseDocument, getLanguage, createQuery, Tree, Query, setLogger } from './parser';
 import {
   buildSemanticTokens,
   tokenTypesLegend,
@@ -31,16 +31,25 @@ const trees = new Map<string, Tree>();
 let highlightQuery: Query | null = null;
 
 connection.onInitialize(async (params: InitializeParams): Promise<InitializeResult> => {
+  connection.console.log('onInitialize called');
+  connection.console.log(`Client info: ${params.clientInfo?.name} ${params.clientInfo?.version}`);
+
+  // Wire up parser logging to LSP connection
+  setLogger((msg) => connection.console.log(msg));
+
   // Initialize tree-sitter parser
   try {
+    connection.console.log('Initializing tree-sitter parser...');
     await initializeParser();
     connection.console.log('Tree-sitter parser initialized successfully');
 
     // Load highlight query
     const language = getLanguage();
+    connection.console.log(`Language loaded: ${language ? 'yes' : 'no'}`);
     if (language) {
       try {
         highlightQuery = createQuery(HIGHLIGHT_QUERY);
+        connection.console.log(`Highlight query created: ${highlightQuery ? 'yes' : 'no'}`);
       } catch (e) {
         connection.console.warn(`Failed to create highlight query: ${e}`);
       }
@@ -99,6 +108,7 @@ connection.onInitialized(() => {
 
 // Parse document on open
 documents.onDidOpen((event) => {
+  connection.console.log(`Document opened: ${event.document.uri} (language: ${event.document.languageId})`);
   parseAndCacheDocument(event.document);
 });
 
@@ -109,6 +119,7 @@ documents.onDidChangeContent((change) => {
 
 // Clean up when document is closed
 documents.onDidClose((event) => {
+  connection.console.log(`Document closed: ${event.document.uri}`);
   trees.delete(event.document.uri);
 });
 
@@ -121,6 +132,9 @@ function parseAndCacheDocument(document: TextDocument): Tree | null {
 
   if (tree) {
     trees.set(document.uri, tree);
+    connection.console.log(`Parsed document: ${document.uri} (${text.length} chars, root: ${tree.rootNode.type})`);
+  } else {
+    connection.console.log(`Failed to parse document: ${document.uri}`);
   }
 
   return tree;
@@ -139,21 +153,30 @@ function getTree(document: TextDocument): Tree | null {
 
 // Semantic tokens handler
 connection.languages.semanticTokens.on((params) => {
+  connection.console.log(`Semantic tokens requested for: ${params.textDocument.uri}`);
+
   const document = documents.get(params.textDocument.uri);
   if (!document) {
+    connection.console.log('  -> No document found');
     return { data: [] };
   }
 
   const tree = getTree(document);
   if (!tree) {
+    connection.console.log('  -> No parse tree available');
     return { data: [] };
   }
 
   if (!highlightQuery) {
+    connection.console.log('  -> No highlight query available');
     return { data: [] };
   }
 
-  return buildSemanticTokens(tree, highlightQuery).build();
+  const result = buildSemanticTokens(tree, highlightQuery).build();
+  // Each semantic token is encoded as 5 integers (deltaLine, deltaStart, length, type, modifiers)
+  const tokenCount = result.data.length / 5;
+  connection.console.log(`  -> Returning ${tokenCount} tokens`);
+  return result;
 });
 
 // Document symbols handler (outline)

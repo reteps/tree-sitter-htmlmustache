@@ -1,5 +1,5 @@
 import * as path from 'path';
-import { ExtensionContext, workspace } from 'vscode';
+import { ExtensionContext, workspace, window } from 'vscode';
 import {
   LanguageClient,
   LanguageClientOptions,
@@ -8,12 +8,22 @@ import {
 } from 'vscode-languageclient/node';
 
 let client: LanguageClient;
+const outputChannel = window.createOutputChannel('HTML Mustache');
+
+function log(message: string) {
+  const timestamp = new Date().toISOString();
+  outputChannel.appendLine(`[${timestamp}] ${message}`);
+}
 
 export function activate(context: ExtensionContext) {
+  log('Extension activating...');
+  outputChannel.show(true); // Show the output channel, preserve focus
+
   // Path to the server module
   const serverModule = context.asAbsolutePath(
     path.join('server', 'out', 'server.js')
   );
+  log(`Server module path: ${serverModule}`);
 
   // Server options - run the server as a Node process
   const serverOptions: ServerOptions = {
@@ -41,7 +51,10 @@ export function activate(context: ExtensionContext) {
       // Watch for changes to .mustache files
       fileEvents: workspace.createFileSystemWatcher('**/*.{mustache,hbs,handlebars}'),
     },
+    outputChannel: outputChannel,
   };
+
+  log('Creating language client...');
 
   // Create and start the client
   client = new LanguageClient(
@@ -52,7 +65,17 @@ export function activate(context: ExtensionContext) {
   );
 
   // Start the client, which also starts the server
-  client.start();
+  log('Starting language client...');
+  client.start().then(
+    () => {
+      log('Language client started successfully');
+    },
+    (error) => {
+      log(`Failed to start language client: ${error}`);
+    }
+  );
+
+  log('Extension activated');
 }
 
 export function deactivate(): Thenable<void> | undefined {
