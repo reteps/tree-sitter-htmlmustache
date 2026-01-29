@@ -91,12 +91,24 @@
       {
         "language": "htmlmustache",
         "scopes": {
-          "tag": ["entity.name.tag.html"],
-          "attributeName": ["entity.other.attribute-name.html"],
-          "attributeValue": ["string.quoted.double.html"],
-          "delimiter": ["punctuation.definition.tag.begin.html"],
-          "mustacheVariable": ["variable.other.constant"],
-          "mustacheDelimiter": ["keyword.control.handlebars"]
+          "tag": [
+            "entity.name.tag.html"
+          ],
+          "attributeName": [
+            "entity.other.attribute-name.html"
+          ],
+          "attributeValue": [
+            "string.quoted.double.html"
+          ],
+          "delimiter": [
+            "punctuation.definition.tag.begin.html"
+          ],
+          "mustacheVariable": [
+            "variable.other.constant"
+          ],
+          "mustacheDelimiter": [
+            "keyword.control.handlebars"
+          ]
         }
       }
     ]
