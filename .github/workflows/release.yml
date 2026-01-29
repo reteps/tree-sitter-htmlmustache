@@ -81,7 +81,7 @@ jobs:
       - name: Publish to VS Code Marketplace
         if: github.event_name == 'release'
         working-directory: lsp
-        run: vsce publish --packagePath htmlmustache-lsp.vsix
+        run: vsce publish --packagePath htmlmustache-lsp.vsix || echo "Version may already exist, skipping"
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
@@ -91,6 +91,6 @@ jobs:
       - name: Publish to Open VSX Registry
         if: github.event_name == 'release'
         working-directory: lsp
-        run: ovsx publish htmlmustache-lsp.vsix
+        run: ovsx publish htmlmustache-lsp.vsix || echo "Version may already exist, skipping"
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}
