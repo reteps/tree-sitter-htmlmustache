@@ -160,7 +160,7 @@ const MUSTACHE_PATTERNS: MustachePattern[] = [
   // {{!...}} comment - all comment colored
   { pattern: /\{\{!([^}]*)\}\}/g, openLen: 3, closeLen: 2, delimiterType: TokenType.comment, contentType: TokenType.comment },
   // {{...}} variable (no special char after {{) - keyword delimiters, variable content
-  { pattern: /\{\{([^#\/^>!{}][^}]*)\}\}/g, openLen: 2, closeLen: 2, delimiterType: TokenType.keyword, contentType: TokenType.mustacheVariable },
+  { pattern: /\{\{([^#/^>!{}][^}]*)\}\}/g, openLen: 2, closeLen: 2, delimiterType: TokenType.keyword, contentType: TokenType.mustacheVariable },
 ];
 
 /**
