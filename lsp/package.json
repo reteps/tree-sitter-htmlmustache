@@ -103,6 +103,7 @@
   },
   "scripts": {
     "vscode:prepublish": "pnpm run build",
+    "prebuild": "cp ../tree-sitter-htmlmustache.wasm ./tree-sitter-htmlmustache.wasm",
     "build": "pnpm run build:client && pnpm run build:server",
     "build:client": "pnpm --filter htmlmustache-lsp-client run build",
     "build:server": "pnpm --filter htmlmustache-lsp-server run build",

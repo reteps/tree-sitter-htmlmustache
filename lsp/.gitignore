@@ -8,6 +8,9 @@ server/out/
 *.js.map
 *.d.ts
 
+# WASM (copied during build)
+tree-sitter-htmlmustache.wasm
+
 # VS Code
 .vscode-test/
 *.vsix

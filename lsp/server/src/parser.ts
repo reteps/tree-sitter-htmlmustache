@@ -15,9 +15,8 @@ export async function initializeParser(): Promise<void> {
   await Parser.init();
   parser = new Parser();
 
-  // Load the WASM file from the parent project
-  // In production, this should be bundled with the extension
-  const wasmPath = path.resolve(__dirname, '..', '..', '..', 'tree-sitter-htmlmustache.wasm');
+  // Load the WASM file - copied to lsp/ directory during build
+  const wasmPath = path.resolve(__dirname, '..', '..', 'tree-sitter-htmlmustache.wasm');
 
   try {
     language = await Language.load(wasmPath);
