@@ -13,3 +13,8 @@ client/tsconfig.json
 server/tsconfig.json
 .eslintrc*
 .gitignore
+esbuild.mjs
+eslint.config.mjs
+pnpm-lock.yaml
+pnpm-workspace.yaml
+*.map

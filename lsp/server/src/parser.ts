@@ -23,52 +23,29 @@ export async function initializeParser(): Promise<void> {
   log(`Parser initialization starting...`);
   log(`__dirname: ${__dirname}`);
 
-  // Find web-tree-sitter.wasm for Parser.init()
-  // Try multiple potential locations since paths differ between dev and packaged extension
-  const potentialWebTsWasmPaths = [
-    // Development: relative to server/out
-    path.resolve(__dirname, '..', '..', 'node_modules', 'web-tree-sitter', 'web-tree-sitter.wasm'),
-    // pnpm structure
-    path.resolve(__dirname, '..', '..', 'node_modules', '.pnpm', 'web-tree-sitter@0.26.3', 'node_modules', 'web-tree-sitter', 'web-tree-sitter.wasm'),
-    // Try using require.resolve to find it
-    (() => {
-      try {
-        const webTsPath = require.resolve('web-tree-sitter');
-        return path.resolve(path.dirname(webTsPath), 'web-tree-sitter.wasm');
-      } catch {
-        return '';
-      }
-    })(),
-  ];
+  // Find web-tree-sitter.wasm - it's copied to server/out during build
+  const webTsWasmPath = path.resolve(__dirname, 'web-tree-sitter.wasm');
+  log(`web-tree-sitter.wasm path: ${webTsWasmPath}`);
+  log(`web-tree-sitter.wasm exists: ${fs.existsSync(webTsWasmPath)}`);
 
-  let webTreeSitterWasmPath = '';
-  for (const p of potentialWebTsWasmPaths) {
-    if (p && fs.existsSync(p)) {
-      webTreeSitterWasmPath = p;
-      break;
-    }
+  if (!fs.existsSync(webTsWasmPath)) {
+    throw new Error(`web-tree-sitter.wasm not found at ${webTsWasmPath}`);
   }
 
-  log(`Checked web-tree-sitter.wasm paths:`);
-  for (const p of potentialWebTsWasmPaths) {
-    log(`  ${p}: ${p && fs.existsSync(p) ? 'EXISTS' : 'not found'}`);
-  }
-  log(`Using: ${webTreeSitterWasmPath || 'NONE FOUND'}`);
-
-  if (!webTreeSitterWasmPath) {
-    const error = 'Could not find web-tree-sitter.wasm in any expected location';
-    log(error);
-    throw new Error(error);
-  }
-
+  // Initialize web-tree-sitter with explicit WASM binary
   try {
+    log(`Reading web-tree-sitter.wasm...`);
+    const wasmBinary = fs.readFileSync(webTsWasmPath);
+    log(`WASM binary size: ${wasmBinary.length} bytes`);
+
+    log(`Calling Parser.init() with wasmBinary...`);
+    // Pass both wasmBinary and locateFile to handle all code paths
     await Parser.init({
-      locateFile: (scriptName: string) => {
-        log(`Parser.init locateFile called for: ${scriptName}`);
-        if (scriptName === 'web-tree-sitter.wasm') {
-          return webTreeSitterWasmPath;
-        }
-        return scriptName;
+      wasmBinary: wasmBinary.buffer,
+      locateFile: (scriptName: string, scriptDirectory: string) => {
+        log(`locateFile called: scriptName=${scriptName}, scriptDirectory=${scriptDirectory}`);
+        // Return the path to our copied WASM file
+        return path.resolve(__dirname, scriptName);
       },
     });
     log(`Parser.init() completed successfully`);
@@ -79,32 +56,14 @@ export async function initializeParser(): Promise<void> {
 
   parser = new Parser();
 
-  // Load the grammar WASM file - copied to lsp/ directory during build
-  // Try multiple potential locations
-  const potentialGrammarWasmPaths = [
-    path.resolve(__dirname, '..', '..', 'tree-sitter-htmlmustache.wasm'),
-    path.resolve(__dirname, '..', 'tree-sitter-htmlmustache.wasm'),
-    path.resolve(__dirname, 'tree-sitter-htmlmustache.wasm'),
-  ];
+  // Load the grammar WASM file - copied to extension root during build
+  // server/out -> server -> extension root
+  const grammarWasmPath = path.resolve(__dirname, '..', '..', 'tree-sitter-htmlmustache.wasm');
+  log(`Grammar WASM path: ${grammarWasmPath}`);
+  log(`Grammar WASM exists: ${fs.existsSync(grammarWasmPath)}`);
 
-  let grammarWasmPath = '';
-  for (const p of potentialGrammarWasmPaths) {
-    if (fs.existsSync(p)) {
-      grammarWasmPath = p;
-      break;
-    }
-  }
-
-  log(`Checked grammar WASM paths:`);
-  for (const p of potentialGrammarWasmPaths) {
-    log(`  ${p}: ${fs.existsSync(p) ? 'EXISTS' : 'not found'}`);
-  }
-  log(`Using: ${grammarWasmPath || 'NONE FOUND'}`);
-
-  if (!grammarWasmPath) {
-    const error = 'Could not find tree-sitter-htmlmustache.wasm in any expected location';
-    log(error);
-    throw new Error(error);
+  if (!fs.existsSync(grammarWasmPath)) {
+    throw new Error(`tree-sitter-htmlmustache.wasm not found at ${grammarWasmPath}`);
   }
 
   try {
