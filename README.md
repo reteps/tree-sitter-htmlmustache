@@ -1,6 +1,12 @@
+<p align="center">
+  <img src="lsp/icon.png" alt="HTML Mustache Logo" width="128">
+</p>
+
 # tree-sitter-htmlmustache
 
-[![CI][ci]](https://github.com/reteps/tree-sitter-htmlmustache/actions/workflows/ci.yml)
+[![Lint][lint-badge]][lint]
+[![LSP][lsp-badge]][lsp]
+[![VS Code Marketplace][marketplace-badge]][marketplace]
 
 HTML with Mustache/Handlebars template syntax grammar for [tree-sitter](https://github.com/tree-sitter/tree-sitter).
 
@@ -16,7 +22,9 @@ This grammar extends standard HTML parsing to support Mustache constructs:
 
 ### VS Code Extension
 
-Download `htmlmustache-lsp.vsix` from the [latest release](https://github.com/reteps/tree-sitter-htmlmustache/releases) and install via:
+Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=reteps.htmlmustache-lsp) or search for "HTML Mustache" in the Extensions view.
+
+Alternatively, download `htmlmustache-lsp.vsix` from the [latest release](https://github.com/reteps/tree-sitter-htmlmustache/releases) and install via:
 
 ```
 code --install-extension htmlmustache-lsp.vsix
@@ -36,4 +44,9 @@ This project is based on [tree-sitter-html](https://github.com/tree-sitter/tree-
 - [Mustache Manual](https://mustache.github.io/mustache.5.html)
 - [Handlebars Language Guide](https://handlebarsjs.com/guide/)
 
-[ci]: https://img.shields.io/github/actions/workflow/status/reteps/tree-sitter-htmlmustache/ci.yml?logo=github&label=CI
+[lint-badge]: https://img.shields.io/github/actions/workflow/status/reteps/tree-sitter-htmlmustache/lint.yml?logo=github&label=Lint
+[lint]: https://github.com/reteps/tree-sitter-htmlmustache/actions/workflows/lint.yml
+[lsp-badge]: https://img.shields.io/github/actions/workflow/status/reteps/tree-sitter-htmlmustache/lsp.yml?logo=github&label=LSP
+[lsp]: https://github.com/reteps/tree-sitter-htmlmustache/actions/workflows/lsp.yml
+[marketplace-badge]: https://img.shields.io/visual-studio-marketplace/v/reteps.htmlmustache-lsp?logo=visualstudiocode&label=VS%20Code
+[marketplace]: https://marketplace.visualstudio.com/items?itemName=reteps.htmlmustache-lsp
