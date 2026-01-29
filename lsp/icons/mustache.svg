@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <g transform="translate(15, 18) rotate(-90)">
+    <text x="0" y="0"
+          font-family="Georgia, serif"
+          font-size="30"
+          fill="#E57000"
+          text-anchor="middle"
+          dominant-baseline="central">}</text>
+  </g>
+</svg>
