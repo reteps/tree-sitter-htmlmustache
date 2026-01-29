@@ -77,3 +77,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: lsp/htmlmustache-lsp.vsix
+
+      - name: Publish to VS Code Marketplace
+        if: github.event_name == 'release'
+        working-directory: lsp
+        run: vsce publish --packagePath htmlmustache-lsp.vsix
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
