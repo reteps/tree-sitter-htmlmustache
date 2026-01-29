@@ -84,3 +84,13 @@ jobs:
         run: vsce publish --packagePath htmlmustache-lsp.vsix
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
+
+      - name: Install ovsx
+        run: npm install -g ovsx
+
+      - name: Publish to Open VSX Registry
+        if: github.event_name == 'release'
+        working-directory: lsp
+        run: ovsx publish htmlmustache-lsp.vsix
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
