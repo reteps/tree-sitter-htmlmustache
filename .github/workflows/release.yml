@@ -61,6 +61,11 @@ jobs:
         working-directory: lsp
         run: pnpm install
 
+      - name: Set version from tag
+        if: github.event_name == 'release'
+        working-directory: lsp
+        run: npm pkg set version="${GITHUB_REF_NAME#v}"
+
       - name: Build extension
         working-directory: lsp
         run: pnpm run build
