@@ -51,6 +51,20 @@ code --install-extension htmlmustache-lsp.vsix
 
 Download `tree-sitter-htmlmustache.wasm` from the [latest release](https://github.com/reteps/tree-sitter-htmlmustache/releases).
 
+## Using with `.html` Files
+
+By default, the extension activates for `.mustache`, `.hbs`, and `.handlebars` files. To use it with `.html` files, add this to your VS Code settings:
+
+```json
+{
+  "files.associations": {
+    "*.html": "htmlmustache"
+  }
+}
+```
+
+You can also change the language mode for a single file by clicking the language indicator in the status bar and selecting "HTML Mustache".
+
 ## Acknowledgments
 
 This project is based on [tree-sitter-html](https://github.com/tree-sitter/tree-sitter-html) by Max Brunsfeld and Amaan Qureshi.
