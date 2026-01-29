@@ -60,7 +60,46 @@
           "description": "Traces the communication between VS Code and the language server."
         }
       }
-    }
+    },
+    "semanticTokenTypes": [
+      {
+        "id": "tag",
+        "description": "HTML/XML tag name"
+      },
+      {
+        "id": "attributeName",
+        "description": "HTML attribute name"
+      },
+      {
+        "id": "attributeValue",
+        "description": "HTML attribute value"
+      },
+      {
+        "id": "delimiter",
+        "description": "HTML tag delimiters like < > </ />"
+      },
+      {
+        "id": "mustacheVariable",
+        "description": "Mustache variable or section name"
+      },
+      {
+        "id": "mustacheDelimiter",
+        "description": "Mustache delimiters like {{ }} {{# {{/"
+      }
+    ],
+    "semanticTokenScopes": [
+      {
+        "language": "htmlmustache",
+        "scopes": {
+          "tag": ["entity.name.tag.html"],
+          "attributeName": ["entity.other.attribute-name.html"],
+          "attributeValue": ["string.quoted.double.html"],
+          "delimiter": ["punctuation.definition.tag.begin.html"],
+          "mustacheVariable": ["variable.other.constant"],
+          "mustacheDelimiter": ["keyword.control.handlebars"]
+        }
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "pnpm run build",

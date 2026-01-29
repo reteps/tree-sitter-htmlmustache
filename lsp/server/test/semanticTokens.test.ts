@@ -47,7 +47,6 @@ describe('Semantic Tokens', () => {
 
     it('generates tokens for mustache section', () => {
       const tokens = getTokens('{{#items}}content{{/items}}');
-      // Should include tokens for section delimiters and tag names
       expect(tokens.data.length).toBeGreaterThan(0);
     });
 

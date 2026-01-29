@@ -18,6 +18,7 @@ import {
 import { getDocumentSymbols } from './documentSymbols';
 import { getHoverInfo } from './hover';
 import { getFoldingRanges } from './folding';
+import { formatDocument, formatDocumentRange } from './formatting/index';
 
 // Create connection and document manager
 const connection = createConnection(ProposedFeatures.all);
@@ -79,6 +80,10 @@ connection.onInitialize(async (params: InitializeParams): Promise<InitializeResu
 
       // Folding ranges
       foldingRangeProvider: true,
+
+      // Document formatting
+      documentFormattingProvider: true,
+      documentRangeFormattingProvider: true,
 
       // TODO: Add more capabilities as needed
       // completionProvider: { resolveProvider: true },
@@ -194,6 +199,36 @@ connection.onFoldingRanges((params) => {
   }
 
   return getFoldingRanges(tree);
+});
+
+// Document formatting handler
+connection.onDocumentFormatting((params) => {
+  const document = documents.get(params.textDocument.uri);
+  if (!document) {
+    return [];
+  }
+
+  const tree = getTree(document);
+  if (!tree) {
+    return [];
+  }
+
+  return formatDocument(tree, document, params.options);
+});
+
+// Document range formatting handler
+connection.onDocumentRangeFormatting((params) => {
+  const document = documents.get(params.textDocument.uri);
+  if (!document) {
+    return [];
+  }
+
+  const tree = getTree(document);
+  if (!tree) {
+    return [];
+  }
+
+  return formatDocumentRange(tree, document, params.range, params.options);
 });
 
 // Listen on the documents and connection

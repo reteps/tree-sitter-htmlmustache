@@ -23,6 +23,7 @@ export const HIGHLIGHT_QUERY = `
 ; Mustache
 (mustache_tag_name) @variable
 (mustache_identifier) @variable
+(mustache_partial_content) @variable
 (mustache_comment) @comment
 
 [
@@ -38,33 +39,44 @@ export const HIGHLIGHT_QUERY = `
 `;
 
 /**
- * Semantic token types - these are VS Code's standard types.
+ * Semantic token types - includes both VS Code standard types and custom HTML/Mustache types.
  * The order matters as it defines the index used in the protocol.
+ *
+ * Custom types are mapped to TextMate scopes in the extension's package.json semanticTokenScopes.
  */
 const TokenType = {
-  namespace: 0,
-  type: 1,
-  class: 2,
-  enum: 3,
-  interface: 4,
-  struct: 5,
-  typeParameter: 6,
-  parameter: 7,
-  variable: 8,
-  property: 9,
-  enumMember: 10,
-  event: 11,
-  function: 12,
-  method: 13,
-  macro: 14,
-  keyword: 15,
-  modifier: 16,
-  comment: 17,
-  string: 18,
-  number: 19,
-  regexp: 20,
-  operator: 21,
-  decorator: 22,
+  // Custom HTML types - mapped to html scopes
+  tag: 0,
+  attributeName: 1,
+  attributeValue: 2,
+  delimiter: 3,
+  // Custom Mustache types - mapped to handlebars scopes
+  mustacheVariable: 4,
+  mustacheDelimiter: 5,
+  // Standard VS Code types
+  namespace: 6,
+  type: 7,
+  class: 8,
+  enum: 9,
+  interface: 10,
+  struct: 11,
+  typeParameter: 12,
+  parameter: 13,
+  variable: 14,
+  property: 15,
+  enumMember: 16,
+  event: 17,
+  function: 18,
+  method: 19,
+  macro: 20,
+  keyword: 21,
+  modifier: 22,
+  comment: 23,
+  string: 24,
+  number: 25,
+  regexp: 26,
+  operator: 27,
+  decorator: 28,
 } as const;
 
 /**
@@ -79,17 +91,23 @@ export const tokenModifiersLegend: string[] = [];
 
 /**
  * Map highlight.scm capture names to semantic token types.
+ *
+ * Note: Mustache delimiters ({{, }}, etc.) are NOT included here.
+ * They are handled by the TextMate grammar instead, which gives
+ * better theme compatibility for keyword.control coloring.
  */
 const captureNameToTokenType: Record<string, number> = {
-  'tag': TokenType.type,
-  'tag.error': TokenType.type,
-  'attribute': TokenType.property,
-  'string': TokenType.string,
-  'comment': TokenType.comment,
-  'constant': TokenType.keyword,
-  'punctuation.bracket': TokenType.operator,
-  'variable': TokenType.variable,
+  // HTML tokens
+  'tag': TokenType.tag,
+  'tag.error': TokenType.tag,
+  'attribute': TokenType.attributeName,
+  'string': TokenType.attributeValue,
+  'punctuation.bracket': TokenType.delimiter,
+  // Mustache tokens
+  'variable': TokenType.mustacheVariable,
   'keyword': TokenType.keyword,
+  'comment': TokenType.comment,
+  'constant': TokenType.tag, // DOCTYPE uses same color as tags
 };
 
 interface TokenInfo {
