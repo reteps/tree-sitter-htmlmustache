@@ -26,14 +26,14 @@
 
 ### Supported Mustache Syntax
 
-| Syntax | Description |
-|--------|-------------|
-| `{{name}}` | Variable interpolation |
-| `{{{html}}}` | Unescaped HTML |
-| `{{#items}}...{{/items}}` | Sections |
-| `{{^items}}...{{/items}}` | Inverted sections |
-| `{{! comment }}` | Comments |
-| `{{> partial}}` | Partials |
+| Syntax                    | Description            |
+| ------------------------- | ---------------------- |
+| `{{name}}`                | Variable interpolation |
+| `{{{html}}}`              | Unescaped HTML         |
+| `{{#items}}...{{/items}}` | Sections               |
+| `{{^items}}...{{/items}}` | Inverted sections      |
+| `{{! comment }}`          | Comments               |
+| `{{> partial}}`           | Partials               |
 
 ## Installation
 
@@ -60,4 +60,3 @@ This project is based on [tree-sitter-html](https://github.com/tree-sitter/tree-
 - [The HTML5 Spec](https://www.w3.org/TR/html5/syntax.html)
 - [Mustache Manual](https://mustache.github.io/mustache.5.html)
 - [Handlebars Language Guide](https://handlebarsjs.com/guide/)
-
