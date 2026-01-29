@@ -2,21 +2,38 @@
   <img src="lsp/icon.png" alt="HTML Mustache Logo" width="128">
 </p>
 
-# tree-sitter-htmlmustache
+<h1 align="center">HTML Mustache</h1>
 
-[![Lint][lint-badge]][lint]
-[![LSP][lsp-badge]][lsp]
-[![VS Code Marketplace][marketplace-badge]][marketplace]
+<p align="center">
+  <strong>Full language support for HTML with Mustache/Handlebars templates</strong>
+</p>
 
-HTML with Mustache/Handlebars template syntax grammar for [tree-sitter](https://github.com/tree-sitter/tree-sitter).
+<p align="center">
+  <a href="https://github.com/reteps/tree-sitter-htmlmustache/actions/workflows/lint.yml"><img src="https://img.shields.io/github/actions/workflow/status/reteps/tree-sitter-htmlmustache/lint.yml?logo=github&label=Lint" alt="Lint"></a>
+  <a href="https://github.com/reteps/tree-sitter-htmlmustache/actions/workflows/lsp.yml"><img src="https://img.shields.io/github/actions/workflow/status/reteps/tree-sitter-htmlmustache/lsp.yml?logo=github&label=LSP" alt="LSP"></a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=reteps.htmlmustache-lsp"><img src="https://img.shields.io/visual-studio-marketplace/v/reteps.htmlmustache-lsp?logo=visualstudiocode&label=VS%20Code" alt="VS Code Marketplace"></a>
+</p>
 
-This grammar extends standard HTML parsing to support Mustache constructs:
+---
 
-- Variables: `{{name}}`, `{{{unescaped}}}`
-- Sections: `{{#items}}...{{/items}}`
-- Inverted sections: `{{^items}}...{{/items}}`
-- Comments: `{{! comment }}`
-- Partials: `{{> partial}}`
+## Features
+
+- **Syntax Highlighting** — Full semantic highlighting for HTML and Mustache syntax
+- **Document Formatting** — Auto-format with EditorConfig support
+- **Document Symbols** — Outline view and breadcrumb navigation
+- **Folding** — Collapse HTML elements and Mustache sections
+- **Hover Information** — Tag and attribute documentation
+
+### Supported Mustache Syntax
+
+| Syntax | Description |
+|--------|-------------|
+| `{{name}}` | Variable interpolation |
+| `{{{html}}}` | Unescaped HTML |
+| `{{#items}}...{{/items}}` | Sections |
+| `{{^items}}...{{/items}}` | Inverted sections |
+| `{{! comment }}` | Comments |
+| `{{> partial}}` | Partials |
 
 ## Installation
 
@@ -44,9 +61,3 @@ This project is based on [tree-sitter-html](https://github.com/tree-sitter/tree-
 - [Mustache Manual](https://mustache.github.io/mustache.5.html)
 - [Handlebars Language Guide](https://handlebarsjs.com/guide/)
 
-[lint-badge]: https://img.shields.io/github/actions/workflow/status/reteps/tree-sitter-htmlmustache/lint.yml?logo=github&label=Lint
-[lint]: https://github.com/reteps/tree-sitter-htmlmustache/actions/workflows/lint.yml
-[lsp-badge]: https://img.shields.io/github/actions/workflow/status/reteps/tree-sitter-htmlmustache/lsp.yml?logo=github&label=LSP
-[lsp]: https://github.com/reteps/tree-sitter-htmlmustache/actions/workflows/lsp.yml
-[marketplace-badge]: https://img.shields.io/visual-studio-marketplace/v/reteps.htmlmustache-lsp?logo=visualstudiocode&label=VS%20Code
-[marketplace]: https://marketplace.visualstudio.com/items?itemName=reteps.htmlmustache-lsp
