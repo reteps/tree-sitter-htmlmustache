@@ -2,7 +2,7 @@
   "name": "htmlmustache-lsp",
   "displayName": "HTML Mustache Language Support",
   "description": "Language server for HTML with Mustache template syntax",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "publisher": "reteps",
   "private": true,
   "license": "MIT",
