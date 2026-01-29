@@ -38,6 +38,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -52,16 +57,13 @@ jobs:
       - name: Build WASM (needed by extension)
         run: tree-sitter build --wasm
 
-      - name: Copy WASM to extension directory
-        run: cp tree-sitter-htmlmustache.wasm lsp/
-
       - name: Install extension dependencies
         working-directory: lsp
-        run: npm install
+        run: pnpm install
 
       - name: Build extension
         working-directory: lsp
-        run: npm run build
+        run: pnpm run build
 
       - name: Install vsce
         run: npm install -g @vscode/vsce
