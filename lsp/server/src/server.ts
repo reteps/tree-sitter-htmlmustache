@@ -14,6 +14,7 @@ import {
   tokenTypesLegend,
   tokenModifiersLegend,
   HIGHLIGHT_QUERY,
+  RAW_TEXT_QUERY,
 } from './semanticTokens';
 import { getDocumentSymbols } from './documentSymbols';
 import { getHoverInfo } from './hover';
@@ -29,6 +30,9 @@ const trees = new Map<string, Tree>();
 
 // Highlight query (loaded from highlights.scm)
 let highlightQuery: Query | null = null;
+
+// Raw text query for finding Mustache in script/style tags
+let rawTextQuery: Query | null = null;
 
 connection.onInitialize(async (params: InitializeParams): Promise<InitializeResult> => {
   connection.console.log('onInitialize called');
@@ -52,6 +56,12 @@ connection.onInitialize(async (params: InitializeParams): Promise<InitializeResu
         connection.console.log(`Highlight query created: ${highlightQuery ? 'yes' : 'no'}`);
       } catch (e) {
         connection.console.warn(`Failed to create highlight query: ${e}`);
+      }
+      try {
+        rawTextQuery = createQuery(RAW_TEXT_QUERY);
+        connection.console.log(`Raw text query created: ${rawTextQuery ? 'yes' : 'no'}`);
+      } catch (e) {
+        connection.console.warn(`Failed to create raw text query: ${e}`);
       }
     }
   } catch (error) {
@@ -172,7 +182,7 @@ connection.languages.semanticTokens.on((params) => {
     return { data: [] };
   }
 
-  const result = buildSemanticTokens(tree, highlightQuery).build();
+  const result = buildSemanticTokens(tree, highlightQuery, rawTextQuery ?? undefined).build();
   // Each semantic token is encoded as 5 integers (deltaLine, deltaStart, length, type, modifiers)
   const tokenCount = result.data.length / 5;
   connection.console.log(`  -> Returning ${tokenCount} tokens`);

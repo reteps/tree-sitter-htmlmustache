@@ -39,6 +39,16 @@ export const HIGHLIGHT_QUERY = `
 `;
 
 /**
+ * Query to find raw text content in script and style tags.
+ * Used to scan for Mustache patterns that the tree-sitter parser
+ * doesn't recognize (since they appear inside raw text nodes).
+ */
+export const RAW_TEXT_QUERY = `
+(html_script_element (html_raw_text) @raw)
+(html_style_element (html_raw_text) @raw)
+`;
+
+/**
  * Semantic token types - includes both VS Code standard types and custom HTML/Mustache types.
  * The order matters as it defines the index used in the protocol.
  *
@@ -118,9 +128,128 @@ interface TokenInfo {
 }
 
 /**
+ * Regex patterns for detecting Mustache syntax in raw text (script/style tags).
+ * Each pattern captures: opening delimiter, content, closing delimiter.
+ * Order matters - more specific patterns (triple mustache) must come before general ones.
+ *
+ * Token types match the regular Mustache highlighting:
+ * - Variables/unescaped: keyword delimiters, variable content
+ * - Sections: keyword delimiters, variable content
+ * - Partials: keyword delimiters, variable content
+ * - Comments: comment for entire construct
+ */
+interface MustachePattern {
+  pattern: RegExp;
+  openLen: number;
+  closeLen: number;
+  delimiterType: number;
+  contentType: number;
+}
+
+const MUSTACHE_PATTERNS: MustachePattern[] = [
+  // {{{...}}} unescaped - keyword delimiters, variable content
+  { pattern: /\{\{\{([^}]*)\}\}\}/g, openLen: 3, closeLen: 3, delimiterType: TokenType.keyword, contentType: TokenType.mustacheVariable },
+  // {{#...}} section start - keyword delimiters, variable content
+  { pattern: /\{\{#([^}]*)\}\}/g, openLen: 3, closeLen: 2, delimiterType: TokenType.keyword, contentType: TokenType.mustacheVariable },
+  // {{/...}} section end - keyword delimiters, variable content
+  { pattern: /\{\{\/([^}]*)\}\}/g, openLen: 3, closeLen: 2, delimiterType: TokenType.keyword, contentType: TokenType.mustacheVariable },
+  // {{^...}} inverted section - keyword delimiters, variable content
+  { pattern: /\{\{\^([^}]*)\}\}/g, openLen: 3, closeLen: 2, delimiterType: TokenType.keyword, contentType: TokenType.mustacheVariable },
+  // {{>...}} partial - keyword delimiters, variable content
+  { pattern: /\{\{>([^}]*)\}\}/g, openLen: 3, closeLen: 2, delimiterType: TokenType.keyword, contentType: TokenType.mustacheVariable },
+  // {{!...}} comment - all comment colored
+  { pattern: /\{\{!([^}]*)\}\}/g, openLen: 3, closeLen: 2, delimiterType: TokenType.comment, contentType: TokenType.comment },
+  // {{...}} variable (no special char after {{) - keyword delimiters, variable content
+  { pattern: /\{\{([^#\/^>!{}][^}]*)\}\}/g, openLen: 2, closeLen: 2, delimiterType: TokenType.keyword, contentType: TokenType.mustacheVariable },
+];
+
+/**
+ * Convert a character offset within text to row/col position,
+ * given a starting row/col for the text.
+ */
+function offsetToPosition(
+  text: string,
+  offset: number,
+  startRow: number,
+  startCol: number
+): { row: number; col: number } {
+  let row = startRow;
+  let col = startCol;
+
+  for (let i = 0; i < offset; i++) {
+    if (text[i] === '\n') {
+      row++;
+      col = 0;
+    } else {
+      col++;
+    }
+  }
+
+  return { row, col };
+}
+
+/**
+ * Scan raw text (e.g., inside <script> or <style> tags) for Mustache patterns
+ * and add tokens for each match. Emits separate tokens for delimiters and content.
+ */
+function scanMustacheInRawText(
+  text: string,
+  startRow: number,
+  startCol: number,
+  tokens: TokenInfo[]
+): void {
+  // Track matched ranges to avoid duplicates from overlapping patterns
+  const matched = new Set<string>();
+
+  for (const { pattern, openLen, closeLen, delimiterType, contentType } of MUSTACHE_PATTERNS) {
+    // Reset regex state for each pattern
+    pattern.lastIndex = 0;
+    let match;
+
+    while ((match = pattern.exec(text)) !== null) {
+      const key = `${match.index}:${match[0].length}`;
+      if (matched.has(key)) continue;
+      matched.add(key);
+
+      const content = match[1] || '';
+      const totalLen = match[0].length;
+
+      // Opening delimiter token (e.g., "{{", "{{{", "{{#")
+      const openPos = offsetToPosition(text, match.index, startRow, startCol);
+      tokens.push({
+        row: openPos.row,
+        col: openPos.col,
+        length: openLen,
+        tokenType: delimiterType,
+      });
+
+      // Content token (variable name) - only if non-empty
+      if (content.length > 0) {
+        const contentPos = offsetToPosition(text, match.index + openLen, startRow, startCol);
+        tokens.push({
+          row: contentPos.row,
+          col: contentPos.col,
+          length: content.length,
+          tokenType: contentType,
+        });
+      }
+
+      // Closing delimiter token (e.g., "}}", "}}}")
+      const closePos = offsetToPosition(text, match.index + totalLen - closeLen, startRow, startCol);
+      tokens.push({
+        row: closePos.row,
+        col: closePos.col,
+        length: closeLen,
+        tokenType: delimiterType,
+      });
+    }
+  }
+}
+
+/**
  * Build semantic tokens using tree-sitter query captures.
  */
-export function buildSemanticTokens(tree: Tree, query: Query): SemanticTokensBuilder {
+export function buildSemanticTokens(tree: Tree, query: Query, rawTextQuery?: Query): SemanticTokensBuilder {
   const builder = new SemanticTokensBuilder();
   const captures = query.captures(tree.rootNode);
 
@@ -155,6 +284,20 @@ export function buildSemanticTokens(tree: Tree, query: Query): SemanticTokensBui
         const col = i === 0 ? node.startPosition.column : 0;
         tokens.push({ row, col, length: line.length, tokenType });
       }
+    }
+  }
+
+  // Scan raw text in script/style tags for Mustache patterns
+  if (rawTextQuery) {
+    const rawCaptures = rawTextQuery.captures(tree.rootNode);
+    for (const capture of rawCaptures) {
+      const node = capture.node;
+      scanMustacheInRawText(
+        node.text,
+        node.startPosition.row,
+        node.startPosition.column,
+        tokens
+      );
     }
   }
 

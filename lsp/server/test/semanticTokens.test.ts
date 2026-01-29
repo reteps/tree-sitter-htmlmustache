@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { parseText, createTestQuery } from './setup';
-import { buildSemanticTokens, HIGHLIGHT_QUERY } from '../src/semanticTokens';
+import { buildSemanticTokens, HIGHLIGHT_QUERY, RAW_TEXT_QUERY } from '../src/semanticTokens';
 
 describe('Semantic Tokens', () => {
   function getTokens(text: string) {
     const tree = parseText(text);
     const query = createTestQuery(HIGHLIGHT_QUERY);
-    return buildSemanticTokens(tree, query).build();
+    const rawTextQuery = createTestQuery(RAW_TEXT_QUERY);
+    return buildSemanticTokens(tree, query, rawTextQuery).build();
   }
 
   describe('HTML tokens', () => {
@@ -105,6 +106,68 @@ describe('Semantic Tokens', () => {
     it('handles multi-line content', () => {
       const tokens = getTokens('<div>\n  {{name}}\n</div>');
       // Should handle line breaks correctly
+      expect(tokens.data.length).toBeGreaterThan(0);
+      expect(tokens.data.length % 5).toBe(0);
+    });
+  });
+
+  describe('Mustache in JavaScript', () => {
+    it('generates tokens for mustache variable in script tag', () => {
+      const tokens = getTokens('<script>var x = {{value}};</script>');
+      // Should have tokens for both script tag AND the {{value}} mustache
+      expect(tokens.data.length).toBeGreaterThan(0);
+      expect(tokens.data.length % 5).toBe(0);
+    });
+
+    it('generates tokens for mustache section in script tag', () => {
+      const tokens = getTokens('<script>{{#items}}console.log(item);{{/items}}</script>');
+      expect(tokens.data.length).toBeGreaterThan(0);
+      expect(tokens.data.length % 5).toBe(0);
+    });
+
+    it('generates tokens for triple mustache in script tag', () => {
+      const tokens = getTokens('<script>var html = {{{rawContent}}};</script>');
+      expect(tokens.data.length).toBeGreaterThan(0);
+      expect(tokens.data.length % 5).toBe(0);
+    });
+
+    it('generates tokens for mustache in JS string', () => {
+      const tokens = getTokens('<script>var msg = "Hello {{name}}";</script>');
+      expect(tokens.data.length).toBeGreaterThan(0);
+      expect(tokens.data.length % 5).toBe(0);
+    });
+
+    it('handles multi-line script with mustache', () => {
+      const tokens = getTokens(`<script>
+var config = {
+  name: "{{appName}}",
+  version: {{version}}
+};
+</script>`);
+      expect(tokens.data.length).toBeGreaterThan(0);
+      expect(tokens.data.length % 5).toBe(0);
+    });
+
+    it('generates tokens for mustache in style tag', () => {
+      const tokens = getTokens('<style>.item { color: {{themeColor}}; }</style>');
+      expect(tokens.data.length).toBeGreaterThan(0);
+      expect(tokens.data.length % 5).toBe(0);
+    });
+
+    it('generates tokens for inverted section in script tag', () => {
+      const tokens = getTokens('<script>{{^empty}}var hasData = true;{{/empty}}</script>');
+      expect(tokens.data.length).toBeGreaterThan(0);
+      expect(tokens.data.length % 5).toBe(0);
+    });
+
+    it('generates tokens for partial in script tag', () => {
+      const tokens = getTokens('<script>{{>partialScript}}</script>');
+      expect(tokens.data.length).toBeGreaterThan(0);
+      expect(tokens.data.length % 5).toBe(0);
+    });
+
+    it('generates tokens for mustache comment in script tag', () => {
+      const tokens = getTokens('<script>{{! this is a comment }}</script>');
       expect(tokens.data.length).toBeGreaterThan(0);
       expect(tokens.data.length % 5).toBe(0);
     });

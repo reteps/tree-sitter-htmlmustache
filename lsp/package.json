@@ -2,7 +2,7 @@
   "name": "htmlmustache-lsp",
   "displayName": "HTML Mustache Language Support",
   "description": "Language server for HTML with Mustache template syntax",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "publisher": "reteps",
   "private": true,
   "license": "MIT",
@@ -50,7 +50,11 @@
       {
         "language": "htmlmustache",
         "scopeName": "text.html.htmlmustache",
-        "path": "./syntaxes/htmlmustache.tmLanguage.json"
+        "path": "./syntaxes/htmlmustache.tmLanguage.json",
+        "embeddedLanguages": {
+          "source.js": "javascript",
+          "source.css": "css"
+        }
       }
     ],
     "configuration": {
