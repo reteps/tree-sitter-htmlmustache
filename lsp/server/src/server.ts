@@ -20,6 +20,7 @@ import { getDocumentSymbols } from './documentSymbols';
 import { getHoverInfo } from './hover';
 import { getFoldingRanges } from './folding';
 import { formatDocument, formatDocumentRange } from './formatting/index';
+import { getDiagnostics } from './diagnostics';
 
 // Create connection and document manager
 const connection = createConnection(ProposedFeatures.all);
@@ -119,18 +120,25 @@ connection.onInitialized(() => {
 // Parse document on open
 documents.onDidOpen((event) => {
   connection.console.log(`Document opened: ${event.document.uri} (language: ${event.document.languageId})`);
-  parseAndCacheDocument(event.document);
+  const tree = parseAndCacheDocument(event.document);
+  if (tree) {
+    connection.sendDiagnostics({ uri: event.document.uri, diagnostics: getDiagnostics(tree) });
+  }
 });
 
 // Reparse on content change
 documents.onDidChangeContent((change) => {
-  parseAndCacheDocument(change.document);
+  const tree = parseAndCacheDocument(change.document);
+  if (tree) {
+    connection.sendDiagnostics({ uri: change.document.uri, diagnostics: getDiagnostics(tree) });
+  }
 });
 
 // Clean up when document is closed
 documents.onDidClose((event) => {
   connection.console.log(`Document closed: ${event.document.uri}`);
   trees.delete(event.document.uri);
+  connection.sendDiagnostics({ uri: event.document.uri, diagnostics: [] });
 });
 
 /**
