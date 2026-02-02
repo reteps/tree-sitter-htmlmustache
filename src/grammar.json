@@ -82,6 +82,15 @@
         {
           "type": "SYMBOL",
           "name": "text"
+        },
+        {
+          "type": "ALIAS",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_text_brace"
+          },
+          "named": true,
+          "value": "text"
         }
       ]
     },
@@ -1243,7 +1252,11 @@
     },
     "text": {
       "type": "PATTERN",
-      "value": "[^<>{}&\\s]([^<>{}&]*[^<>{}&\\s])?"
+      "value": "[^<{}&\\s]([^<{}&]*[^<{}&\\s])?"
+    },
+    "_text_brace": {
+      "type": "PATTERN",
+      "value": "[{}]"
     }
   },
   "extras": [

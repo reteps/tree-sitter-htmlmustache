@@ -169,6 +169,11 @@
     }
   },
   {
+    "type": "html_attribute_value",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "html_doctype",
     "named": true,
     "fields": {}
@@ -784,6 +789,11 @@
     }
   },
   {
+    "type": "text",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "\"",
     "named": false
   },
@@ -836,10 +846,6 @@
     "named": true
   },
   {
-    "type": "html_attribute_value",
-    "named": true
-  },
-  {
     "type": "html_comment",
     "named": true,
     "extra": true
@@ -882,10 +888,6 @@
   },
   {
     "type": "mustache_tag_name",
-    "named": true
-  },
-  {
-    "type": "text",
     "named": true
   },
   {

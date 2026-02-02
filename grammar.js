@@ -49,6 +49,7 @@ module.exports = grammar({
         $.html_style_element,
         $.html_erroneous_end_tag,
         $.text,
+        alias($._text_brace, $.text),
       ),
 
     _mustache_node: ($) =>
@@ -394,6 +395,9 @@ module.exports = grammar({
         ),
       ),
 
-    text: (_) => /[^<>{}&\s]([^<>{}&]*[^<>{}&\s])?/,
+    // Text content - allows > (valid in HTML text) but excludes { and } for mustache handling
+    text: (_) => /[^<{}&\s]([^<{}&]*[^<{}&\s])?/,
+    // Single braces that aren't part of {{ or }} in text content
+    _text_brace: (_) => /[{}]/,
   },
 });

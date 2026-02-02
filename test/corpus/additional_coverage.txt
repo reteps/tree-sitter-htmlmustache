@@ -3254,3 +3254,38 @@ Single braces in attribute value (LaTeX math notation)
         (html_attribute_name)
         (html_quoted_attribute_value
           (html_attribute_value))))))
+
+===
+Greater-than and braces in text content
+===
+<p>Error > 5px and {value} works</p>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (text)
+    (text)
+    (text)
+    (text)
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Empty braces in text content
+===
+<p>empty{} braces</p>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (text)
+    (text)
+    (text)
+    (text)
+    (html_end_tag
+      (html_tag_name))))
