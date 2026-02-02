@@ -245,8 +245,10 @@ module.exports = grammar({
     html_entity: (_) =>
       /&(#([xX][0-9a-fA-F]{1,6}|[0-9]{1,5})|[A-Za-z]{1,30});?/,
 
-    _html_attribute_value_no_single_quote: ($) => /[^'{]+/,
-    _html_attribute_value_no_double_quote: ($) => /[^"{]+/,
+    _html_attribute_value_no_single_quote: ($) => /[^'{}]+/,
+    _html_attribute_value_no_double_quote: ($) => /[^"{}]+/,
+    // Single braces that aren't part of {{ or }}
+    _single_curly_brace: ($) => /[{}]/,
     _attribute_value_no_double_quote: ($) =>
       choice(
         $._mustache_node,
@@ -371,6 +373,7 @@ module.exports = grammar({
                 $.html_attribute_value,
               ),
               $._mustache_node_no_single_quote,
+              alias($._single_curly_brace, $.html_attribute_value),
             ),
           ),
           "'",
@@ -384,6 +387,7 @@ module.exports = grammar({
                 $.html_attribute_value,
               ),
               $._mustache_node_no_double_quote,
+              alias($._single_curly_brace, $.html_attribute_value),
             ),
           ),
           '"',

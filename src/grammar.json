@@ -826,11 +826,15 @@
     },
     "_html_attribute_value_no_single_quote": {
       "type": "PATTERN",
-      "value": "[^'{]+"
+      "value": "[^'{}]+"
     },
     "_html_attribute_value_no_double_quote": {
       "type": "PATTERN",
-      "value": "[^\"{]+"
+      "value": "[^\"{}]+"
+    },
+    "_single_curly_brace": {
+      "type": "PATTERN",
+      "value": "[{}]"
     },
     "_attribute_value_no_double_quote": {
       "type": "CHOICE",
@@ -1173,6 +1177,15 @@
                   {
                     "type": "SYMBOL",
                     "name": "_mustache_node_no_single_quote"
+                  },
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_single_curly_brace"
+                    },
+                    "named": true,
+                    "value": "html_attribute_value"
                   }
                 ]
               }
@@ -1207,6 +1220,15 @@
                   {
                     "type": "SYMBOL",
                     "name": "_mustache_node_no_double_quote"
+                  },
+                  {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "SYMBOL",
+                      "name": "_single_curly_brace"
+                    },
+                    "named": true,
+                    "value": "html_attribute_value"
                   }
                 ]
               }
