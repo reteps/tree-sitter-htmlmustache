@@ -17,7 +17,6 @@ function log(message: string) {
 
 export function activate(context: ExtensionContext) {
   log('Extension activating...');
-  outputChannel.show(true); // Show the output channel, preserve focus
 
   // Path to the server module (ESM format for web-tree-sitter compatibility)
   const serverModule = context.asAbsolutePath(
