@@ -253,19 +253,34 @@ export function run(args: string[]): number {
   let totalErrors = 0;
   let filesWithErrors = 0;
 
+  const cwd = process.cwd();
+
+  const errorOutput: string[] = [];
+
   for (const file of files) {
+    const displayPath = path.relative(cwd, file) || file;
     const source = fs.readFileSync(file, 'utf-8');
     const tree = parser.parse(source);
-    const errors = collectErrors(tree, file);
+    const errors = collectErrors(tree, displayPath);
 
     if (errors.length > 0) {
       filesWithErrors++;
       totalErrors += errors.length;
 
       for (const error of errors) {
-        console.log(formatError(error, source));
-        console.log();
+        errorOutput.push(formatError(error, source));
       }
+    }
+    console.log(errors.length > 0
+      ? chalk.red(displayPath)
+      : chalk.dim(displayPath));
+  }
+
+  if (errorOutput.length > 0) {
+    console.log();
+    for (const output of errorOutput) {
+      console.log(output);
+      console.log();
     }
   }
 
