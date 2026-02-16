@@ -24,3 +24,150 @@ Incorrectly closed mustache
         (mustache_erroneous_tag_name)))
     (mustache_erroneous_section_end
       (mustache_erroneous_tag_name))))
+
+===
+Error recovery: broken tag between valid elements
+===
+<div>before</div>
+<>stray
+<p>after</p>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (text)
+    (html_end_tag
+      (html_tag_name)))
+  (ERROR
+    (UNEXPECTED 's'))
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Error recovery: broken tag inside mustache section
+===
+{{#items}}
+<div>ok</div>
+<>broken
+<p>recovered</p>
+{{/items}}
+<footer>end</footer>
+---
+
+(document
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (text)
+      (html_end_tag
+        (html_tag_name)))
+    (ERROR
+      (UNEXPECTED 'b'))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (text)
+      (html_end_tag
+        (html_tag_name)))
+    (mustache_section_end
+      (mustache_tag_name)))
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Error recovery: error between custom element blocks
+===
+<pl-thing name="a">
+  <pl-item tag="1">A</pl-item>
+</pl-thing>
+<>error
+<pl-thing name="b">
+  <pl-item tag="2">B</pl-item>
+</pl-thing>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (html_attribute_value))))
+    (html_element
+      (html_start_tag
+        (html_tag_name)
+        (html_attribute
+          (html_attribute_name)
+          (html_quoted_attribute_value
+            (html_attribute_value))))
+      (text)
+      (html_end_tag
+        (html_tag_name)))
+    (html_end_tag
+      (html_tag_name)))
+  (ERROR
+    (UNEXPECTED 'e'))
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (html_attribute_value))))
+    (html_element
+      (html_start_tag
+        (html_tag_name)
+        (html_attribute
+          (html_attribute_name)
+          (html_quoted_attribute_value
+            (html_attribute_value))))
+      (text)
+      (html_end_tag
+        (html_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Error recovery: error inside nested mustache and HTML
+===
+{{#section}}
+<div>
+  <>error here
+  <span>recovers</span>
+</div>
+{{/section}}
+---
+
+(document
+  (mustache_section
+    (mustache_section_begin
+      (mustache_tag_name))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (ERROR
+        (UNEXPECTED 'e'))
+      (html_element
+        (html_start_tag
+          (html_tag_name))
+        (text)
+        (html_end_tag
+          (html_tag_name)))
+      (html_end_tag
+        (html_tag_name)))
+    (mustache_section_end
+      (mustache_tag_name))))

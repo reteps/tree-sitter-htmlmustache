@@ -526,6 +526,12 @@ static bool scan_mustache_end_tag_html_implicit_end_tag(Scanner *scanner, TSLexe
 }
 
 static bool scan(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
+    // During error recovery, tree-sitter sets all valid_symbols to true.
+    // Bail out to avoid corrupting the tag stacks with garbage state.
+    if (valid_symbols[HTML_START_TAG_NAME] && valid_symbols[HTML_END_TAG_NAME]) {
+        return false;
+    }
+
     if (valid_symbols[HTML_RAW_TEXT] && !valid_symbols[HTML_START_TAG_NAME] && !valid_symbols[HTML_END_TAG_NAME]) {
         return scan_raw_text(scanner, lexer);
     }
