@@ -41,7 +41,7 @@
 Check templates for errors before committing:
 
 ```
-npx tree-sitter-htmlmustache check '**/*.mustache' '**/*.hbs'
+npx @reteps/tree-sitter-htmlmustache check '**/*.mustache' '**/*.hbs'
 ```
 
 ```
@@ -58,7 +58,7 @@ file.mustache:3:3 error: Mismatched mustache section: {{/wrong}}
 Or install globally:
 
 ```
-npm install -g tree-sitter-htmlmustache
+npm install -g @reteps/tree-sitter-htmlmustache
 htmlmustache check '**/*.mustache'
 ```
 

@@ -1,15 +1,18 @@
 {
-  "name": "tree-sitter-htmlmustache",
+  "name": "@reteps/tree-sitter-htmlmustache",
   "version": "0.0.18",
   "description": "HTML with Mustache/Handlebars template syntax grammar for tree-sitter",
-  "repository": "https://github.com/reteps/tree-sitter-htmlmustache",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/reteps/tree-sitter-htmlmustache.git"
+  },
   "license": "MIT",
   "author": {
     "name": "Peter Stenger"
   },
   "main": "bindings/node",
   "bin": {
-    "htmlmustache": "./cli/out/check.js"
+    "htmlmustache": "cli/out/check.js"
   },
   "types": "bindings/node",
   "keywords": [
