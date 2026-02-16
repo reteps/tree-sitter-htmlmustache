@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
-import { ExtensionContext, workspace, window, commands, TextEdit as VSCodeTextEdit, FormattingOptions as VSCodeFormattingOptions } from 'vscode';
+import { ExtensionContext, workspace, window, commands, extensions, TextEdit as VSCodeTextEdit, FormattingOptions as VSCodeFormattingOptions } from 'vscode';
 import {
   LanguageClient,
   LanguageClientOptions,
@@ -60,6 +60,32 @@ function promptReload() {
     });
 }
 
+/**
+ * Find a TextMate grammar file for a given scope name from VS Code's installed extensions.
+ * Searches all extensions for grammar contributions matching the scope name.
+ */
+function findTextMateGrammar(scopeName: string): { content: string; format: 'json' | 'plist' } | null {
+  for (const ext of extensions.all) {
+    const pkg = ext.packageJSON;
+    const grammars = pkg?.contributes?.grammars;
+    if (!Array.isArray(grammars)) continue;
+
+    for (const grammar of grammars) {
+      if (grammar.scopeName === scopeName && grammar.path) {
+        const grammarPath = path.join(ext.extensionPath, grammar.path);
+        try {
+          const content = fs.readFileSync(grammarPath, 'utf-8');
+          const format = grammarPath.endsWith('.json') ? 'json' : 'plist';
+          return { content, format };
+        } catch {
+          // Grammar file not readable, continue searching
+        }
+      }
+    }
+  }
+  return null;
+}
+
 export function activate(context: ExtensionContext) {
   log('Extension activating...');
 
@@ -114,7 +140,7 @@ export function activate(context: ExtensionContext) {
     },
     outputChannel: outputChannel,
     initializationOptions: {
-      customCodeTags: tagNames,
+      customCodeTags: rawCustomCodeTags,
       printWidth,
     },
   };
@@ -176,6 +202,18 @@ export function activate(context: ExtensionContext) {
     }
   });
 
+  // Handle grammar requests from the server for embedded language tokenization
+  client.onRequest('htmlmustache/getGrammar', async (params: {
+    scopeName: string;
+  }): Promise<{ content: string; format: 'json' | 'plist' } | null> => {
+    try {
+      return findTextMateGrammar(params.scopeName);
+    } catch (e) {
+      log(`Failed to find grammar for ${params.scopeName}: ${e}`);
+      return null;
+    }
+  });
+
   // Send updated settings to the server when configuration changes
   context.subscriptions.push(
     workspace.onDidChangeConfiguration((e) => {
@@ -192,12 +230,12 @@ export function activate(context: ExtensionContext) {
           promptReload();
         }
 
-        // Send only tag names to the LSP server (for formatting)
+        // Send full configs to the LSP server (for formatting + embedded tokenization)
         client.sendNotification('workspace/didChangeConfiguration', {
           settings: {
             htmlmustache: {
               formatting: {
-                customCodeTags: updatedTagNames,
+                customCodeTags: updatedRawTags,
                 printWidth: updatedPrintWidth,
               },
             },

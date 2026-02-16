@@ -121,7 +121,7 @@ const captureNameToTokenType: Record<string, number> = {
   'constant': TokenType.tag, // DOCTYPE uses same color as tags
 };
 
-interface TokenInfo {
+export interface TokenInfo {
   row: number;
   col: number;
   length: number;
@@ -249,8 +249,9 @@ function scanMustacheInRawText(
 
 /**
  * Build semantic tokens using tree-sitter query captures.
+ * @param additionalTokens - Extra tokens (e.g., from embedded language tokenization) to merge in
  */
-export function buildSemanticTokens(tree: Tree, query: Query, rawTextQuery?: Query): SemanticTokensBuilder {
+export function buildSemanticTokens(tree: Tree, query: Query, rawTextQuery?: Query, additionalTokens?: TokenInfo[]): SemanticTokensBuilder {
   const builder = new SemanticTokensBuilder();
   const captures = query.captures(tree.rootNode);
 
@@ -300,6 +301,11 @@ export function buildSemanticTokens(tree: Tree, query: Query, rawTextQuery?: Que
         tokens
       );
     }
+  }
+
+  // Merge in additional tokens (e.g., from embedded language tokenization)
+  if (additionalTokens) {
+    tokens.push(...additionalTokens);
   }
 
   // Sort tokens by position

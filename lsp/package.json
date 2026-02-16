@@ -2,7 +2,7 @@
   "name": "htmlmustache-lsp",
   "displayName": "HTML Mustache Language Support",
   "description": "Language server for HTML with Mustache template syntax",
-  "version": "0.0.20",
+  "version": "0.0.25",
   "publisher": "reteps",
   "private": true,
   "license": "MIT",
@@ -88,7 +88,8 @@
           "meta.embedded.block.haskell": "haskell",
           "meta.embedded.block.r": "r",
           "meta.embedded.block.csharp": "csharp",
-          "meta.embedded.block.matlab": "matlab"
+          "meta.embedded.block.matlab": "matlab",
+          "meta.embedded.block.dot": "dot"
         }
       }
     ],
@@ -190,7 +191,7 @@
   },
   "scripts": {
     "vscode:prepublish": "pnpm run build:production",
-    "copy-wasm": "cp ../tree-sitter-htmlmustache.wasm ./tree-sitter-htmlmustache.wasm && cp server/node_modules/web-tree-sitter/web-tree-sitter.wasm ./server/out/ && cp node_modules/.pnpm/@one-ini+wasm@0.2.0/node_modules/@one-ini/wasm/one_ini_bg.wasm ./server/out/",
+    "copy-wasm": "cp ../tree-sitter-htmlmustache.wasm ./tree-sitter-htmlmustache.wasm && cp server/node_modules/web-tree-sitter/web-tree-sitter.wasm ./server/out/ && cp node_modules/.pnpm/@one-ini+wasm@0.2.0/node_modules/@one-ini/wasm/one_ini_bg.wasm ./server/out/ && cp server/node_modules/vscode-oniguruma/release/onig.wasm ./server/out/",
     "clean": "rm -rf server/out client/out && mkdir -p server/out client/out",
     "build": "pnpm run clean && node esbuild.mjs && pnpm run copy-wasm",
     "build:production": "pnpm run clean && node esbuild.mjs --production && pnpm run copy-wasm",

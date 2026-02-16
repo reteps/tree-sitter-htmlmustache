@@ -7,6 +7,7 @@ import {
   TextDocumentSyncKind,
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
+import * as path from 'path';
 
 import type { Node as SyntaxNode } from 'web-tree-sitter';
 import { initializeParser, parseDocument, getLanguage, createQuery, Tree, Query, setLogger } from './parser';
@@ -17,11 +18,13 @@ import {
   HIGHLIGHT_QUERY,
   RAW_TEXT_QUERY,
 } from './semanticTokens';
+import type { TokenInfo } from './semanticTokens';
 import { getDocumentSymbols } from './documentSymbols';
 import { getHoverInfo } from './hover';
 import { getFoldingRanges } from './folding';
 import { formatDocument, formatDocumentRange } from './formatting/index';
 import { getDiagnostics } from './diagnostics';
+import { initializeTextMateRegistry, isTextMateReady, tokenizeEmbeddedContent } from './embeddedTokenizer';
 
 // Create connection and document manager
 const connection = createConnection(ProposedFeatures.all);
@@ -39,21 +42,32 @@ let rawTextQuery: Query | null = null;
 // Custom code tags setting (tags treated like <pre>/<code>)
 let customCodeTags: string[] = [];
 
+// Full custom code tag configs (for embedded language tokenization)
+interface CustomCodeTagConfig {
+  name: string;
+  syntaxAttribute?: string;
+  languageMap?: Record<string, string>;
+  defaultLanguage?: string;
+}
+let customCodeTagConfigs: CustomCodeTagConfig[] = [];
+
 // Print width setting (maximum line width before breaking)
 let printWidth = 80;
 
 /**
- * Extract tag names from customCodeTags settings objects.
+ * Parse customCodeTags settings, extracting tag names and full configs.
  */
-function extractTagNames(tags: unknown[]): string[] {
-  return tags
-    .map((tag) => {
-      if (tag && typeof tag === 'object' && 'name' in tag && typeof (tag as { name: unknown }).name === 'string') {
-        return (tag as { name: string }).name;
-      }
-      return null;
-    })
-    .filter((name): name is string => name !== null);
+function parseCustomCodeTagSettings(tags: unknown[]): { tagNames: string[]; configs: CustomCodeTagConfig[] } {
+  const tagNames: string[] = [];
+  const configs: CustomCodeTagConfig[] = [];
+  for (const tag of tags) {
+    if (tag && typeof tag === 'object' && 'name' in tag && typeof (tag as { name: unknown }).name === 'string') {
+      const t = tag as CustomCodeTagConfig;
+      tagNames.push(t.name);
+      configs.push(t);
+    }
+  }
+  return { tagNames, configs };
 }
 
 connection.onInitialize(async (params: InitializeParams): Promise<InitializeResult> => {
@@ -63,7 +77,9 @@ connection.onInitialize(async (params: InitializeParams): Promise<InitializeResu
   // Read settings from initialization options
   const initOptions = params.initializationOptions;
   if (initOptions?.customCodeTags && Array.isArray(initOptions.customCodeTags)) {
-    customCodeTags = extractTagNames(initOptions.customCodeTags);
+    const parsed = parseCustomCodeTagSettings(initOptions.customCodeTags);
+    customCodeTags = parsed.tagNames;
+    customCodeTagConfigs = parsed.configs;
     connection.console.log(`Custom code tags: ${customCodeTags.join(', ')}`);
   }
   if (initOptions?.printWidth && typeof initOptions.printWidth === 'number') {
@@ -99,6 +115,22 @@ connection.onInitialize(async (params: InitializeParams): Promise<InitializeResu
     }
   } catch (error) {
     connection.console.error(`Failed to initialize parser: ${error}`);
+  }
+
+  // Initialize vscode-textmate for embedded language tokenization
+  try {
+    const wasmPath = path.join(__dirname, 'onig.wasm');
+    await initializeTextMateRegistry(wasmPath, async (scopeName: string) => {
+      try {
+        const result = await connection.sendRequest('htmlmustache/getGrammar', { scopeName });
+        return result as { content: string; format: 'json' | 'plist' } | null;
+      } catch {
+        return null;
+      }
+    });
+    connection.console.log('vscode-textmate registry initialized');
+  } catch (error) {
+    connection.console.warn(`Failed to initialize vscode-textmate: ${error}`);
   }
 
   const capabilities = params.capabilities;
@@ -153,7 +185,9 @@ connection.onInitialized(() => {
 connection.onDidChangeConfiguration((change) => {
   const settings = change.settings;
   if (settings?.htmlmustache?.formatting?.customCodeTags) {
-    customCodeTags = extractTagNames(settings.htmlmustache.formatting.customCodeTags);
+    const parsed = parseCustomCodeTagSettings(settings.htmlmustache.formatting.customCodeTags);
+    customCodeTags = parsed.tagNames;
+    customCodeTagConfigs = parsed.configs;
     connection.console.log(`Custom code tags updated: ${customCodeTags.join(', ')}`);
   }
   if (settings?.htmlmustache?.formatting?.printWidth && typeof settings.htmlmustache.formatting.printWidth === 'number') {
@@ -214,8 +248,136 @@ function getTree(document: TextDocument): Tree | null {
   return tree ?? null;
 }
 
+/**
+ * Get the attribute value for a given attribute name from an element's start tag.
+ */
+function getAttributeValue(node: SyntaxNode, attrName: string): string | null {
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i);
+    if (child?.type === 'html_start_tag') {
+      for (let j = 0; j < child.childCount; j++) {
+        const attr = child.child(j);
+        if (attr?.type === 'html_attribute') {
+          let name = '';
+          let value = '';
+          for (let k = 0; k < attr.childCount; k++) {
+            const part = attr.child(k);
+            if (part?.type === 'html_attribute_name') name = part.text.toLowerCase();
+            if (part?.type === 'html_quoted_attribute_value') value = part.text.replace(/^["']|["']$/g, '');
+            if (part?.type === 'html_attribute_value') value = part.text;
+          }
+          if (name === attrName.toLowerCase()) {
+            return value;
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Resolve the language ID for a custom code tag element.
+ */
+function resolveCustomCodeLanguage(node: SyntaxNode, config: CustomCodeTagConfig): string | null {
+  if (config.syntaxAttribute) {
+    const attrValue = getAttributeValue(node, config.syntaxAttribute);
+    if (attrValue) {
+      // Check languageMap first
+      if (config.languageMap && config.languageMap[attrValue]) {
+        return config.languageMap[attrValue];
+      }
+      return attrValue.toLowerCase();
+    }
+  }
+  return config.defaultLanguage?.toLowerCase() ?? null;
+}
+
+interface CustomCodeTagContent {
+  text: string;
+  languageId: string;
+  startRow: number;
+  startCol: number;
+}
+
+/**
+ * Walk the tree to find custom code tag elements and extract their content + language.
+ */
+function findCustomCodeTagContent(
+  rootNode: SyntaxNode,
+  configs: CustomCodeTagConfig[],
+): CustomCodeTagContent[] {
+  if (configs.length === 0) return [];
+
+  const configsByName = new Map<string, CustomCodeTagConfig>();
+  for (const config of configs) {
+    if (config.syntaxAttribute || config.defaultLanguage) {
+      configsByName.set(config.name.toLowerCase(), config);
+    }
+  }
+  if (configsByName.size === 0) return [];
+
+  const results: CustomCodeTagContent[] = [];
+
+  const walk = (node: SyntaxNode) => {
+    // Custom code tags are parsed as html_element or html_raw_element
+    if (node.type === 'html_element' || node.type === 'html_raw_element') {
+      // Get the tag name from start tag
+      let tagName = '';
+      for (let i = 0; i < node.childCount; i++) {
+        const child = node.child(i);
+        if (child?.type === 'html_start_tag') {
+          for (let j = 0; j < child.childCount; j++) {
+            const nameNode = child.child(j);
+            if (nameNode?.type === 'html_tag_name') {
+              tagName = nameNode.text.toLowerCase();
+              break;
+            }
+          }
+          break;
+        }
+      }
+
+      const config = configsByName.get(tagName);
+      if (config) {
+        const languageId = resolveCustomCodeLanguage(node, config);
+        if (languageId) {
+          // For html_raw_element, get html_raw_text child
+          // For html_element, collect text content between start and end tags
+          for (let i = 0; i < node.childCount; i++) {
+            const child = node.child(i);
+            if (child?.type === 'html_raw_text') {
+              results.push({
+                text: child.text,
+                languageId,
+                startRow: child.startPosition.row,
+                startCol: child.startPosition.column,
+              });
+            } else if (child?.type === 'html_text') {
+              results.push({
+                text: child.text,
+                languageId,
+                startRow: child.startPosition.row,
+                startCol: child.startPosition.column,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child) walk(child);
+    }
+  };
+
+  walk(rootNode);
+  return results;
+}
+
 // Semantic tokens handler
-connection.languages.semanticTokens.on((params) => {
+connection.languages.semanticTokens.on(async (params) => {
   connection.console.log(`Semantic tokens requested for: ${params.textDocument.uri}`);
 
   const document = documents.get(params.textDocument.uri);
@@ -235,8 +397,24 @@ connection.languages.semanticTokens.on((params) => {
     return { data: [] };
   }
 
-  const result = buildSemanticTokens(tree, highlightQuery, rawTextQuery ?? undefined).build();
-  // Each semantic token is encoded as 5 integers (deltaLine, deltaStart, length, type, modifiers)
+  // Tokenize embedded language content in custom code tags
+  let embeddedTokens: TokenInfo[] = [];
+  if (isTextMateReady() && customCodeTagConfigs.length > 0) {
+    const codeTagContents = findCustomCodeTagContent(tree.rootNode, customCodeTagConfigs);
+    if (codeTagContents.length > 0) {
+      const tokenArrays = await Promise.all(
+        codeTagContents.map((content) =>
+          tokenizeEmbeddedContent(content.text, content.languageId, content.startRow, content.startCol)
+        )
+      );
+      embeddedTokens = tokenArrays.flat();
+      connection.console.log(`  -> Embedded tokens: ${embeddedTokens.length} from ${codeTagContents.length} regions`);
+    }
+  }
+
+  const result = buildSemanticTokens(
+    tree, highlightQuery, rawTextQuery ?? undefined, embeddedTokens.length > 0 ? embeddedTokens : undefined
+  ).build();
   const tokenCount = result.data.length / 5;
   connection.console.log(`  -> Returning ${tokenCount} tokens`);
   return result;
