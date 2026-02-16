@@ -8,6 +8,7 @@ import {
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
+import type { Node as SyntaxNode } from 'web-tree-sitter';
 import { initializeParser, parseDocument, getLanguage, createQuery, Tree, Query, setLogger } from './parser';
 import {
   buildSemanticTokens,
@@ -41,6 +42,20 @@ let customCodeTags: string[] = [];
 // Print width setting (maximum line width before breaking)
 let printWidth = 80;
 
+/**
+ * Extract tag names from customCodeTags settings objects.
+ */
+function extractTagNames(tags: unknown[]): string[] {
+  return tags
+    .map((tag) => {
+      if (tag && typeof tag === 'object' && 'name' in tag && typeof (tag as { name: unknown }).name === 'string') {
+        return (tag as { name: string }).name;
+      }
+      return null;
+    })
+    .filter((name): name is string => name !== null);
+}
+
 connection.onInitialize(async (params: InitializeParams): Promise<InitializeResult> => {
   connection.console.log('onInitialize called');
   connection.console.log(`Client info: ${params.clientInfo?.name} ${params.clientInfo?.version}`);
@@ -48,7 +63,7 @@ connection.onInitialize(async (params: InitializeParams): Promise<InitializeResu
   // Read settings from initialization options
   const initOptions = params.initializationOptions;
   if (initOptions?.customCodeTags && Array.isArray(initOptions.customCodeTags)) {
-    customCodeTags = initOptions.customCodeTags;
+    customCodeTags = extractTagNames(initOptions.customCodeTags);
     connection.console.log(`Custom code tags: ${customCodeTags.join(', ')}`);
   }
   if (initOptions?.printWidth && typeof initOptions.printWidth === 'number') {
@@ -138,7 +153,7 @@ connection.onInitialized(() => {
 connection.onDidChangeConfiguration((change) => {
   const settings = change.settings;
   if (settings?.htmlmustache?.formatting?.customCodeTags) {
-    customCodeTags = settings.htmlmustache.formatting.customCodeTags;
+    customCodeTags = extractTagNames(settings.htmlmustache.formatting.customCodeTags);
     connection.console.log(`Custom code tags updated: ${customCodeTags.join(', ')}`);
   }
   if (settings?.htmlmustache?.formatting?.printWidth && typeof settings.htmlmustache.formatting.printWidth === 'number') {
@@ -272,8 +287,118 @@ connection.onFoldingRanges((params) => {
   return getFoldingRanges(tree);
 });
 
+// Embedded script/style formatting helpers
+
+interface EmbeddedRegion {
+  startIndex: number;
+  content: string;
+  languageId: string;
+}
+
+/**
+ * Get the language ID for a script or style element.
+ * Returns "javascript" for script (or "typescript" if type="text/typescript"),
+ * "css" for style.
+ */
+function getEmbeddedLanguageId(node: SyntaxNode): string {
+  if (node.type === 'html_style_element') {
+    return 'css';
+  }
+  // Check for type attribute on script elements
+  for (let i = 0; i < node.childCount; i++) {
+    const child = node.child(i);
+    if (child?.type === 'html_start_tag') {
+      for (let j = 0; j < child.childCount; j++) {
+        const attr = child.child(j);
+        if (attr?.type === 'html_attribute') {
+          let name = '';
+          let value = '';
+          for (let k = 0; k < attr.childCount; k++) {
+            const part = attr.child(k);
+            if (part?.type === 'html_attribute_name') name = part.text.toLowerCase();
+            if (part?.type === 'html_quoted_attribute_value') value = part.text.replace(/^["']|["']$/g, '').toLowerCase();
+            if (part?.type === 'html_attribute_value') value = part.text.toLowerCase();
+          }
+          if (name === 'type' && (value === 'text/typescript' || value === 'ts')) {
+            return 'typescript';
+          }
+        }
+      }
+    }
+  }
+  return 'javascript';
+}
+
+/**
+ * Walk the tree to collect embedded script/style regions.
+ * Skips html_raw_element (custom raw tags).
+ */
+function collectEmbeddedRegions(rootNode: SyntaxNode): EmbeddedRegion[] {
+  const regions: EmbeddedRegion[] = [];
+  const walk = (node: SyntaxNode) => {
+    if (node.type === 'html_script_element' || node.type === 'html_style_element') {
+      for (let i = 0; i < node.childCount; i++) {
+        const child = node.child(i);
+        if (child?.type === 'html_raw_text') {
+          regions.push({
+            startIndex: child.startIndex,
+            content: child.text,
+            languageId: getEmbeddedLanguageId(node),
+          });
+        }
+      }
+    }
+    for (let i = 0; i < node.childCount; i++) {
+      const child = node.child(i);
+      if (child) walk(child);
+    }
+  };
+  walk(rootNode);
+  return regions;
+}
+
+/**
+ * Send embedded regions to the client for formatting via custom request.
+ * Returns a map of startIndex → formatted content.
+ */
+async function formatEmbeddedRegions(
+  rootNode: SyntaxNode,
+  options: { tabSize: number; insertSpaces: boolean }
+): Promise<Map<number, string>> {
+  const regions = collectEmbeddedRegions(rootNode);
+  const result = new Map<number, string>();
+
+  if (regions.length === 0) return result;
+
+  const responses = await Promise.all(
+    regions.map(async (region) => {
+      try {
+        const response = await connection.sendRequest('htmlmustache/formatEmbedded', {
+          content: region.content,
+          languageId: region.languageId,
+          options: {
+            tabSize: options.tabSize,
+            insertSpaces: options.insertSpaces,
+          },
+        });
+        return { startIndex: region.startIndex, response: response as { formatted: string | null } };
+      } catch {
+        return { startIndex: region.startIndex, response: { formatted: null } };
+      }
+    })
+  );
+
+  for (const { startIndex, response } of responses) {
+    if (response.formatted !== null) {
+      result.set(startIndex, response.formatted);
+    }
+  }
+
+  return result;
+}
+
 // Document formatting handler
-connection.onDocumentFormatting((params) => {
+connection.onDocumentFormatting(async (params) => {
   const document = documents.get(params.textDocument.uri);
   if (!document) {
     return [];
@@ -284,11 +409,12 @@ connection.onDocumentFormatting((params) => {
     return [];
   }
 
-  return formatDocument(tree, document, params.options, customCodeTags, printWidth);
+  const embeddedFormatted = await formatEmbeddedRegions(tree.rootNode, params.options);
+  return formatDocument(tree, document, params.options, customCodeTags, printWidth, embeddedFormatted);
 });
 
 // Document range formatting handler
-connection.onDocumentRangeFormatting((params) => {
+connection.onDocumentRangeFormatting(async (params) => {
   const document = documents.get(params.textDocument.uri);
   if (!document) {
     return [];
@@ -299,7 +425,8 @@ connection.onDocumentRangeFormatting((params) => {
     return [];
   }
 
-  return formatDocumentRange(tree, document, params.range, params.options, customCodeTags, printWidth);
+  const embeddedFormatted = await formatEmbeddedRegions(tree.rootNode, params.options);
+  return formatDocumentRange(tree, document, params.range, params.options, customCodeTags, printWidth, embeddedFormatted);
 });
 
 // Listen on the documents and connection

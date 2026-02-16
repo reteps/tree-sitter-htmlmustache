@@ -248,11 +248,15 @@ module.exports = grammar({
     mustache_inverted_section_attribute: ($) =>
       seq(
         $.mustache_inverted_section_begin,
-        $._attribute,
+        repeat1($._attribute),
         $.mustache_inverted_section_end,
       ),
     mustache_section_attribute: ($) =>
-      seq($.mustache_section_begin, $._attribute, $.mustache_section_end),
+      seq(
+        $.mustache_section_begin,
+        repeat1($._attribute),
+        $.mustache_section_end,
+      ),
 
     html_attribute_name: (_) => /[^<>{}"'/=\s]+/,
 

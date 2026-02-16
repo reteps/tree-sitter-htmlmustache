@@ -18,6 +18,7 @@
 
 ## Features
 
+- **CLI Linter** — Check templates for errors from the command line
 - **Syntax Highlighting** — Full semantic highlighting for HTML and Mustache syntax
 - **Document Formatting** — Auto-format with EditorConfig support
 - **Document Symbols** — Outline view and breadcrumb navigation
@@ -34,6 +35,34 @@
 | `{{^items}}...{{/items}}` | Inverted sections      |
 | `{{! comment }}`          | Comments               |
 | `{{> partial}}`           | Partials               |
+
+## CLI
+
+Check templates for errors before committing:
+
+```
+npx tree-sitter-htmlmustache check '**/*.mustache' '**/*.hbs'
+```
+
+```
+file.mustache:3:3 error: Mismatched mustache section: {{/wrong}}
+  |
+1 | {{#items}}
+2 |   <li>{{name}}
+3 |   {{/wrong}}
+  |   ^^^^^^^^^^ Mismatched mustache section: {{/wrong}}
+
+1 error in 1 file (5 files checked)
+```
+
+Or install globally:
+
+```
+npm install -g tree-sitter-htmlmustache
+htmlmustache check '**/*.mustache'
+```
+
+Detects parse errors, mismatched Mustache sections, mismatched HTML end tags, and missing tokens.
 
 ## Installation
 

@@ -28,7 +28,8 @@ export function formatDocument(
   document: TextDocument,
   options: FormattingOptions,
   customCodeTags?: string[],
-  printWidth = 80
+  printWidth = 80,
+  embeddedFormatted?: Map<number, string>
 ): TextEdit[] {
   const mergedOptions = mergeOptions(options, document.uri);
   const indentUnit = createIndentUnit(mergedOptions);
@@ -37,7 +38,11 @@ export function formatDocument(
     setCustomCodeTags(customCodeTags);
   }
 
-  const context: FormatterContext = { document, customCodeTags: customCodeTags ? new Set(customCodeTags.map(t => t.toLowerCase())) : undefined };
+  const context: FormatterContext = {
+    document,
+    customCodeTags: customCodeTags ? new Set(customCodeTags.map(t => t.toLowerCase())) : undefined,
+    embeddedFormatted,
+  };
   const doc = formatDocumentToDoc(tree.rootNode, context);
   const formatted = print(doc, { indentUnit, printWidth });
 
@@ -59,7 +64,8 @@ export function formatDocumentRange(
   range: Range,
   options: FormattingOptions,
   customCodeTags?: string[],
-  printWidth = 80
+  printWidth = 80,
+  embeddedFormatted?: Map<number, string>
 ): TextEdit[] {
   const mergedOptions = mergeOptions(options, document.uri);
   const indentUnit = createIndentUnit(mergedOptions);
@@ -95,7 +101,11 @@ export function formatDocumentRange(
     getContentNodes
   );
 
-  const context: FormatterContext = { document, customCodeTags: customCodeTags ? new Set(customCodeTags.map(t => t.toLowerCase())) : undefined };
+  const context: FormatterContext = {
+    document,
+    customCodeTags: customCodeTags ? new Set(customCodeTags.map(t => t.toLowerCase())) : undefined,
+    embeddedFormatted,
+  };
   const doc = formatNodeForRange(targetNode, context);
   const formatted = print(doc, { indentUnit, printWidth });
 

@@ -35,6 +35,7 @@ import { normalizeText, getVisibleChildren } from './utils';
 export interface FormatterContext {
   document: TextDocument;
   customCodeTags?: Set<string>;
+  embeddedFormatted?: Map<number, string>;
 }
 
 /**
@@ -244,11 +245,13 @@ export function formatHtmlElement(node: SyntaxNode, context: FormatterContext): 
 }
 
 /**
- * Format script or style element - preserves raw content.
+ * Format script or style element.
+ * Uses pre-formatted content from embeddedFormatted map when available,
+ * otherwise preserves raw content as-is.
  */
 export function formatScriptStyleElement(
   node: SyntaxNode,
-  _context: FormatterContext
+  context: FormatterContext
 ): Doc {
   const parts: Doc[] = [];
 
@@ -261,7 +264,27 @@ export function formatScriptStyleElement(
     } else if (child.type === 'html_end_tag') {
       parts.push(formatEndTag(child));
     } else if (child.type === 'html_raw_text') {
-      parts.push(text(child.text));
+      const formatted = context.embeddedFormatted?.get(child.startIndex);
+      if (formatted !== undefined) {
+        const trimmed = formatted.replace(/^\n+/, '').replace(/\n+$/, '');
+        if (trimmed.length === 0) {
+          // Empty content — no lines between tags
+        } else {
+          const lines = trimmed.split('\n');
+          const lineDocs: Doc[] = [];
+          for (let j = 0; j < lines.length; j++) {
+            if (j > 0) {
+              lineDocs.push(hardline);
+            }
+            lineDocs.push(text(lines[j]));
+          }
+          parts.push(indent(concat([hardline, ...lineDocs])));
+          parts.push(hardline);
+        }
+      } else {
+        // Fallback: preserve raw content as-is (also used for html_raw_element)
+        parts.push(text(child.text));
+      }
     }
   }
 

@@ -1,6 +1,6 @@
 {
   "name": "tree-sitter-htmlmustache",
-  "version": "0.0.17",
+  "version": "0.0.18",
   "description": "HTML with Mustache/Handlebars template syntax grammar for tree-sitter",
   "repository": "https://github.com/reteps/tree-sitter-htmlmustache",
   "license": "MIT",
@@ -8,6 +8,9 @@
     "name": "Peter Stenger"
   },
   "main": "bindings/node",
+  "bin": {
+    "htmlmustache": "./cli/out/check.js"
+  },
   "types": "bindings/node",
   "keywords": [
     "incremental",
@@ -25,19 +28,24 @@
     "bindings/node/*",
     "queries/*",
     "src/**",
-    "*.wasm"
+    "*.wasm",
+    "cli/out/*"
   ],
   "dependencies": {
+    "chalk": "^4.1.2",
     "node-addon-api": "^8.2.2",
     "node-gyp-build": "^4.8.2"
   },
   "devDependencies": {
+    "@types/node": "^22.19.11",
     "eslint": "^9.14.0",
     "eslint-config-treesitter": "^1.0.2",
     "prebuildify": "^6.0.1",
     "prettier": "^3.8.1",
     "tree-sitter": "^0.25.0",
-    "tree-sitter-cli": "^0.26.3"
+    "tree-sitter-cli": "^0.26.3",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
   },
   "peerDependencies": {
     "tree-sitter": "^0.25.0"
@@ -57,11 +65,15 @@
   "scripts": {
     "install": "node-gyp-build",
     "build": "tree-sitter build --wasm",
+    "prepack": "tsc -p cli/tsconfig.json",
+    "build:cli": "tsc -p cli/tsconfig.json",
+    "check": "node cli/out/check.js check",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prestart": "tree-sitter build --wasm",
     "start": "tree-sitter playground",
-    "test": "tree-sitter test && node --test bindings/node/*_test.js"
+    "test": "tree-sitter test && node --test bindings/node/*_test.js",
+    "test:cli": "vitest run --config cli/vitest.config.ts"
   }
 }

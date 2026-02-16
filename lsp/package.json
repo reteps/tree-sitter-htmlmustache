@@ -2,7 +2,7 @@
   "name": "htmlmustache-lsp",
   "displayName": "HTML Mustache Language Support",
   "description": "Language server for HTML with Mustache template syntax",
-  "version": "0.0.18",
+  "version": "0.0.19",
   "publisher": "reteps",
   "private": true,
   "license": "MIT",
@@ -55,6 +55,41 @@
           "source.js": "javascript",
           "source.css": "css"
         }
+      },
+      {
+        "scopeName": "text.html.htmlmustache.embedded",
+        "path": "./syntaxes/embedded-languages.json",
+        "injectTo": ["text.html.htmlmustache"],
+        "embeddedLanguages": {
+          "meta.embedded.block.python": "python",
+          "meta.embedded.block.javascript": "javascript",
+          "meta.embedded.block.typescript": "typescript",
+          "meta.embedded.block.c": "c",
+          "meta.embedded.block.cpp": "cpp",
+          "meta.embedded.block.java": "java",
+          "meta.embedded.block.ruby": "ruby",
+          "meta.embedded.block.go": "go",
+          "meta.embedded.block.rust": "rust",
+          "meta.embedded.block.php": "php",
+          "meta.embedded.block.perl": "perl",
+          "meta.embedded.block.lua": "lua",
+          "meta.embedded.block.sql": "sql",
+          "meta.embedded.block.html": "html",
+          "meta.embedded.block.css": "css",
+          "meta.embedded.block.json": "json",
+          "meta.embedded.block.xml": "xml",
+          "meta.embedded.block.yaml": "yaml",
+          "meta.embedded.block.toml": "toml",
+          "meta.embedded.block.markdown": "markdown",
+          "meta.embedded.block.shellscript": "shellscript",
+          "meta.embedded.block.dockerfile": "dockerfile",
+          "meta.embedded.block.swift": "swift",
+          "meta.embedded.block.kotlin": "kotlin",
+          "meta.embedded.block.haskell": "haskell",
+          "meta.embedded.block.r": "r",
+          "meta.embedded.block.csharp": "csharp",
+          "meta.embedded.block.matlab": "matlab"
+        }
       }
     ],
     "configuration": {
@@ -76,10 +111,21 @@
           "scope": "resource",
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": { "type": "string", "description": "Custom tag name" },
+              "syntaxAttribute": { "type": "string", "description": "Attribute name containing the language" },
+              "languageMap": {
+                "type": "object",
+                "additionalProperties": { "type": "string" },
+                "description": "Map of attribute values to language names (for non-standard values like ace/mode/python -> python)"
+              },
+              "defaultLanguage": { "type": "string", "description": "Always inject this language for the tag content (no attribute needed)" }
+            }
           },
           "default": [],
-          "description": "Custom tag names to treat like <pre>/<code> blocks (content preserved as-is, block-level display)."
+          "description": "Custom tags to treat like <pre>/<code> blocks (content preserved as-is, block-level display). Add syntaxAttribute or defaultLanguage for embedded syntax highlighting."
         },
         "htmlmustache.formatting.printWidth": {
           "scope": "resource",
