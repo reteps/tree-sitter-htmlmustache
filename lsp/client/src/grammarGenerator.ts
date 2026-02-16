@@ -176,17 +176,18 @@ const TAG_STUFF_REPOSITORY = {
   },
 };
 
-export function generateInjectionGrammar(syntaxTags: CustomCodeTagConfig[]): string {
-  const allPatterns: TmPattern[] = [];
-
-  for (const tag of syntaxTags) {
-    allPatterns.push(...generatePatternsForTag(tag));
-  }
-
+export function generateInjectionGrammar(_syntaxTags: CustomCodeTagConfig[]): string {
+  // We no longer generate TextMate injection patterns for custom code tags.
+  // The embedded tokenizer (vscode-textmate server-side) now handles all
+  // highlighting for custom code tag content, including entity-decoded text.
+  //
+  // The old injection grammar patterns applied a meta.embedded.block.{lang}
+  // scope which caused VS Code to treat the region as a separate language
+  // zone, suppressing the semantic tokens from our LSP server.
   const grammar = {
     scopeName: 'text.html.htmlmustache.embedded',
     injectionSelector: 'L:text.html.htmlmustache',
-    patterns: allPatterns,
+    patterns: [] as TmPattern[],
     repository: TAG_STUFF_REPOSITORY,
   };
 
