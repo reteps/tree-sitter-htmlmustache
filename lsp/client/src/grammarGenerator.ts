@@ -66,7 +66,7 @@ export function parseCustomCodeTags(
 }
 
 function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\/]/g, '\\\\$&');
+  return str.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
 }
 
 function makeBeginCaptures() {
@@ -102,12 +102,12 @@ function makePattern(
 ): TmPattern {
   const escapedTag = escapeRegex(tagName);
   const attrPart = attrRegex
-    ? `([^>]*\\\\s${attrRegex}[^>]*)`
+    ? `([^>]*\\s${attrRegex}[^>]*)`
     : '([^>]*)';
 
   return {
-    begin: `(?i)(<)(${escapedTag})\\\\b${attrPart}(>)`,
-    end: `(?i)(</)(${escapedTag})\\\\s*(>)`,
+    begin: `(?i)(<)(${escapedTag})\\b${attrPart}(>)`,
+    end: `(?i)(</)(${escapedTag})\\s*(>)`,
     contentName: `meta.embedded.block.${lang.languageId}`,
     beginCaptures: makeBeginCaptures(),
     endCaptures: makeEndCaptures(),
@@ -127,14 +127,14 @@ function generatePatternsForTag(tag: CustomCodeTagConfig): TmPattern[] {
         const lang = resolveLanguage(langName);
         if (!lang) continue;
         const escapedVal = escapeRegex(attrValue);
-        const attrRegex = `${escapedAttr}\\\\s*=\\\\s*(?:"${escapedVal}"|'${escapedVal}')`;
+        const attrRegex = `${escapedAttr}\\s*=\\s*(?:"${escapedVal}"|'${escapedVal}')`;
         patterns.push(makePattern(tag.name, attrRegex, lang));
       }
     } else {
       // No language map: match against all known language names
       for (const [key, lang] of Object.entries(LANGUAGE_MAP)) {
         const escapedKey = escapeRegex(key);
-        const attrRegex = `${escapedAttr}\\\\s*=\\\\s*(?:"${escapedKey}"|'${escapedKey}')`;
+        const attrRegex = `${escapedAttr}\\s*=\\s*(?:"${escapedKey}"|'${escapedKey}')`;
         patterns.push(makePattern(tag.name, attrRegex, lang));
       }
     }
@@ -155,7 +155,7 @@ const TAG_STUFF_REPOSITORY = {
   'tag-stuff': {
     patterns: [
       {
-        match: '\\\\s([a-zA-Z\\\\-:]+)',
+        match: '\\s([a-zA-Z\\-:]+)',
         name: 'entity.other.attribute-name.html',
       },
       {
