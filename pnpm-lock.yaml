@@ -17,6 +17,9 @@ importers:
       node-gyp-build:
         specifier: ^4.8.2
         version: 4.8.4
+      tree-sitter:
+        specifier: ^0.25.0
+        version: 0.25.0
     devDependencies:
       '@types/node':
         specifier: ^22.19.11
@@ -33,9 +36,6 @@ importers:
       prettier:
         specifier: ^3.8.1
         version: 3.8.1
-      tree-sitter:
-        specifier: ^0.25.0
-        version: 0.25.0
       tree-sitter-cli:
         specifier: ^0.26.3
         version: 0.26.3
