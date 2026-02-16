@@ -51,6 +51,7 @@ export function formatNode(
 
     case 'html_script_element':
     case 'html_style_element':
+    case 'html_raw_element':
       return formatScriptStyleElement(node, context);
 
     case 'mustache_section':
@@ -140,6 +141,7 @@ export function formatHtmlElement(node: SyntaxNode, context: FormatterContext): 
       child.type === 'html_element' ||
       child.type === 'html_script_element' ||
       child.type === 'html_style_element' ||
+      child.type === 'html_raw_element' ||
       isBlockLevel(child)
   );
 

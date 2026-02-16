@@ -73,8 +73,8 @@ export function isBlockLevel(node: SyntaxNode): boolean {
     return tagName ? !INLINE_ELEMENTS.has(tagName.toLowerCase()) : true;
   }
 
-  // Script and style elements are block-level
-  if (type === 'html_script_element' || type === 'html_style_element') {
+  // Script, style, and raw elements are block-level
+  if (type === 'html_script_element' || type === 'html_style_element' || type === 'html_raw_element') {
     return true;
   }
 
@@ -98,7 +98,7 @@ export function isInlineElement(node: SyntaxNode): boolean {
 export function shouldPreserveContent(node: SyntaxNode): boolean {
   const type = node.type;
 
-  if (type === 'html_script_element' || type === 'html_style_element') {
+  if (type === 'html_script_element' || type === 'html_style_element' || type === 'html_raw_element') {
     return true;
   }
 
@@ -147,8 +147,8 @@ export function isBlockLevelContent(node: SyntaxNode): boolean {
     return true;
   }
 
-  // Script/style are block-level
-  if (type === 'html_script_element' || type === 'html_style_element') {
+  // Script/style/raw are block-level
+  if (type === 'html_script_element' || type === 'html_style_element' || type === 'html_raw_element') {
     return true;
   }
 
@@ -305,7 +305,8 @@ export function shouldTreatAsBlock(
   const isHtmlElement =
     node.type === 'html_element' ||
     node.type === 'html_script_element' ||
-    node.type === 'html_style_element';
+    node.type === 'html_style_element' ||
+    node.type === 'html_raw_element';
   const isMustacheSection =
     node.type === 'mustache_section' ||
     node.type === 'mustache_inverted_section';

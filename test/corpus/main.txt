@@ -507,6 +507,23 @@ Multiple entities in tag contents
     (html_end_tag
       (html_tag_name))))
 
+============================
+Bare ampersand in tag content
+============================
+
+<p>foo & bar</p>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name))
+    (text)
+    (text)
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
 ==================================
 Omitted end tags for html and head
 ==================================

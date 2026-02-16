@@ -39,7 +39,7 @@ function nodeToFoldingRange(node: SyntaxNode): FoldingRange | null {
   }
 
   // HTML elements
-  if (type === 'html_element' || type === 'html_script_element' || type === 'html_style_element') {
+  if (type === 'html_element' || type === 'html_script_element' || type === 'html_style_element' || type === 'html_raw_element') {
     return {
       startLine: node.startPosition.row,
       endLine: node.endPosition.row,

@@ -1,13 +1,33 @@
 #include "tag.h"
 #include "mustache_tag.h"
+#include "custom_raw_tags.h"
 #include "tree_sitter/parser.h"
 
 #include <wctype.h>
+
+#ifdef CUSTOM_RAW_TAGS
+static const char *CUSTOM_RAW_TAG_NAMES[] = { CUSTOM_RAW_TAGS };
+#define NUM_CUSTOM_RAW_TAGS (sizeof(CUSTOM_RAW_TAG_NAMES) / sizeof(CUSTOM_RAW_TAG_NAMES[0]))
+
+static bool is_custom_raw_tag(const String *tag_name) {
+    for (unsigned i = 0; i < NUM_CUSTOM_RAW_TAGS; i++) {
+        const char *raw_name = CUSTOM_RAW_TAG_NAMES[i];
+        if (strlen(raw_name) == tag_name->size &&
+            memcmp(raw_name, tag_name->contents, tag_name->size) == 0) {
+            return true;
+        }
+    }
+    return false;
+}
+#else
+#define NUM_CUSTOM_RAW_TAGS 0
+#endif
 
 enum TokenType {
     HTML_START_TAG_NAME,
     HTML_SCRIPT_START_TAG_NAME,
     HTML_STYLE_START_TAG_NAME,
+    HTML_RAW_START_TAG_NAME,
     HTML_END_TAG_NAME,
     HTML_ERRONEOUS_END_TAG_NAME,
     HTML_SELF_CLOSING_TAG_DELIMITER,
@@ -232,7 +252,31 @@ static bool scan_raw_text(Scanner *scanner, TSLexer *lexer) {
 
     lexer->mark_end(lexer);
 
-    const char *end_delimiter = array_back(&scanner->tags)->type == SCRIPT ? "</SCRIPT" : "</STYLE";
+    Tag *tag = array_back(&scanner->tags);
+
+#ifdef CUSTOM_RAW_TAGS
+    char end_delimiter_buf[256];
+    const char *end_delimiter;
+    if (tag->type == SCRIPT) {
+        end_delimiter = "</SCRIPT";
+    } else if (tag->type == STYLE) {
+        end_delimiter = "</STYLE";
+    } else if (tag->type == CUSTOM && is_custom_raw_tag(&tag->custom_tag_name)) {
+        end_delimiter_buf[0] = '<';
+        end_delimiter_buf[1] = '/';
+        unsigned len = tag->custom_tag_name.size;
+        if (len > sizeof(end_delimiter_buf) - 3) {
+            len = sizeof(end_delimiter_buf) - 3;
+        }
+        memcpy(end_delimiter_buf + 2, tag->custom_tag_name.contents, len);
+        end_delimiter_buf[2 + len] = '\0';
+        end_delimiter = end_delimiter_buf;
+    } else {
+        return false;
+    }
+#else
+    const char *end_delimiter = tag->type == SCRIPT ? "</SCRIPT" : "</STYLE";
+#endif
 
     unsigned delimiter_index = 0;
     while (lexer->lookahead) {
@@ -332,6 +376,12 @@ static bool scan_start_tag_name(Scanner *scanner, TSLexer *lexer) {
             lexer->result_symbol = HTML_STYLE_START_TAG_NAME;
             break;
         default:
+#ifdef CUSTOM_RAW_TAGS
+            if (tag.type == CUSTOM && is_custom_raw_tag(&tag.custom_tag_name)) {
+                lexer->result_symbol = HTML_RAW_START_TAG_NAME;
+                break;
+            }
+#endif
             lexer->result_symbol = HTML_START_TAG_NAME;
             break;
     }

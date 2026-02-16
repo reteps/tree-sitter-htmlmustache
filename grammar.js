@@ -17,6 +17,7 @@ module.exports = grammar({
     $._html_start_tag_name,
     $._html_script_start_tag_name,
     $._html_style_start_tag_name,
+    $._html_raw_start_tag_name,
     $._html_end_tag_name,
     $.html_erroneous_end_tag_name,
     '/>',
@@ -47,9 +48,11 @@ module.exports = grammar({
         $.html_element,
         $.html_script_element,
         $.html_style_element,
+        $.html_raw_element,
         $.html_erroneous_end_tag,
         $.text,
         alias($._text_brace, $.text),
+        alias($._text_ampersand, $.text),
       ),
 
     _mustache_node: ($) =>
@@ -162,6 +165,13 @@ module.exports = grammar({
         $.html_end_tag,
       ),
 
+    html_raw_element: ($) =>
+      seq(
+        alias($.html_raw_start_tag, $.html_start_tag),
+        optional($.html_raw_text),
+        $.html_end_tag,
+      ),
+
     html_start_tag: ($) =>
       seq(
         '<',
@@ -182,6 +192,14 @@ module.exports = grammar({
       seq(
         '<',
         alias($._html_style_start_tag_name, $.html_tag_name),
+        repeat($._attribute),
+        '>',
+      ),
+
+    html_raw_start_tag: ($) =>
+      seq(
+        '<',
+        alias($._html_raw_start_tag_name, $.html_tag_name),
         repeat($._attribute),
         '>',
       ),
@@ -399,5 +417,6 @@ module.exports = grammar({
     text: (_) => /[^<{}&\s]([^<{}&]*[^<{}&\s])?/,
     // Single braces that aren't part of {{ or }} in text content
     _text_brace: (_) => /[{}]/,
+    _text_ampersand: (_) => '&',
   },
 });

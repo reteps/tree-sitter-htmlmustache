@@ -103,6 +103,10 @@
           "named": true
         },
         {
+          "type": "html_raw_element",
+          "named": true
+        },
+        {
           "type": "html_script_element",
           "named": true
         },
@@ -208,6 +212,10 @@
         },
         {
           "type": "html_forced_end_tag",
+          "named": true
+        },
+        {
+          "type": "html_raw_element",
           "named": true
         },
         {
@@ -317,6 +325,29 @@
         },
         {
           "type": "mustache_section",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "html_raw_element",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "html_end_tag",
+          "named": true
+        },
+        {
+          "type": "html_raw_text",
+          "named": true
+        },
+        {
+          "type": "html_start_tag",
           "named": true
         }
       ]
@@ -534,6 +565,10 @@
           "named": true
         },
         {
+          "type": "html_raw_element",
+          "named": true
+        },
+        {
           "type": "html_script_element",
           "named": true
         },
@@ -685,6 +720,10 @@
           "named": true
         },
         {
+          "type": "html_raw_element",
+          "named": true
+        },
+        {
           "type": "html_script_element",
           "named": true
         },
@@ -795,6 +834,10 @@
   },
   {
     "type": "\"",
+    "named": false
+  },
+  {
+    "type": "&",
     "named": false
   },
   {

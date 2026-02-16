@@ -46,6 +46,7 @@ export const HIGHLIGHT_QUERY = `
 export const RAW_TEXT_QUERY = `
 (html_script_element (html_raw_text) @raw)
 (html_style_element (html_raw_text) @raw)
+(html_raw_element (html_raw_text) @raw)
 `;
 
 /**

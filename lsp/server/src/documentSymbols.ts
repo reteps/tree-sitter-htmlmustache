@@ -113,6 +113,17 @@ function nodeToSymbol(
     };
   }
 
+  // Raw elements (custom raw tags like MARKDOWN)
+  if (type === 'html_raw_element') {
+    const tagName = findTagName(node);
+    return {
+      name: `<${tagName ?? 'raw'}>`,
+      kind: SymbolKind.Module,
+      range: toRange(node),
+      selectionRange: toRange(node.child(0) ?? node),
+    };
+  }
+
   return null;
 }
 
