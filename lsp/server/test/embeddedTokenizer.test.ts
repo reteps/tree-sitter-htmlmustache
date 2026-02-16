@@ -530,3 +530,70 @@ describe('tokenizeEmbeddedContent (integration)', () => {
     expect(tokens.length).toBe(0);
   });
 });
+
+describe('tree-sitter content extraction', () => {
+  // These tests verify that entity-encoded content inside custom code tags
+  // is correctly extracted from the tree-sitter parse tree, where the parser
+  // produces separate `text` and `html_entity` children (not a single text node).
+
+  it('parses <pl-code> content as text and html_entity children', () => {
+    const tree = parseText('<pl-code language="c">x &lt; 2</pl-code>');
+    const root = tree.rootNode;
+
+    // The pl-code element should be an html_element
+    const element = root.child(0);
+    expect(element?.type).toBe('html_element');
+
+    // Collect child types between start/end tags
+    const childTypes: string[] = [];
+    for (let i = 0; i < element!.childCount; i++) {
+      childTypes.push(element!.child(i)!.type);
+    }
+
+    // Should have start_tag, content nodes (text/html_entity), and end_tag
+    expect(childTypes).toContain('html_start_tag');
+    expect(childTypes).toContain('html_end_tag');
+    // Content is split into text and html_entity nodes
+    expect(childTypes).toContain('text');
+    expect(childTypes).toContain('html_entity');
+  });
+
+  it('text between start/end tags includes entities as literal text', () => {
+    const tree = parseText('<pl-code language="c">x &lt; 2</pl-code>');
+    const element = tree.rootNode.child(0)!;
+
+    // Extract text between start and end tags using character indices
+    let startTag: { endIndex: number } | null = null;
+    let endTag: { startIndex: number } | null = null;
+    for (let i = 0; i < element.childCount; i++) {
+      const child = element.child(i)!;
+      if (child.type === 'html_start_tag') startTag = child;
+      if (child.type === 'html_end_tag') endTag = child;
+    }
+
+    const fullText = tree.rootNode.text;
+    const content = fullText.slice(startTag!.endIndex, endTag!.startIndex);
+    expect(content).toBe('x &lt; 2');
+  });
+
+  it('multi-line entity-encoded content is fully captured', () => {
+    const input = `<pl-code language="c">
+tax = price * 100;
+cout &lt;&lt; fixed &lt;&lt; endl;
+</pl-code>`;
+    const tree = parseText(input);
+    const element = tree.rootNode.child(0)!;
+
+    let startTag: { endIndex: number } | null = null;
+    let endTag: { startIndex: number } | null = null;
+    for (let i = 0; i < element.childCount; i++) {
+      const child = element.child(i)!;
+      if (child.type === 'html_start_tag') startTag = child;
+      if (child.type === 'html_end_tag') endTag = child;
+    }
+
+    const fullText = tree.rootNode.text;
+    const content = fullText.slice(startTag!.endIndex, endTag!.startIndex);
+    expect(content).toBe('\ntax = price * 100;\ncout &lt;&lt; fixed &lt;&lt; endl;\n');
+  });
+});

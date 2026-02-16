@@ -342,10 +342,17 @@ function findCustomCodeTagContent(
       if (config) {
         const languageId = resolveCustomCodeLanguage(node, config);
         if (languageId) {
-          // For html_raw_element, get html_raw_text child
-          // For html_element, collect text content between start and end tags
+          // Extract content between start and end tags.
+          // We use the node's full text and slice between the start tag end
+          // and end tag start, because tree-sitter produces separate `text`
+          // and `html_entity` children with gaps between them (whitespace).
+          let startTag: SyntaxNode | null = null;
+          let endTag: SyntaxNode | null = null;
           for (let i = 0; i < node.childCount; i++) {
             const child = node.child(i);
+            if (child?.type === 'html_start_tag') startTag = child;
+            if (child?.type === 'html_end_tag') endTag = child;
+            // For raw elements, grab raw text directly
             if (child?.type === 'html_raw_text') {
               results.push({
                 text: child.text,
@@ -353,12 +360,20 @@ function findCustomCodeTagContent(
                 startRow: child.startPosition.row,
                 startCol: child.startPosition.column,
               });
-            } else if (child?.type === 'html_text') {
+            }
+          }
+
+          // For regular html_element, extract text between start and end tags
+          if (startTag && node.type === 'html_element') {
+            const contentStartIndex = startTag.endIndex;
+            const contentEndIndex = endTag ? endTag.startIndex : node.endIndex;
+            const contentText = node.tree.rootNode.text.slice(contentStartIndex, contentEndIndex);
+            if (contentText.length > 0) {
               results.push({
-                text: child.text,
+                text: contentText,
                 languageId,
-                startRow: child.startPosition.row,
-                startCol: child.startPosition.column,
+                startRow: startTag.endPosition.row,
+                startCol: startTag.endPosition.column,
               });
             }
           }
