@@ -207,9 +207,18 @@ export function formatSummary(totalErrors: number, filesWithErrors: number, tota
 
 export function expandGlobs(patterns: string[]): string[] {
   const files: Set<string> = new Set();
+  const cwd = process.cwd();
   for (const pattern of patterns) {
-    for (const match of fs.globSync(pattern)) {
-      files.add(path.resolve(match));
+    // If the pattern is an exact file path, use it directly
+    if (!pattern.includes('*') && !pattern.includes('?')) {
+      const resolved = path.resolve(cwd, pattern);
+      if (fs.existsSync(resolved)) {
+        files.add(resolved);
+      }
+    } else {
+      for (const match of fs.globSync(pattern, { cwd })) {
+        files.add(path.resolve(cwd, match));
+      }
     }
   }
   return [...files].sort();
@@ -245,7 +254,10 @@ export function run(args: string[]): number {
   const files = expandGlobs(args);
 
   if (files.length === 0) {
-    console.error(chalk.yellow('No files matched the given patterns.'));
+    console.error(chalk.yellow('No files matched the given patterns:'));
+    for (const arg of args) {
+      console.error(chalk.yellow(`  ${arg}`));
+    }
     return 1;
   }
 
