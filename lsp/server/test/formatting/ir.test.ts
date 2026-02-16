@@ -11,11 +11,13 @@ import {
   line,
   breakParent,
   empty,
+  ifBreak,
   isConcat,
   isIndent,
   isHardline,
   isGroup,
   isFill,
+  isIfBreak,
 } from '../../src/formatting/ir';
 
 describe('IR Builders', () => {
@@ -167,6 +169,17 @@ describe('IR Builders', () => {
       if (isConcat(doc)) {
         expect(doc.parts).toHaveLength(3);
         expect(doc.parts[1]).toBe(hardline);
+      }
+    });
+  });
+
+  describe('ifBreak()', () => {
+    it('creates ifBreak node', () => {
+      const doc = ifBreak('broken', 'flat');
+      expect(isIfBreak(doc)).toBe(true);
+      if (isIfBreak(doc)) {
+        expect(doc.breakContents).toBe('broken');
+        expect(doc.flatContents).toBe('flat');
       }
     });
   });

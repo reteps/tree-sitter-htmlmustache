@@ -35,9 +35,26 @@ let highlightQuery: Query | null = null;
 // Raw text query for finding Mustache in script/style tags
 let rawTextQuery: Query | null = null;
 
+// Custom code tags setting (tags treated like <pre>/<code>)
+let customCodeTags: string[] = [];
+
+// Print width setting (maximum line width before breaking)
+let printWidth = 80;
+
 connection.onInitialize(async (params: InitializeParams): Promise<InitializeResult> => {
   connection.console.log('onInitialize called');
   connection.console.log(`Client info: ${params.clientInfo?.name} ${params.clientInfo?.version}`);
+
+  // Read settings from initialization options
+  const initOptions = params.initializationOptions;
+  if (initOptions?.customCodeTags && Array.isArray(initOptions.customCodeTags)) {
+    customCodeTags = initOptions.customCodeTags;
+    connection.console.log(`Custom code tags: ${customCodeTags.join(', ')}`);
+  }
+  if (initOptions?.printWidth && typeof initOptions.printWidth === 'number') {
+    printWidth = initOptions.printWidth;
+    connection.console.log(`Print width: ${printWidth}`);
+  }
 
   // Wire up parser logging to LSP connection
   setLogger((msg) => connection.console.log(msg));
@@ -115,6 +132,19 @@ connection.onInitialize(async (params: InitializeParams): Promise<InitializeResu
 
 connection.onInitialized(() => {
   connection.console.log('HTML Mustache Language Server initialized');
+});
+
+// Handle configuration changes
+connection.onDidChangeConfiguration((change) => {
+  const settings = change.settings;
+  if (settings?.htmlmustache?.formatting?.customCodeTags) {
+    customCodeTags = settings.htmlmustache.formatting.customCodeTags;
+    connection.console.log(`Custom code tags updated: ${customCodeTags.join(', ')}`);
+  }
+  if (settings?.htmlmustache?.formatting?.printWidth && typeof settings.htmlmustache.formatting.printWidth === 'number') {
+    printWidth = settings.htmlmustache.formatting.printWidth;
+    connection.console.log(`Print width updated: ${printWidth}`);
+  }
 });
 
 // Parse document on open
@@ -254,7 +284,7 @@ connection.onDocumentFormatting((params) => {
     return [];
   }
 
-  return formatDocument(tree, document, params.options);
+  return formatDocument(tree, document, params.options, customCodeTags, printWidth);
 });
 
 // Document range formatting handler
@@ -269,7 +299,7 @@ connection.onDocumentRangeFormatting((params) => {
     return [];
   }
 
-  return formatDocumentRange(tree, document, params.range, params.options);
+  return formatDocumentRange(tree, document, params.range, params.options, customCodeTags, printWidth);
 });
 
 // Listen on the documents and connection

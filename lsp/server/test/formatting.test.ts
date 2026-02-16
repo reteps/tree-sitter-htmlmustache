@@ -25,24 +25,24 @@ describe('Document Formatting', () => {
   }
 
   describe('HTML elements', () => {
-    it('formats single HTML element on one line', () => {
+    it('keeps short block element on one line', () => {
       const result = format('<div>content</div>');
-      expect(result).toBe('<div>\n  content\n</div>\n');
+      expect(result).toBe('<div>content</div>\n');
     });
 
-    it('formats nested HTML elements', () => {
+    it('keeps short nested inline element flat', () => {
       const result = format('<div><span>text</span></div>');
-      expect(result).toBe('<div>\n  <span>text</span>\n</div>\n');
+      expect(result).toBe('<div><span>text</span></div>\n');
     });
 
-    it('formats deeply nested elements', () => {
+    it('breaks block children onto separate lines', () => {
       const result = format('<div><p><strong>text</strong></p></div>');
-      expect(result).toBe('<div>\n  <p>\n    <strong>text</strong>\n  </p>\n</div>\n');
+      expect(result).toBe('<div>\n  <p><strong>text</strong></p>\n</div>\n');
     });
 
-    it('preserves inline elements on single line', () => {
+    it('keeps short inline element with inline children flat', () => {
       const result = format('<p><span>inline</span></p>');
-      expect(result).toBe('<p>\n  <span>inline</span>\n</p>\n');
+      expect(result).toBe('<p><span>inline</span></p>\n');
     });
 
     it('formats inline elements with nested HTML as blocks', () => {
@@ -58,14 +58,13 @@ describe('Document Formatting', () => {
       expect(result).toBe('<span class="feedback">\n  <span class="badge">\n    Invalid<i class="icon"></i>\n  </span>\n  <a href="#">More info</a>\n</span>\n');
     });
 
-    it('keeps inline elements in text flow on one line', () => {
-      // Example <i>valid</i> inputs: should stay on one line
+    it('keeps short text flow flat', () => {
       const result = format('<p>Example <i>valid</i> inputs: <code>5</code><code>-17</code></p>');
-      expect(result).toBe('<p>\n  Example <i>valid</i> inputs: <code>5</code><code>-17</code>\n</p>\n');
+      expect(result).toBe('<p>Example <i>valid</i> inputs: <code>5</code><code>-17</code></p>\n');
     });
 
-    it('preserves single-line text content', () => {
-      // Content on one line should stay on one line
+    it('breaks long text flow', () => {
+      // This content exceeds 80 chars so the group breaks
       const result = format('<p>The answer must be a <i>double-precision</i> {{#complex}}or complex{{/complex}} number.</p>');
       expect(result).toBe('<p>\n  The answer must be a <i>double-precision</i> {{#complex}}or complex{{/complex}} number.\n</p>\n');
     });
@@ -77,19 +76,19 @@ describe('Document Formatting', () => {
       expect(result).toBe('<p>\n  First line of text.\n  Second line of text.\n</p>\n');
     });
 
-    it('formats element with attributes', () => {
+    it('keeps short element with attributes flat', () => {
       const result = format('<div class="container" id="main">content</div>');
-      expect(result).toBe('<div class="container" id="main">\n  content\n</div>\n');
+      expect(result).toBe('<div class="container" id="main">content</div>\n');
     });
 
-    it('formats self-closing tags', () => {
+    it('keeps short block with self-closing child flat', () => {
       const result = format('<div><br /></div>');
-      expect(result).toBe('<div>\n  <br />\n</div>\n');
+      expect(result).toBe('<div><br /></div>\n');
     });
 
-    it('formats void elements', () => {
+    it('keeps short block with void element flat', () => {
       const result = format('<div><img src="test.jpg"></div>');
-      expect(result).toBe('<div>\n  <img src="test.jpg">\n</div>\n');
+      expect(result).toBe('<div><img src="test.jpg"></div>\n');
     });
 
     it('formats multiple sibling elements', () => {
@@ -99,25 +98,25 @@ describe('Document Formatting', () => {
   });
 
   describe('Mustache sections', () => {
-    it('formats mustache section as block', () => {
+    it('formats mustache section with block content', () => {
       const result = format('{{#items}}<li>item</li>{{/items}}');
-      expect(result).toBe('{{#items}}\n  <li>\n    item\n  </li>\n{{/items}}\n');
+      expect(result).toBe('{{#items}}\n  <li>item</li>\n{{/items}}\n');
     });
 
-    it('formats inverted section as block', () => {
+    it('formats inverted section with block content', () => {
       const result = format('{{^items}}<p>No items</p>{{/items}}');
-      expect(result).toBe('{{^items}}\n  <p>\n    No items\n  </p>\n{{/items}}\n');
+      expect(result).toBe('{{^items}}\n  <p>No items</p>\n{{/items}}\n');
     });
 
     it('formats nested HTML and mustache sections', () => {
       const result = format('<ul>{{#items}}<li>{{name}}</li>{{/items}}</ul>');
-      expect(result).toBe('<ul>\n  {{#items}}\n    <li>\n      {{name}}\n    </li>\n  {{/items}}\n</ul>\n');
+      expect(result).toBe('<ul>\n  {{#items}}\n    <li>{{name}}</li>\n  {{/items}}\n</ul>\n');
     });
 
     it('formats complex nesting', () => {
       const input = '<div>{{#show}}<p>visible</p>{{/show}}</div>';
       const result = format(input);
-      expect(result).toBe('<div>\n  {{#show}}\n    <p>\n      visible\n    </p>\n  {{/show}}\n</div>\n');
+      expect(result).toBe('<div>\n  {{#show}}\n    <p>visible</p>\n  {{/show}}\n</div>\n');
     });
 
     it('does not indent content when HTML has implicit end tags', () => {
@@ -134,72 +133,72 @@ describe('Document Formatting', () => {
     it('still indents nested block HTML inside mustache section with implicit end tags', () => {
       // Block HTML inside block HTML should still be indented, even when outer has implicit end
       const result = format('{{#inline}}<div><p>text{{/inline}}');
-      expect(result).toBe('{{#inline}}\n<div>\n  <p>\n    text\n{{/inline}}\n');
+      expect(result).toBe('{{#inline}}\n<div>\n  <p>text\n{{/inline}}\n');
     });
 
     it('keeps text-only mustache sections inline', () => {
       // Mustache sections with only text should stay inline
       const result = format('<p>figure{{#plural}}s{{/plural}}.</p>');
-      expect(result).toBe('<p>\n  figure{{#plural}}s{{/plural}}.\n</p>\n');
+      expect(result).toBe('<p>figure{{#plural}}s{{/plural}}.</p>\n');
     });
 
     it('keeps inline-element mustache sections inline', () => {
       // Mustache sections with only inline elements should stay inline
       const result = format('<p>Hello {{#name}}<strong>{{value}}</strong>{{/name}}!</p>');
-      expect(result).toBe('<p>\n  Hello {{#name}}<strong>{{value}}</strong>{{/name}}!\n</p>\n');
+      expect(result).toBe('<p>Hello {{#name}}<strong>{{value}}</strong>{{/name}}!</p>\n');
     });
 
     it('formats standalone mustache sections with proper closing indentation', () => {
-      // Standalone mustache sections should have closing tag at same indent as opening
+      // Standalone mustache sections that are short stay flat
       const result = format('<p>{{#message}}{{{message}}}{{/message}} {{^message}}Default{{/message}}</p>');
-      expect(result).toBe('<p>\n  {{#message}}\n    {{{message}}}\n  {{/message}}\n  {{^message}}\n    Default\n  {{/message}}\n</p>\n');
+      expect(result).toBe('<p>\n  {{#message}}{{{message}}}{{/message}}\n  {{^message}}Default{{/message}}\n</p>\n');
     });
 
     it('formats standalone mustache sections with inline HTML as blocks', () => {
       // Mustache sections that are NOT part of text flow should be formatted as blocks
       const result = format('<span class="input-group">{{#label}}<span>{{{label}}}</span>{{/label}}<input /></span>');
-      expect(result).toBe('<span class="input-group">\n  {{#label}}\n    <span>{{{label}}}</span>\n  {{/label}}\n  <input />\n</span>\n');
+      expect(result).toBe('<span class="input-group">\n  {{#label}}<span>{{{label}}}</span>{{/label}}\n  <input />\n</span>\n');
     });
   });
 
   describe('Mustache interpolation', () => {
-    it('preserves inline interpolation', () => {
+    it('keeps short element with interpolation flat', () => {
       const result = format('<p>Hello, {{name}}!</p>');
-      expect(result).toBe('<p>\n  Hello, {{name}}!\n</p>\n');
+      expect(result).toBe('<p>Hello, {{name}}!</p>\n');
     });
 
-    it('preserves triple mustache', () => {
+    it('keeps short element with triple mustache flat', () => {
       const result = format('<div>{{{html}}}</div>');
-      expect(result).toBe('<div>\n  {{{html}}}\n</div>\n');
+      expect(result).toBe('<div>{{{html}}}</div>\n');
     });
 
-    it('preserves mustache in attributes', () => {
+    it('keeps short element with mustache attribute flat', () => {
       const result = format('<div value="{{variable}}">content</div>');
-      expect(result).toBe('<div value="{{variable}}">\n  content\n</div>\n');
+      expect(result).toBe('<div value="{{variable}}">content</div>\n');
     });
 
-    it('preserves unquoted mustache attributes', () => {
+    it('keeps short element with unquoted mustache attribute flat', () => {
       const result = format('<div value={{variable}}>content</div>');
-      expect(result).toBe('<div value={{variable}}>\n  content\n</div>\n');
+      expect(result).toBe('<div value={{variable}}>content</div>\n');
     });
   });
 
   describe('Comments', () => {
-    it('preserves HTML comments', () => {
+    it('keeps short element with HTML comment flat', () => {
       const result = format('<div><!-- comment --></div>');
-      expect(result).toBe('<div>\n  <!-- comment -->\n</div>\n');
+      expect(result).toBe('<div><!-- comment --></div>\n');
     });
 
-    it('preserves mustache comments', () => {
+    it('keeps short element with mustache comment flat', () => {
       const result = format('<div>{{! comment }}</div>');
-      expect(result).toBe('<div>\n  {{! comment }}\n</div>\n');
+      expect(result).toBe('<div>{{! comment }}</div>\n');
     });
   });
 
   describe('Partials', () => {
-    it('preserves mustache partials', () => {
+    it('keeps short element with partial flat', () => {
       const result = format('<div>{{> header}}</div>');
-      expect(result).toBe('<div>\n  {{> header}}\n</div>\n');
+      expect(result).toBe('<div>{{> header}}</div>\n');
     });
   });
 
@@ -233,12 +232,12 @@ describe('Document Formatting', () => {
   describe('Formatting options', () => {
     it('uses tab indentation when insertSpaces is false', () => {
       const result = format('<div><p>text</p></div>', { tabSize: 2, insertSpaces: false });
-      expect(result).toBe('<div>\n\t<p>\n\t\ttext\n\t</p>\n</div>\n');
+      expect(result).toBe('<div>\n\t<p>text</p>\n</div>\n');
     });
 
     it('respects tabSize option', () => {
       const result = format('<div><p>text</p></div>', { tabSize: 4, insertSpaces: true });
-      expect(result).toBe('<div>\n    <p>\n        text\n    </p>\n</div>\n');
+      expect(result).toBe('<div>\n    <p>text</p>\n</div>\n');
     });
   });
 
@@ -255,12 +254,12 @@ describe('Document Formatting', () => {
 
     it('handles whitespace normalization', () => {
       const result = format('<div>  multiple   spaces  </div>');
-      expect(result).toBe('<div>\n  multiple spaces\n</div>\n');
+      expect(result).toBe('<div>multiple spaces</div>\n');
     });
 
     it('handles entities', () => {
       const result = format('<div>&amp; &lt;</div>');
-      expect(result).toBe('<div>\n  &amp; &lt;\n</div>\n');
+      expect(result).toBe('<div>&amp; &lt;</div>\n');
     });
   });
 
@@ -284,6 +283,51 @@ describe('Document Formatting', () => {
       expect(result).toContain('{{#users}}');
       expect(result).toContain('<li>');
       expect(result).toContain('<a href="{{url}}">{{name}}</a>');
+    });
+  });
+
+  describe('Print width breaking', () => {
+    it('keeps short block element on one line', () => {
+      const result = format('<div>short</div>');
+      expect(result).toBe('<div>short</div>\n');
+    });
+
+    it('breaks long block element content', () => {
+      const longText = 'x'.repeat(80);
+      const result = format(`<div>${longText}</div>`);
+      expect(result).toBe(`<div>\n  ${longText}\n</div>\n`);
+    });
+
+    it('keeps short nested structure flat', () => {
+      const result = format('<ul><li>item</li></ul>');
+      expect(result).toBe('<ul>\n  <li>item</li>\n</ul>\n');
+    });
+  });
+
+  describe('Attribute wrapping', () => {
+    it('keeps short attributes on one line', () => {
+      const result = format('<div class="a" id="b">text</div>');
+      expect(result).toBe('<div class="a" id="b">text</div>\n');
+    });
+
+    it('wraps long attributes', () => {
+      const result = format('<div class="very-long-class-name-that-goes-on-forever" id="also-a-long-identifier" data-value="something-else">text</div>');
+      // When attributes wrap, closing > goes on its own line
+      expect(result).toContain('<div\n');
+      expect(result).toContain('class="very-long-class-name-that-goes-on-forever"');
+    });
+  });
+
+  describe('Whitespace sensitivity', () => {
+    it('preserves space between inline elements', () => {
+      const result = format('<p>Hello <strong>World</strong>!</p>');
+      // Short enough to stay flat
+      expect(result).toBe('<p>Hello <strong>World</strong>!</p>\n');
+    });
+
+    it('breaks block elements with block children', () => {
+      const result = format('<div><p>text</p></div>');
+      expect(result).toBe('<div>\n  <p>text</p>\n</div>\n');
     });
   });
 });
@@ -357,13 +401,13 @@ indent_style = tab
   it('uses 4-space indentation from .editorconfig for .mustache files', () => {
     const result = formatWithEditorConfig('<div><p>text</p></div>', 'test.mustache');
     // Should use 4-space indent from .editorconfig
-    expect(result).toBe('<div>\n    <p>\n        text\n    </p>\n</div>\n');
+    expect(result).toBe('<div>\n    <p>text</p>\n</div>\n');
   });
 
   it('uses tab indentation from .editorconfig for .html files', () => {
     const result = formatWithEditorConfig('<div><p>text</p></div>', 'test.html');
     // Should use tab indent from .editorconfig
-    expect(result).toBe('<div>\n\t<p>\n\t\ttext\n\t</p>\n</div>\n');
+    expect(result).toBe('<div>\n\t<p>text</p>\n</div>\n');
   });
 
   it('falls back to LSP options when no .editorconfig exists', () => {
@@ -373,6 +417,6 @@ indent_style = tab
     const edits = formatDocument(tree, document, { tabSize: 3, insertSpaces: true });
     expect(edits.length).toBe(1);
     // Should fall back to 3-space indent from LSP options
-    expect(edits[0].newText).toBe('<div>\n   <p>\n      text\n   </p>\n</div>\n');
+    expect(edits[0].newText).toBe('<div>\n   <p>text</p>\n</div>\n');
   });
 });

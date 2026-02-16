@@ -13,7 +13,7 @@ import {
   FormatterContext,
 } from '../../src/formatting/formatters';
 
-const defaultPrinterOptions = { indentUnit: '  ' };
+const defaultPrinterOptions = { indentUnit: '  ', printWidth: 80 };
 
 function formatToString(content: string): string {
   const tree = parseText(content);
@@ -84,9 +84,9 @@ describe('Formatters', () => {
   });
 
   describe('formatHtmlElement()', () => {
-    it('formats block element with indentation', () => {
+    it('keeps short block element flat', () => {
       const result = formatToString('<div>content</div>');
-      expect(result).toBe('<div>\n  content\n</div>\n');
+      expect(result).toBe('<div>content</div>\n');
     });
 
     it('formats inline element without extra newlines', () => {
@@ -104,14 +104,14 @@ describe('Formatters', () => {
       expect(result).toBe('<img src="test.jpg">\n');
     });
 
-    it('formats element with attributes', () => {
+    it('keeps short element with attributes flat', () => {
       const result = formatToString('<div class="container" id="main">content</div>');
-      expect(result).toBe('<div class="container" id="main">\n  content\n</div>\n');
+      expect(result).toBe('<div class="container" id="main">content</div>\n');
     });
 
-    it('formats nested elements', () => {
+    it('breaks block children', () => {
       const result = formatToString('<div><p>text</p></div>');
-      expect(result).toBe('<div>\n  <p>\n    text\n  </p>\n</div>\n');
+      expect(result).toBe('<div>\n  <p>text</p>\n</div>\n');
     });
 
     it('formats empty block element', () => {
@@ -128,12 +128,12 @@ describe('Formatters', () => {
   describe('formatMustacheSection()', () => {
     it('formats section with block content', () => {
       const result = formatToString('{{#items}}<li>item</li>{{/items}}');
-      expect(result).toBe('{{#items}}\n  <li>\n    item\n  </li>\n{{/items}}\n');
+      expect(result).toBe('{{#items}}\n  <li>item</li>\n{{/items}}\n');
     });
 
     it('formats inverted section', () => {
       const result = formatToString('{{^items}}<p>none</p>{{/items}}');
-      expect(result).toBe('{{^items}}\n  <p>\n    none\n  </p>\n{{/items}}\n');
+      expect(result).toBe('{{^items}}\n  <p>none</p>\n{{/items}}\n');
     });
 
     it('does not indent content with implicit end tags', () => {
@@ -143,7 +143,7 @@ describe('Formatters', () => {
 
     it('handles nested HTML inside section with implicit end tags', () => {
       const result = formatToString('{{#inline}}<div><p>text{{/inline}}');
-      expect(result).toBe('{{#inline}}\n<div>\n  <p>\n    text\n{{/inline}}\n');
+      expect(result).toBe('{{#inline}}\n<div>\n  <p>text\n{{/inline}}\n');
     });
   });
 
@@ -174,6 +174,19 @@ describe('Formatters', () => {
       const doc = formatStartTag(selfClosingTag);
       expect(print(doc, defaultPrinterOptions)).toBe('<br />');
     });
+
+    it('wraps long attributes onto multiple lines', () => {
+      const longTag = '<div class="very-long-class-name-here" id="also-long-id-name" data-value="another-long-value">';
+      const tree = parseText(longTag);
+      const document = createMockDocument(longTag);
+      const divNode = tree.rootNode.child(0)!;
+      const startTag = divNode.child(0)!;
+      const doc = formatStartTag(startTag);
+      const result = print(doc, defaultPrinterOptions);
+      // Should break because it exceeds 80 chars
+      expect(result).toContain('\n');
+      expect(result).toContain('class="very-long-class-name-here"');
+    });
   });
 
   describe('formatEndTag()', () => {
@@ -203,13 +216,12 @@ describe('Formatters', () => {
 
     it('keeps text flow together', () => {
       const result = formatToString('<p>Hello <strong>World</strong>!</p>');
-      expect(result).toBe('<p>\n  Hello <strong>World</strong>!\n</p>\n');
+      expect(result).toBe('<p>Hello <strong>World</strong>!</p>\n');
     });
 
     it('keeps inline elements in text flow on one line', () => {
-      // Inline elements adjacent to non-whitespace text stay on the same line
       const result = formatToString('<p>Example <i>valid</i> inputs: <code>5</code><code>-17</code></p>');
-      expect(result).toBe('<p>\n  Example <i>valid</i> inputs: <code>5</code><code>-17</code>\n</p>\n');
+      expect(result).toBe('<p>Example <i>valid</i> inputs: <code>5</code><code>-17</code></p>\n');
     });
   });
 

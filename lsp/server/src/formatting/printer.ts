@@ -31,6 +31,50 @@ export function print(doc: Doc, options: PrinterOptions): string {
   return output.join('');
 }
 
+/**
+ * Walk the output buffer backward to find the current column position
+ * (characters since the last newline).
+ */
+function currentColumn(output: string[]): number {
+  let col = 0;
+  for (let i = output.length - 1; i >= 0; i--) {
+    const chunk = output[i];
+    const nlIndex = chunk.lastIndexOf('\n');
+    if (nlIndex !== -1) {
+      col += chunk.length - nlIndex - 1;
+      return col;
+    }
+    col += chunk.length;
+  }
+  return col;
+}
+
+/**
+ * Check if a Doc tree contains a breakParent anywhere.
+ */
+function containsBreakParent(doc: Doc): boolean {
+  if (typeof doc === 'string') return false;
+  switch (doc.type) {
+    case 'breakParent':
+      return true;
+    case 'concat':
+      return doc.parts.some(containsBreakParent);
+    case 'indent':
+      return containsBreakParent(doc.contents);
+    case 'group':
+      return containsBreakParent(doc.contents);
+    case 'fill':
+      return doc.parts.some(containsBreakParent);
+    case 'ifBreak':
+      return (
+        containsBreakParent(doc.breakContents) ||
+        containsBreakParent(doc.flatContents)
+      );
+    default:
+      return false;
+  }
+}
+
 function printDoc(
   doc: Doc,
   state: PrintState,
@@ -79,7 +123,7 @@ function printDoc(
       break;
 
     case 'group': {
-      if (doc.break) {
+      if (doc.break || containsBreakParent(doc.contents)) {
         // Forced break
         const prevMode = state.mode;
         state.mode = 'break';
@@ -93,9 +137,13 @@ function printDoc(
 
         const flatContent = flatOutput.join('');
         const printWidth = options.printWidth ?? 80;
+        const col = currentColumn(output);
 
-        // Check if it fits (no newlines and within width)
-        if (!flatContent.includes('\n') && flatContent.length <= printWidth) {
+        // Check if it fits (no newlines and within width from current column)
+        if (
+          !flatContent.includes('\n') &&
+          col + flatContent.length <= printWidth
+        ) {
           output.push(flatContent);
         } else {
           // Break mode
@@ -109,18 +157,75 @@ function printDoc(
     }
 
     case 'fill':
-      // Fill prints parts inline, wrapping when needed
-      // For now, just concat them (can be enhanced for wrapping)
-      for (const part of doc.parts) {
-        printDoc(part, state, output, options);
+      printFill(doc.parts, state, output, options);
+      break;
+
+    case 'ifBreak':
+      if (state.mode === 'break') {
+        printDoc(doc.breakContents, state, output, options);
+      } else {
+        printDoc(doc.flatContents, state, output, options);
       }
       break;
 
     case 'breakParent':
-      // This is a signal to parent groups to break
-      // The effect is handled when evaluating groups
+      // breakParent is handled by containsBreakParent() in group evaluation.
+      // If we reach here outside a group, force break mode.
       state.mode = 'break';
       break;
+  }
+}
+
+/**
+ * Print fill: content and separator pairs, keeping items on the same line
+ * when they fit, breaking when they don't.
+ * Parts alternate: [content, separator, content, separator, ..., content]
+ */
+function printFill(
+  parts: Doc[],
+  state: PrintState,
+  output: string[],
+  options: PrinterOptions
+): void {
+  if (parts.length === 0) return;
+
+  const printWidth = options.printWidth ?? 80;
+
+  for (let i = 0; i < parts.length; i++) {
+    const content = parts[i];
+    const separator = i + 1 < parts.length ? parts[i + 1] : null;
+
+    // Print the content
+    printDoc(content, state, output, options);
+
+    if (separator === null) break;
+
+    // Try printing separator + next content flat
+    const nextContent = i + 2 < parts.length ? parts[i + 2] : null;
+    if (nextContent !== null) {
+      const testOutput: string[] = [];
+      const flatState: PrintState = { ...state, mode: 'flat' };
+      printDoc(separator, flatState, testOutput, options);
+      printDoc(nextContent, flatState, testOutput, options);
+      const testStr = testOutput.join('');
+      const col = currentColumn(output);
+
+      if (!testStr.includes('\n') && col + testStr.length <= printWidth) {
+        // Fits: print separator flat
+        const sepOutput: string[] = [];
+        printDoc(separator, flatState, sepOutput, options);
+        output.push(sepOutput.join(''));
+      } else {
+        // Doesn't fit: print separator in break mode
+        printDoc(separator, { ...state, mode: 'break' }, output, options);
+      }
+    } else {
+      // Last separator with no following content, print in current mode
+      printDoc(separator, state, output, options);
+    }
+
+    // Skip the separator in the loop
+    i++;
   }
 }
 

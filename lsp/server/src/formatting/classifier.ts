@@ -1,12 +1,135 @@
 /**
  * Node classifier - determines how to format different node types.
  *
- * This module extracts the classification logic from the original formatter,
- * determining whether nodes are block-level, inline, or should preserve content.
+ * This module uses CSS display values to classify HTML elements, matching
+ * Prettier's approach to whitespace sensitivity in HTML formatting.
  */
 
 import type { Node as SyntaxNode } from 'web-tree-sitter';
 import { getTagName } from './utils';
+
+// Module-level custom code tags configuration
+let customCodeTags: Set<string> = new Set();
+
+export function setCustomCodeTags(tags: string[]): void {
+  customCodeTags = new Set(tags.map((t) => t.toLowerCase()));
+}
+
+export function getCustomCodeTags(): Set<string> {
+  return customCodeTags;
+}
+
+export type CSSDisplay =
+  | 'block'
+  | 'inline'
+  | 'inline-block'
+  | 'table-row'
+  | 'table-cell'
+  | 'table'
+  | 'table-row-group'
+  | 'table-header-group'
+  | 'table-footer-group'
+  | 'table-column'
+  | 'table-column-group'
+  | 'table-caption'
+  | 'list-item'
+  | 'ruby'
+  | 'ruby-base'
+  | 'ruby-text'
+  | 'none';
+
+/**
+ * Default CSS display values for HTML elements, matching browser defaults.
+ * Elements not in this map default to 'inline'.
+ */
+const CSS_DISPLAY_MAP: Record<string, CSSDisplay> = {
+  // Block elements
+  address: 'block',
+  article: 'block',
+  aside: 'block',
+  blockquote: 'block',
+  body: 'block',
+  center: 'block',
+  dd: 'block',
+  details: 'block',
+  dialog: 'block',
+  dir: 'block',
+  div: 'block',
+  dl: 'block',
+  dt: 'block',
+  fieldset: 'block',
+  figcaption: 'block',
+  figure: 'block',
+  footer: 'block',
+  form: 'block',
+  h1: 'block',
+  h2: 'block',
+  h3: 'block',
+  h4: 'block',
+  h5: 'block',
+  h6: 'block',
+  header: 'block',
+  hgroup: 'block',
+  hr: 'block',
+  html: 'block',
+  legend: 'block',
+  listing: 'block',
+  main: 'block',
+  menu: 'block',
+  nav: 'block',
+  ol: 'block',
+  p: 'block',
+  plaintext: 'block',
+  pre: 'block',
+  search: 'block',
+  section: 'block',
+  summary: 'block',
+  ul: 'block',
+  xmp: 'block',
+
+  // List items
+  li: 'list-item',
+
+  // Table elements
+  table: 'table',
+  caption: 'table-caption',
+  colgroup: 'table-column-group',
+  col: 'table-column',
+  thead: 'table-header-group',
+  tbody: 'table-row-group',
+  tfoot: 'table-footer-group',
+  tr: 'table-row',
+  td: 'table-cell',
+  th: 'table-cell',
+
+  // Inline-block elements
+  button: 'inline-block',
+  img: 'inline-block',
+  input: 'inline-block',
+  select: 'inline-block',
+  textarea: 'inline-block',
+  video: 'inline-block',
+  audio: 'inline-block',
+  canvas: 'inline-block',
+  embed: 'inline-block',
+  iframe: 'inline-block',
+  object: 'inline-block',
+
+  // None
+  head: 'none',
+  link: 'none',
+  meta: 'none',
+  script: 'none',
+  style: 'none',
+  title: 'none',
+  template: 'none',
+
+  // Ruby
+  ruby: 'ruby',
+  rb: 'ruby-base',
+  rt: 'ruby-text',
+  rp: 'none',
+};
 
 // HTML inline elements that should not cause line breaks
 export const INLINE_ELEMENTS = new Set([
@@ -57,7 +180,65 @@ export const PRESERVE_CONTENT_ELEMENTS = new Set([
 ]);
 
 /**
+ * Get the CSS display value for a node.
+ */
+export function getCSSDisplay(node: SyntaxNode): CSSDisplay {
+  const type = node.type;
+
+  if (type === 'html_element') {
+    const tagName = getTagName(node);
+    if (tagName) {
+      if (customCodeTags.has(tagName.toLowerCase())) {
+        return 'block';
+      }
+      return CSS_DISPLAY_MAP[tagName.toLowerCase()] ?? 'inline';
+    }
+    return 'block'; // Unknown elements default to block
+  }
+
+  if (
+    type === 'html_script_element' ||
+    type === 'html_style_element' ||
+    type === 'html_raw_element'
+  ) {
+    return 'block';
+  }
+
+  if (type === 'mustache_section' || type === 'mustache_inverted_section') {
+    return hasBlockContent(node) ? 'block' : 'inline';
+  }
+
+  // Text, interpolation, comments, etc. are inline
+  return 'inline';
+}
+
+/**
+ * Check if a display value means the element is whitespace-insensitive
+ * (i.e., we can freely add/remove whitespace around it).
+ */
+export function isWhitespaceInsensitive(display: CSSDisplay): boolean {
+  switch (display) {
+    case 'block':
+    case 'list-item':
+    case 'table':
+    case 'table-row':
+    case 'table-row-group':
+    case 'table-header-group':
+    case 'table-footer-group':
+    case 'table-column':
+    case 'table-column-group':
+    case 'table-caption':
+    case 'table-cell':
+    case 'none':
+      return true;
+    default:
+      return false;
+  }
+}
+
+/**
  * Check if a node represents a block-level element that should cause indentation.
+ * Delegates to getCSSDisplay for classification.
  */
 export function isBlockLevel(node: SyntaxNode): boolean {
   const type = node.type;
@@ -67,14 +248,18 @@ export function isBlockLevel(node: SyntaxNode): boolean {
     return hasBlockContent(node);
   }
 
-  // HTML elements depend on the tag name
+  // HTML elements: check CSS display
   if (type === 'html_element') {
-    const tagName = getTagName(node);
-    return tagName ? !INLINE_ELEMENTS.has(tagName.toLowerCase()) : true;
+    const display = getCSSDisplay(node);
+    return isWhitespaceInsensitive(display);
   }
 
   // Script, style, and raw elements are block-level
-  if (type === 'html_script_element' || type === 'html_style_element' || type === 'html_raw_element') {
+  if (
+    type === 'html_script_element' ||
+    type === 'html_style_element' ||
+    type === 'html_raw_element'
+  ) {
     return true;
   }
 
@@ -88,8 +273,8 @@ export function isInlineElement(node: SyntaxNode): boolean {
   if (node.type !== 'html_element') {
     return false;
   }
-  const tagName = getTagName(node);
-  return tagName ? INLINE_ELEMENTS.has(tagName.toLowerCase()) : false;
+  const display = getCSSDisplay(node);
+  return !isWhitespaceInsensitive(display);
 }
 
 /**
@@ -98,15 +283,19 @@ export function isInlineElement(node: SyntaxNode): boolean {
 export function shouldPreserveContent(node: SyntaxNode): boolean {
   const type = node.type;
 
-  if (type === 'html_script_element' || type === 'html_style_element' || type === 'html_raw_element') {
+  if (
+    type === 'html_script_element' ||
+    type === 'html_style_element' ||
+    type === 'html_raw_element'
+  ) {
     return true;
   }
 
   if (type === 'html_element') {
     const tagName = getTagName(node);
-    return tagName
-      ? PRESERVE_CONTENT_ELEMENTS.has(tagName.toLowerCase())
-      : false;
+    if (!tagName) return false;
+    const lower = tagName.toLowerCase();
+    return PRESERVE_CONTENT_ELEMENTS.has(lower) || customCodeTags.has(lower);
   }
 
   return false;
@@ -148,7 +337,11 @@ export function isBlockLevelContent(node: SyntaxNode): boolean {
   }
 
   // Script/style/raw are block-level
-  if (type === 'html_script_element' || type === 'html_style_element' || type === 'html_raw_element') {
+  if (
+    type === 'html_script_element' ||
+    type === 'html_style_element' ||
+    type === 'html_raw_element'
+  ) {
     return true;
   }
 

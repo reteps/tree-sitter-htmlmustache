@@ -39,6 +39,11 @@ export function activate(context: ExtensionContext) {
     },
   };
 
+  // Read settings to send as initialization options
+  const config = workspace.getConfiguration('htmlmustache');
+  const customCodeTags = config.get<string[]>('formatting.customCodeTags', []);
+  const printWidth = config.get<number>('formatting.printWidth', 80);
+
   // Client options - define which documents the server handles
   const clientOptions: LanguageClientOptions = {
     documentSelector: [
@@ -51,6 +56,10 @@ export function activate(context: ExtensionContext) {
       fileEvents: workspace.createFileSystemWatcher('**/*.{mustache,hbs,handlebars}'),
     },
     outputChannel: outputChannel,
+    initializationOptions: {
+      customCodeTags,
+      printWidth,
+    },
   };
 
   log('Creating language client...');
@@ -61,6 +70,29 @@ export function activate(context: ExtensionContext) {
     'HTML Mustache Language Server',
     serverOptions,
     clientOptions
+  );
+
+  // Send updated settings to the server when configuration changes
+  context.subscriptions.push(
+    workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('htmlmustache.formatting')) {
+        const updatedConfig = workspace.getConfiguration('htmlmustache');
+        const updatedCustomCodeTags = updatedConfig.get<string[]>('formatting.customCodeTags', []);
+        const updatedPrintWidth = updatedConfig.get<number>('formatting.printWidth', 80);
+        client.sendNotification('workspace/didChangeConfiguration', {
+          settings: {
+            htmlmustache: {
+              formatting: {
+                customCodeTags: updatedCustomCodeTags,
+                printWidth: updatedPrintWidth,
+              },
+            },
+          },
+        });
+        log(`Sent updated customCodeTags: ${updatedCustomCodeTags.join(', ')}`);
+        log(`Sent updated printWidth: ${updatedPrintWidth}`);
+      }
+    })
   );
 
   // Start the client, which also starts the server

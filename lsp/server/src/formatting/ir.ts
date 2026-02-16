@@ -15,7 +15,8 @@ export type Doc =
   | Line
   | Group
   | Fill
-  | BreakParent;
+  | BreakParent
+  | IfBreak;
 
 export interface Concat {
   type: 'concat';
@@ -52,6 +53,12 @@ export interface Fill {
 
 export interface BreakParent {
   type: 'breakParent';
+}
+
+export interface IfBreak {
+  type: 'ifBreak';
+  breakContents: Doc;
+  flatContents: Doc;
 }
 
 // Constants
@@ -104,6 +111,14 @@ export function indent(contents: Doc): Doc {
 export function group(contents: Doc, shouldBreak = false): Doc {
   if (contents === '') return '';
   return { type: 'group', contents, break: shouldBreak || undefined };
+}
+
+/**
+ * Create an ifBreak node that prints different content depending on
+ * whether the enclosing group breaks or stays flat.
+ */
+export function ifBreak(breakContents: Doc, flatContents: Doc): Doc {
+  return { type: 'ifBreak', breakContents, flatContents };
 }
 
 /**
@@ -163,4 +178,8 @@ export function isFill(doc: Doc): doc is Fill {
 
 export function isBreakParent(doc: Doc): doc is BreakParent {
   return typeof doc === 'object' && doc.type === 'breakParent';
+}
+
+export function isIfBreak(doc: Doc): doc is IfBreak {
+  return typeof doc === 'object' && doc.type === 'ifBreak';
 }

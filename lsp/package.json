@@ -2,7 +2,7 @@
   "name": "htmlmustache-lsp",
   "displayName": "HTML Mustache Language Support",
   "description": "Language server for HTML with Mustache template syntax",
-  "version": "0.0.16",
+  "version": "0.0.17",
   "publisher": "reteps",
   "private": true,
   "license": "MIT",
@@ -71,6 +71,20 @@
           ],
           "default": "off",
           "description": "Traces the communication between VS Code and the language server."
+        },
+        "htmlmustache.formatting.customCodeTags": {
+          "scope": "resource",
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Custom tag names to treat like <pre>/<code> blocks (content preserved as-is, block-level display)."
+        },
+        "htmlmustache.formatting.printWidth": {
+          "scope": "resource",
+          "type": "number",
+          "default": 80,
+          "minimum": 1,
+          "description": "Maximum line width before the formatter breaks content onto multiple lines."
         }
       }
     },

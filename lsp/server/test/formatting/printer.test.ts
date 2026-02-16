@@ -9,6 +9,8 @@ import {
   hardline,
   softline,
   line,
+  ifBreak,
+  breakParent,
 } from '../../src/formatting/ir';
 
 const defaultOptions = { indentUnit: '  ' };
@@ -97,12 +99,43 @@ describe('Printer', () => {
         'outer inner1 inner2'
       );
     });
+
+    it('accounts for current column when checking fit', () => {
+      // Prefix of 70 chars + group of 15 chars = 85 > 80
+      const prefix = 'x'.repeat(70);
+      const doc = concat([prefix, group(concat(['a', line, 'b'.repeat(10)]))]);
+      expect(print(doc, { ...defaultOptions, printWidth: 80 })).toBe(
+        prefix + 'a\n' + 'b'.repeat(10)
+      );
+    });
+
+    it('breaks when content contains breakParent', () => {
+      const doc = group(concat(['a', line, breakParent, 'b']));
+      expect(print(doc, { ...defaultOptions, printWidth: 80 })).toBe('a\nb');
+    });
+  });
+
+  describe('ifBreak', () => {
+    it('uses flatContents in flat mode', () => {
+      const doc = group(concat(['a', ifBreak(' BREAK', ' FLAT'), 'b']));
+      expect(print(doc, { ...defaultOptions, printWidth: 80 })).toBe('a FLATb');
+    });
+
+    it('uses breakContents in break mode', () => {
+      const doc = group(concat(['a', ifBreak(' BREAK', ' FLAT'), 'b']), true);
+      expect(print(doc, { ...defaultOptions, printWidth: 80 })).toBe('a BREAKb');
+    });
   });
 
   describe('fill', () => {
-    it('prints parts concatenated', () => {
-      const doc = fill(['a', 'b', 'c']);
-      expect(print(doc, defaultOptions)).toBe('abc');
+    it('prints parts concatenated when they fit', () => {
+      const doc = fill(['a', line, 'b', line, 'c']);
+      expect(print(doc, { ...defaultOptions, printWidth: 80 })).toBe('a b c');
+    });
+
+    it('breaks individual items when they do not fit', () => {
+      const doc = fill(['aaa', line, 'bbb', line, 'ccc']);
+      expect(print(doc, { ...defaultOptions, printWidth: 5 })).toBe('aaa\nbbb\nccc');
     });
   });
 

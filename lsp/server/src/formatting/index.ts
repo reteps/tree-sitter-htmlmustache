@@ -18,7 +18,7 @@ import { print } from './printer';
 import { formatDocument as formatDocumentToDoc, FormatterContext } from './formatters';
 import { mergeOptions, createIndentUnit } from './editorconfig';
 import { findContainingNode, calculateIndentLevel } from './utils';
-import { isBlockLevel, getContentNodes, hasImplicitEndTags } from './classifier';
+import { isBlockLevel, getContentNodes, hasImplicitEndTags, setCustomCodeTags } from './classifier';
 
 /**
  * Format an entire document.
@@ -26,14 +26,20 @@ import { isBlockLevel, getContentNodes, hasImplicitEndTags } from './classifier'
 export function formatDocument(
   tree: Tree,
   document: TextDocument,
-  options: FormattingOptions
+  options: FormattingOptions,
+  customCodeTags?: string[],
+  printWidth = 80
 ): TextEdit[] {
   const mergedOptions = mergeOptions(options, document.uri);
   const indentUnit = createIndentUnit(mergedOptions);
 
-  const context: FormatterContext = { document };
+  if (customCodeTags) {
+    setCustomCodeTags(customCodeTags);
+  }
+
+  const context: FormatterContext = { document, customCodeTags: customCodeTags ? new Set(customCodeTags.map(t => t.toLowerCase())) : undefined };
   const doc = formatDocumentToDoc(tree.rootNode, context);
-  const formatted = print(doc, { indentUnit });
+  const formatted = print(doc, { indentUnit, printWidth });
 
   // Return a single edit that replaces the entire document
   const fullRange: Range = {
@@ -51,10 +57,16 @@ export function formatDocumentRange(
   tree: Tree,
   document: TextDocument,
   range: Range,
-  options: FormattingOptions
+  options: FormattingOptions,
+  customCodeTags?: string[],
+  printWidth = 80
 ): TextEdit[] {
   const mergedOptions = mergeOptions(options, document.uri);
   const indentUnit = createIndentUnit(mergedOptions);
+
+  if (customCodeTags) {
+    setCustomCodeTags(customCodeTags);
+  }
 
   // Find nodes that overlap with the range
   const startOffset = document.offsetAt(range.start);
@@ -83,9 +95,9 @@ export function formatDocumentRange(
     getContentNodes
   );
 
-  const context: FormatterContext = { document };
+  const context: FormatterContext = { document, customCodeTags: customCodeTags ? new Set(customCodeTags.map(t => t.toLowerCase())) : undefined };
   const doc = formatNodeForRange(targetNode, context);
-  const formatted = print(doc, { indentUnit });
+  const formatted = print(doc, { indentUnit, printWidth });
 
   // Apply the base indent level
   const indentedFormatted = applyBaseIndent(formatted, indentLevel, indentUnit);
