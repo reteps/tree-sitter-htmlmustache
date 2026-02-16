@@ -33,6 +33,23 @@ const MINIMAL_TEST_GRAMMAR = JSON.stringify({
   ],
 });
 
+// Minimal C++ grammar for testing the user's exact pl-code example.
+const MINIMAL_CPP_GRAMMAR = JSON.stringify({
+  scopeName: 'source.cpp',
+  patterns: [
+    { match: '//.*$', name: 'comment.line.double-slash.cpp' },
+    { match: '\\b(int|double|float|char|void|bool|auto|const|static|unsigned|signed|long|short|return|if|else|while|for|do|switch|case|break|continue|namespace|using|class|struct|template|typename|public|private|protected|virtual|override|inline|extern|sizeof|new|delete|try|catch|throw|nullptr|true|false|include)\\b', name: 'keyword.control.cpp' },
+    { match: '\\b(cout|cin|cerr|clog|endl|fixed|setprecision|setw|setfill|left|right|hex|oct|dec|boolalpha|scientific|printf|scanf)\\b', name: 'support.function.cpp' },
+    { begin: '"', end: '"', name: 'string.quoted.double.cpp', patterns: [
+      { match: '\\\\.', name: 'constant.character.escape.cpp' },
+    ]},
+    { begin: "'", end: "'", name: 'string.quoted.single.cpp' },
+    { match: '\\b[0-9]+(?:\\.[0-9]+)?\\b', name: 'constant.numeric.cpp' },
+    { match: '<<|>>|<=|>=|==|!=|&&|\\|\\||\\+\\+|--|->|::', name: 'keyword.operator.cpp' },
+    { match: '[+\\-*/%=<>!&|^~]', name: 'keyword.operator.cpp' },
+  ],
+});
+
 // Token type indices from semanticTokens.ts TokenType
 const TokenTypes = {
   tag: 0,
@@ -358,6 +375,9 @@ describe('tokenizeEmbeddedContent (integration)', () => {
         if (scopeName === 'source.python') {
           return { content: MINIMAL_TEST_GRAMMAR, format: 'json' as const };
         }
+        if (scopeName === 'source.cpp') {
+          return { content: MINIMAL_CPP_GRAMMAR, format: 'json' as const };
+        }
         return null;
       });
       textMateInitialized = true;
@@ -528,6 +548,192 @@ describe('tokenizeEmbeddedContent (integration)', () => {
     const tokens = await tokenizeEmbeddedContent('   \n  \n', 'python', 0, 0);
     // Whitespace-only content should produce no meaningful tokens
     expect(tokens.length).toBe(0);
+  });
+});
+
+describe('full pipeline: pl-code C++ example', () => {
+  // Tests the user's exact scenario:
+  //   <pl-code language="cpp">
+  //   tax = price * (STATE_TAX + COUNTY_TAX + CITY_TAX) / 100;
+  //   cout &lt;&lt; fixed &lt;&lt; setprecision(2) &lt;&lt; price + tax &lt;&lt; endl;
+  //   </pl-code>
+
+  // Helper: extract content from a <pl-code> element in parsed HTML
+  function extractPlCodeContent(html: string): {
+    contentText: string; startRow: number; startCol: number;
+  } {
+    const tree = parseText(html);
+    // Find the pl-code html_element
+    const walk = (node: any): any => {
+      if (node.type === 'html_element') {
+        for (let i = 0; i < node.childCount; i++) {
+          const child = node.child(i)!;
+          if (child.type === 'html_start_tag') {
+            for (let j = 0; j < child.childCount; j++) {
+              const nameNode = child.child(j)!;
+              if (nameNode.type === 'html_tag_name' && nameNode.text === 'pl-code') {
+                return node;
+              }
+            }
+          }
+        }
+      }
+      for (let i = 0; i < node.childCount; i++) {
+        const result = walk(node.child(i)!);
+        if (result) return result;
+      }
+      return null;
+    };
+    const element = walk(tree.rootNode);
+    if (!element) throw new Error('pl-code element not found');
+
+    let startTag: any = null;
+    let endTag: any = null;
+    for (let i = 0; i < element.childCount; i++) {
+      const child = element.child(i)!;
+      if (child.type === 'html_start_tag') startTag = child;
+      if (child.type === 'html_end_tag') endTag = child;
+    }
+
+    const contentText = tree.rootNode.text.slice(startTag!.endIndex, endTag!.startIndex);
+    return {
+      contentText,
+      startRow: startTag!.endPosition.row,
+      startCol: startTag!.endPosition.column,
+    };
+  }
+
+  // Helper: decode delta-encoded semantic tokens data into absolute positions
+  function decodeSemanticTokenData(data: Uint32Array) {
+    const tokens: { row: number; col: number; length: number; type: number }[] = [];
+    let row = 0, col = 0;
+    for (let i = 0; i < data.length; i += 5) {
+      row += data[i];
+      if (data[i] > 0) col = 0;
+      col += data[i + 1];
+      tokens.push({ row, col, length: data[i + 2], type: data[i + 3] });
+    }
+    return tokens;
+  }
+
+  const USER_EXAMPLE = `<pl-code language="cpp">
+tax = price * (STATE_TAX + COUNTY_TAX + CITY_TAX) / 100;
+cout &lt;&lt; fixed &lt;&lt; setprecision(2) &lt;&lt; price + tax &lt;&lt; endl;
+</pl-code>`;
+
+  it('extracts entity-encoded content from pl-code element', () => {
+    const { contentText } = extractPlCodeContent(USER_EXAMPLE);
+    expect(contentText).toBe(
+      '\ntax = price * (STATE_TAX + COUNTY_TAX + CITY_TAX) / 100;\n' +
+      'cout &lt;&lt; fixed &lt;&lt; setprecision(2) &lt;&lt; price + tax &lt;&lt; endl;\n'
+    );
+  });
+
+  it('decodes &lt;&lt; entities to << in the content', () => {
+    const { contentText } = extractPlCodeContent(USER_EXAMPLE);
+    const { decoded } = decodeEntities(contentText);
+    expect(decoded).toContain('cout << fixed << setprecision(2) << price + tax << endl;');
+  });
+
+  it('tokenizes C++ with << operators highlighted', async () => {
+    const { contentText, startRow, startCol } = extractPlCodeContent(USER_EXAMPLE);
+    const tokens = await tokenizeEmbeddedContent(contentText, 'cpp', startRow, startCol);
+
+    expect(tokens.length).toBeGreaterThan(0);
+
+    // All << operators should be tokenized as operator (type 27)
+    // The C++ grammar matches '<<' as a single token: keyword.operator.cpp
+    const operatorTokens = tokens.filter(t => t.tokenType === TokenTypes.operator);
+    // There are 4 occurrences of &lt;&lt; (each is <<), so at least 4 operator tokens
+    expect(operatorTokens.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('highlights &lt;&lt; with correct positions and lengths in original text', async () => {
+    const { contentText, startRow, startCol } = extractPlCodeContent(USER_EXAMPLE);
+    const tokens = await tokenizeEmbeddedContent(contentText, 'cpp', startRow, startCol);
+
+    // The cout line is line 2 in the document (line 0: <pl-code>, line 1: tax=..., line 2: cout...)
+    const coutLineRow = startRow + 2;
+    const coutLineTokens = tokens.filter(t => t.row === coutLineRow);
+    expect(coutLineTokens.length).toBeGreaterThan(0);
+
+    // Find << operator tokens on the cout line
+    const coutLineOps = coutLineTokens.filter(t => t.tokenType === TokenTypes.operator);
+
+    // Each &lt;&lt; is 8 chars in original text. The C++ grammar matches '<<' as one token,
+    // so each mapped token should cover the full &lt;&lt; (8 chars)
+    const shiftOps = coutLineOps.filter(t => t.length === 8);
+    expect(shiftOps.length).toBe(4); // 4 occurrences of << on the cout line
+  });
+
+  it('highlights cout, fixed, endl as support.function (→ function token type)', async () => {
+    const { contentText, startRow, startCol } = extractPlCodeContent(USER_EXAMPLE);
+    const tokens = await tokenizeEmbeddedContent(contentText, 'cpp', startRow, startCol);
+
+    // cout, fixed, setprecision, endl match support.function.cpp → function (18)
+    const functionTokens = tokens.filter(t => t.tokenType === TokenTypes.function);
+    const functionLengths = functionTokens.map(t => t.length);
+
+    expect(functionLengths).toContain(4);  // cout
+    expect(functionLengths).toContain(5);  // fixed, endl (both 5 but endl includes trailing?)
+    expect(functionLengths).toContain(4);  // endl
+  });
+
+  it('highlights numeric literal 100 and 2', async () => {
+    const { contentText, startRow, startCol } = extractPlCodeContent(USER_EXAMPLE);
+    const tokens = await tokenizeEmbeddedContent(contentText, 'cpp', startRow, startCol);
+
+    const numberTokens = tokens.filter(t => t.tokenType === TokenTypes.number);
+    const numberLengths = numberTokens.map(t => t.length);
+
+    expect(numberLengths).toContain(3); // 100
+    expect(numberLengths).toContain(1); // 2
+  });
+
+  it('highlights * + / as operators on the tax line', async () => {
+    const { contentText, startRow, startCol } = extractPlCodeContent(USER_EXAMPLE);
+    const tokens = await tokenizeEmbeddedContent(contentText, 'cpp', startRow, startCol);
+
+    // The tax line is line 1 in the document
+    const taxLineRow = startRow + 1;
+    const taxLineOps = tokens.filter(t => t.row === taxLineRow && t.tokenType === TokenTypes.operator);
+
+    // Should have *, +, +, / operators (at least)
+    expect(taxLineOps.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('embedded tokens merge into semantic token output without breaking HTML tokens', async () => {
+    const tree = parseText(USER_EXAMPLE);
+    const { contentText, startRow, startCol } = extractPlCodeContent(USER_EXAMPLE);
+    const embeddedTokens = await tokenizeEmbeddedContent(contentText, 'cpp', startRow, startCol);
+
+    const query = createTestQuery(HIGHLIGHT_QUERY);
+    const result = buildSemanticTokens(tree, query, undefined, embeddedTokens as TokenInfo[]);
+    const data = result.build().data;
+    const allTokens = decodeSemanticTokenData(data);
+
+    // Should have HTML tokens for <pl-code> tags
+    const tagTokens = allTokens.filter(t => t.type === TokenTypes.tag);
+    expect(tagTokens.length).toBeGreaterThanOrEqual(2); // pl-code in start and end tag
+
+    // Should have embedded operator tokens
+    const opTokens = allTokens.filter(t => t.type === TokenTypes.operator);
+    expect(opTokens.length).toBeGreaterThanOrEqual(4); // 4 x <<
+
+    // Should have embedded number tokens
+    const numTokens = allTokens.filter(t => t.type === TokenTypes.number);
+    expect(numTokens.length).toBeGreaterThanOrEqual(2); // 100, 2
+
+    // Tokens should be in order (no position regressions)
+    for (let i = 1; i < allTokens.length; i++) {
+      const prev = allTokens[i - 1];
+      const curr = allTokens[i];
+      if (curr.row === prev.row) {
+        expect(curr.col).toBeGreaterThanOrEqual(prev.col + prev.length);
+      } else {
+        expect(curr.row).toBeGreaterThan(prev.row);
+      }
+    }
   });
 });
 

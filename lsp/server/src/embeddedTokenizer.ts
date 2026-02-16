@@ -263,8 +263,17 @@ let registry: Registry | null = null;
 let grammarCache = new Map<string, IGrammar | null>();
 
 type GrammarFetcher = (scopeName: string) => Promise<{ content: string; format: 'json' | 'plist' } | null>;
+type Logger = (msg: string) => void;
 
 let _grammarFetcher: GrammarFetcher | null = null;
+let _log: Logger = () => {};
+
+/**
+ * Set the logger function for embedded tokenizer.
+ */
+export function setEmbeddedTokenizerLogger(logger: Logger): void {
+  _log = logger;
+}
 
 /**
  * Initialize the vscode-textmate registry with vscode-oniguruma.
@@ -279,8 +288,20 @@ export async function initializeTextMateRegistry(
 ): Promise<void> {
   _grammarFetcher = grammarFetcher;
 
-  const wasmBin = fs.readFileSync(wasmPath).buffer;
+  _log(`Loading onig.wasm from: ${wasmPath}`);
+  if (!fs.existsSync(wasmPath)) {
+    throw new Error(`onig.wasm not found at ${wasmPath}`);
+  }
+
+  // Read the WASM binary and create a proper Uint8Array.
+  // Node.js Buffers can share underlying ArrayBuffers (pool allocation),
+  // so buf.buffer may not start at the right offset. Using Uint8Array
+  // with explicit offset/length ensures we pass exactly the WASM bytes.
+  const buf = fs.readFileSync(wasmPath);
+  _log(`onig.wasm size: ${buf.length} bytes`);
+  const wasmBin = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
   await loadWASM({ data: wasmBin });
+  _log('onig.wasm loaded successfully');
 
   onigLib = {
     createOnigScanner(patterns: string[]) {
@@ -295,13 +316,19 @@ export async function initializeTextMateRegistry(
     onigLib: Promise.resolve(onigLib),
     async loadGrammar(scopeName: string): Promise<IRawGrammar | null> {
       if (!_grammarFetcher) return null;
+      _log(`Fetching grammar for scope: ${scopeName}`);
       const result = await _grammarFetcher(scopeName);
-      if (!result) return null;
+      if (!result) {
+        _log(`No grammar found for scope: ${scopeName}`);
+        return null;
+      }
+      _log(`Got grammar for ${scopeName} (${result.format}, ${result.content.length} chars)`);
       return parseRawGrammar(result.content, result.format === 'json' ? 'grammar.json' : 'grammar.plist');
     },
   };
 
   registry = new Registry(options);
+  _log('TextMate registry created');
 }
 
 /**
@@ -359,10 +386,14 @@ async function getGrammar(languageId: string): Promise<IGrammar | null> {
 
   try {
     const grammar = await registry.loadGrammar(scopeName);
-    grammarCache.set(scopeName, grammar);
+    if (grammar) {
+      grammarCache.set(scopeName, grammar);
+    }
+    // Don't cache null — grammar might become available later (extension install, transient failure)
     return grammar;
-  } catch {
-    grammarCache.set(scopeName, null);
+  } catch (e) {
+    _log(`Failed to load grammar ${scopeName}: ${e}`);
+    // Don't cache failures — allow retry on next request
     return null;
   }
 }
@@ -382,10 +413,18 @@ export async function tokenizeEmbeddedContent(
   startRow: number,
   startCol: number,
 ): Promise<EmbeddedToken[]> {
+  _log(`tokenizeEmbeddedContent: lang=${languageId}, row=${startRow}, col=${startCol}, text=${entityEncodedText.length} chars`);
   const grammar = await getGrammar(languageId);
-  if (!grammar) return [];
+  if (!grammar) {
+    _log(`tokenizeEmbeddedContent: no grammar for ${languageId}`);
+    return [];
+  }
 
   const { decoded, offsetMap } = decodeEntities(entityEncodedText);
+  _log(`tokenizeEmbeddedContent: decoded ${entityEncodedText.length} -> ${decoded.length} chars`);
   const decodedTokens = tokenizeDecoded(decoded, grammar);
-  return mapTokenPositions(decodedTokens, offsetMap, decoded, startRow, startCol, entityEncodedText);
+  _log(`tokenizeEmbeddedContent: ${decodedTokens.length} decoded tokens`);
+  const mapped = mapTokenPositions(decodedTokens, offsetMap, decoded, startRow, startCol, entityEncodedText);
+  _log(`tokenizeEmbeddedContent: ${mapped.length} mapped tokens`);
+  return mapped;
 }

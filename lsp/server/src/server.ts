@@ -24,7 +24,7 @@ import { getHoverInfo } from './hover';
 import { getFoldingRanges } from './folding';
 import { formatDocument, formatDocumentRange } from './formatting/index';
 import { getDiagnostics } from './diagnostics';
-import { initializeTextMateRegistry, isTextMateReady, tokenizeEmbeddedContent } from './embeddedTokenizer';
+import { initializeTextMateRegistry, isTextMateReady, tokenizeEmbeddedContent, setEmbeddedTokenizerLogger } from './embeddedTokenizer';
 
 // Create connection and document manager
 const connection = createConnection(ProposedFeatures.all);
@@ -118,13 +118,22 @@ connection.onInitialize(async (params: InitializeParams): Promise<InitializeResu
   }
 
   // Initialize vscode-textmate for embedded language tokenization
+  setEmbeddedTokenizerLogger((msg) => connection.console.log(`[embeddedTokenizer] ${msg}`));
   try {
     const wasmPath = path.join(__dirname, 'onig.wasm');
     await initializeTextMateRegistry(wasmPath, async (scopeName: string) => {
       try {
+        connection.console.log(`Requesting grammar from client: ${scopeName}`);
         const result = await connection.sendRequest('htmlmustache/getGrammar', { scopeName });
+        if (result) {
+          const r = result as { content: string; format: 'json' | 'plist' };
+          connection.console.log(`Got grammar from client: ${scopeName} (${r.format}, ${r.content.length} chars)`);
+        } else {
+          connection.console.log(`Client returned null for grammar: ${scopeName}`);
+        }
         return result as { content: string; format: 'json' | 'plist' } | null;
-      } catch {
+      } catch (e) {
+        connection.console.warn(`Failed to get grammar from client: ${scopeName}: ${e}`);
         return null;
       }
     });
@@ -414,16 +423,27 @@ connection.languages.semanticTokens.on(async (params) => {
 
   // Tokenize embedded language content in custom code tags
   let embeddedTokens: TokenInfo[] = [];
+  connection.console.log(`  -> TextMate ready: ${isTextMateReady()}, configs: ${customCodeTagConfigs.length}`);
   if (isTextMateReady() && customCodeTagConfigs.length > 0) {
-    const codeTagContents = findCustomCodeTagContent(tree.rootNode, customCodeTagConfigs);
-    if (codeTagContents.length > 0) {
-      const tokenArrays = await Promise.all(
-        codeTagContents.map((content) =>
-          tokenizeEmbeddedContent(content.text, content.languageId, content.startRow, content.startCol)
-        )
-      );
-      embeddedTokens = tokenArrays.flat();
-      connection.console.log(`  -> Embedded tokens: ${embeddedTokens.length} from ${codeTagContents.length} regions`);
+    try {
+      const codeTagContents = findCustomCodeTagContent(tree.rootNode, customCodeTagConfigs);
+      connection.console.log(`  -> Found ${codeTagContents.length} custom code tag regions`);
+      for (const c of codeTagContents) {
+        connection.console.log(`     - lang=${c.languageId}, row=${c.startRow}, col=${c.startCol}, text=${JSON.stringify(c.text.slice(0, 80))}...`);
+      }
+      if (codeTagContents.length > 0) {
+        const tokenArrays = await Promise.all(
+          codeTagContents.map((content) =>
+            tokenizeEmbeddedContent(content.text, content.languageId, content.startRow, content.startCol)
+          )
+        );
+        embeddedTokens = tokenArrays.flat();
+        connection.console.log(`  -> Embedded tokens: ${embeddedTokens.length} from ${codeTagContents.length} regions`);
+      }
+    } catch (error) {
+      connection.console.warn(`  -> Embedded tokenization failed: ${error}`);
+      // Continue with normal tokens only - don't let embedded tokenization failure
+      // prevent the rest of the semantic tokens from being returned
     }
   }
 

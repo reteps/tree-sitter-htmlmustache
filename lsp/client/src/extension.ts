@@ -65,6 +65,7 @@ function promptReload() {
  * Searches all extensions for grammar contributions matching the scope name.
  */
 function findTextMateGrammar(scopeName: string): { content: string; format: 'json' | 'plist' } | null {
+  log(`Finding TextMate grammar for scope: ${scopeName}`);
   for (const ext of extensions.all) {
     const pkg = ext.packageJSON;
     const grammars = pkg?.contributes?.grammars;
@@ -73,16 +74,19 @@ function findTextMateGrammar(scopeName: string): { content: string; format: 'jso
     for (const grammar of grammars) {
       if (grammar.scopeName === scopeName && grammar.path) {
         const grammarPath = path.join(ext.extensionPath, grammar.path);
+        log(`Found grammar match in ${ext.id}: ${grammarPath}`);
         try {
           const content = fs.readFileSync(grammarPath, 'utf-8');
           const format = grammarPath.endsWith('.json') ? 'json' : 'plist';
+          log(`Read grammar: ${content.length} chars, format=${format}`);
           return { content, format };
-        } catch {
-          // Grammar file not readable, continue searching
+        } catch (e) {
+          log(`Failed to read grammar file: ${grammarPath}: ${e}`);
         }
       }
     }
   }
+  log(`No grammar found for scope: ${scopeName}`);
   return null;
 }
 
