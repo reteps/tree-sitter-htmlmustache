@@ -20,7 +20,6 @@ import {
   text,
   empty,
   ifBreak,
-  breakParent,
 } from './ir';
 import {
   isBlockLevel,
@@ -30,9 +29,8 @@ import {
   shouldTreatAsBlock,
   getCSSDisplay,
   isWhitespaceInsensitive,
-  INLINE_ELEMENTS,
 } from './classifier';
-import { getTagName, normalizeText, getVisibleChildren } from './utils';
+import { normalizeText, getVisibleChildren } from './utils';
 
 export interface FormatterContext {
   document: TextDocument;
@@ -107,8 +105,6 @@ export function formatText(node: SyntaxNode): Doc {
  * Format an HTML element.
  */
 export function formatHtmlElement(node: SyntaxNode, context: FormatterContext): Doc {
-  const tagName = getTagName(node);
-  const tagLower = tagName ? tagName.toLowerCase() : null;
   const display = getCSSDisplay(node);
   const isBlock = isWhitespaceInsensitive(display);
   const preserveContent = shouldPreserveContent(node);

@@ -75,7 +75,9 @@
         "htmlmustache.formatting.customCodeTags": {
           "scope": "resource",
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "default": [],
           "description": "Custom tag names to treat like <pre>/<code> blocks (content preserved as-is, block-level display)."
         },

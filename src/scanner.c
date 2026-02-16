@@ -488,11 +488,10 @@ static bool scan_mustache_end_tag_name(Scanner *scanner, TSLexer *lexer) {
     // printf("\n");
     lexer->result_symbol = MUSTACHE_END_TAG_NAME;
   } else {
-    MustacheTag popped_tag = array_pop(&scanner->mustache_tags);
-    mustache_tag_free(&popped_tag);
-    // printf("popped tag (erroneous): ");
-    // print_tag_name(&tag.tag_name);
-    // printf("\n");
+    if (scanner->mustache_tags.size > 0) {
+      MustacheTag popped_tag = array_pop(&scanner->mustache_tags);
+      mustache_tag_free(&popped_tag);
+    }
     lexer->result_symbol = MUSTACHE_ERRONEOUS_END_TAG_NAME;
   }
 
