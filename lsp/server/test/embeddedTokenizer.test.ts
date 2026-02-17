@@ -9,6 +9,7 @@ import {
 } from '../src/embeddedTokenizer';
 import { buildSemanticTokens, HIGHLIGHT_QUERY, RAW_TEXT_QUERY } from '../src/semanticTokens';
 import type { TokenInfo } from '../src/semanticTokens';
+import { tokenTypeIndex } from '../src/tokenLegend';
 import { parseText, createTestQuery } from './setup';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -50,26 +51,7 @@ const MINIMAL_CPP_GRAMMAR = JSON.stringify({
   ],
 });
 
-// Token type indices from semanticTokens.ts TokenType
-const TokenTypes = {
-  tag: 0,
-  attributeName: 1,
-  attributeValue: 2,
-  delimiter: 3,
-  mustacheVariable: 4,
-  mustacheDelimiter: 5,
-  type: 7,
-  parameter: 13,
-  variable: 14,
-  function: 18,
-  keyword: 21,
-  modifier: 22,
-  comment: 23,
-  string: 24,
-  number: 25,
-  regexp: 26,
-  operator: 27,
-};
+const TokenTypes = tokenTypeIndex;
 
 describe('decodeEntities', () => {
   describe('named entities', () => {
@@ -399,8 +381,8 @@ describe('tokenizeEmbeddedContent (integration)', () => {
   it('tokenizes simple Python keyword', async () => {
     const tokens = await tokenizeEmbeddedContent('if True:', 'python', 0, 0);
 
-    // Should have at least a keyword token for 'if'
-    const keywordTokens = tokens.filter((t) => t.tokenType === TokenTypes.keyword);
+    // Should have at least a keywordControl token for 'if' (keyword.control.python)
+    const keywordTokens = tokens.filter((t) => t.tokenType === TokenTypes.keywordControl);
     expect(keywordTokens.length).toBeGreaterThan(0);
 
     // 'if' should be at row 0, col 0, length 2
@@ -435,8 +417,8 @@ describe('tokenizeEmbeddedContent (integration)', () => {
     // After decoding: 'if x < 2:'
     const tokens = await tokenizeEmbeddedContent('if x &lt; 2:', 'python', 0, 0);
 
-    // Should tokenize 'if' as keyword
-    const ifToken = tokens.find((t) => t.tokenType === TokenTypes.keyword && t.col === 0);
+    // Should tokenize 'if' as keywordControl (keyword.control.python)
+    const ifToken = tokens.find((t) => t.tokenType === TokenTypes.keywordControl && t.col === 0);
     expect(ifToken).toBeDefined();
     expect(ifToken!.length).toBe(2); // 'if' is 2 chars
 
@@ -471,8 +453,8 @@ describe('tokenizeEmbeddedContent (integration)', () => {
     // Place content at row 5, col 10
     const tokens = await tokenizeEmbeddedContent('if True:', 'python', 5, 10);
 
-    // 'if' keyword should be at row 5, col 10
-    const ifToken = tokens.find((t) => t.tokenType === TokenTypes.keyword && t.row === 5);
+    // 'if' keywordControl should be at row 5, col 10
+    const ifToken = tokens.find((t) => t.tokenType === TokenTypes.keywordControl && t.row === 5);
     expect(ifToken).toBeDefined();
     expect(ifToken!.col).toBe(10);
     expect(ifToken!.length).toBe(2);
@@ -481,14 +463,14 @@ describe('tokenizeEmbeddedContent (integration)', () => {
   it('handles multi-line content with startRow offset', async () => {
     const tokens = await tokenizeEmbeddedContent('if True:\n    return 42', 'python', 3, 4);
 
-    // 'if' on first line: row 3, col 4
-    const ifToken = tokens.find((t) => t.tokenType === TokenTypes.keyword && t.row === 3);
+    // 'if' on first line: row 3, col 4 (keyword.control.python → keywordControl)
+    const ifToken = tokens.find((t) => t.tokenType === TokenTypes.keywordControl && t.row === 3);
     expect(ifToken).toBeDefined();
     expect(ifToken!.col).toBe(4);
 
     // 'return' on second line: row 4 (no startCol offset for subsequent lines)
     const returnToken = tokens.find(
-      (t) => t.tokenType === TokenTypes.keyword && t.row === 4 && t.length === 6
+      (t) => t.tokenType === TokenTypes.keywordControl && t.row === 4 && t.length === 6
     );
     expect(returnToken).toBeDefined();
     expect(returnToken!.col).toBe(4); // indented 4 spaces
@@ -502,12 +484,12 @@ describe('tokenizeEmbeddedContent (integration)', () => {
     const encoded = 'if x &lt; 2:\n    print(&quot;hello&quot;)';
     const tokens = await tokenizeEmbeddedContent(encoded, 'python', 0, 0);
 
-    // 'if' keyword on line 0
-    const ifToken = tokens.find((t) => t.tokenType === TokenTypes.keyword && t.row === 0 && t.col === 0);
+    // 'if' keywordControl on line 0
+    const ifToken = tokens.find((t) => t.tokenType === TokenTypes.keywordControl && t.row === 0 && t.col === 0);
     expect(ifToken).toBeDefined();
 
-    // 'print' keyword on line 1
-    const printToken = tokens.find((t) => t.tokenType === TokenTypes.keyword && t.row === 1 && t.length === 5);
+    // 'print' keywordControl on line 1
+    const printToken = tokens.find((t) => t.tokenType === TokenTypes.keywordControl && t.row === 1 && t.length === 5);
     expect(printToken).toBeDefined();
 
     // String token(s) on line 1 for "hello" - entity-encoded as &quot;hello&quot;
@@ -519,7 +501,7 @@ describe('tokenizeEmbeddedContent (integration)', () => {
     // No entities - positions should be 1:1
     const tokens = await tokenizeEmbeddedContent('return 42', 'python', 0, 0);
 
-    const returnToken = tokens.find((t) => t.tokenType === TokenTypes.keyword);
+    const returnToken = tokens.find((t) => t.tokenType === TokenTypes.keywordControl);
     expect(returnToken).toBeDefined();
     expect(returnToken!.col).toBe(0);
     expect(returnToken!.length).toBe(6);
@@ -666,12 +648,12 @@ cout &lt;&lt; fixed &lt;&lt; setprecision(2) &lt;&lt; price + tax &lt;&lt; endl;
     expect(shiftOps.length).toBe(4); // 4 occurrences of << on the cout line
   });
 
-  it('highlights cout, fixed, endl as support.function (→ function token type)', async () => {
+  it('highlights cout, fixed, endl as support.function (→ supportFunction token type)', async () => {
     const { contentText, startRow, startCol } = extractPlCodeContent(USER_EXAMPLE);
     const tokens = await tokenizeEmbeddedContent(contentText, 'cpp', startRow, startCol);
 
-    // cout, fixed, setprecision, endl match support.function.cpp → function (18)
-    const functionTokens = tokens.filter(t => t.tokenType === TokenTypes.function);
+    // cout, fixed, setprecision, endl match support.function.cpp → supportFunction
+    const functionTokens = tokens.filter(t => t.tokenType === TokenTypes.supportFunction);
     const functionLengths = functionTokens.map(t => t.length);
 
     expect(functionLengths).toContain(4);  // cout

@@ -1,5 +1,6 @@
 import { SemanticTokensBuilder } from 'vscode-languageserver/node';
 import type { Tree, Query } from './parser';
+import { tokenTypeIndex } from './tokenLegend';
 
 /**
  * Highlight query source - kept in sync with queries/highlights.scm
@@ -50,57 +51,6 @@ export const RAW_TEXT_QUERY = `
 `;
 
 /**
- * Semantic token types - includes both VS Code standard types and custom HTML/Mustache types.
- * The order matters as it defines the index used in the protocol.
- *
- * Custom types are mapped to TextMate scopes in the extension's package.json semanticTokenScopes.
- */
-const TokenType = {
-  // Custom HTML types - mapped to html scopes
-  tag: 0,
-  attributeName: 1,
-  attributeValue: 2,
-  delimiter: 3,
-  // Custom Mustache types - mapped to handlebars scopes
-  mustacheVariable: 4,
-  mustacheDelimiter: 5,
-  // Standard VS Code types
-  namespace: 6,
-  type: 7,
-  class: 8,
-  enum: 9,
-  interface: 10,
-  struct: 11,
-  typeParameter: 12,
-  parameter: 13,
-  variable: 14,
-  property: 15,
-  enumMember: 16,
-  event: 17,
-  function: 18,
-  method: 19,
-  macro: 20,
-  keyword: 21,
-  modifier: 22,
-  comment: 23,
-  string: 24,
-  number: 25,
-  regexp: 26,
-  operator: 27,
-  decorator: 28,
-} as const;
-
-/**
- * Token types legend for LSP - must match TokenType order.
- */
-export const tokenTypesLegend = Object.keys(TokenType);
-
-/**
- * Token modifiers legend for LSP.
- */
-export const tokenModifiersLegend: string[] = [];
-
-/**
  * Map highlight.scm capture names to semantic token types.
  *
  * Note: Mustache delimiters ({{, }}, etc.) are NOT included here.
@@ -109,16 +59,16 @@ export const tokenModifiersLegend: string[] = [];
  */
 const captureNameToTokenType: Record<string, number> = {
   // HTML tokens
-  'tag': TokenType.tag,
-  'tag.error': TokenType.tag,
-  'attribute': TokenType.attributeName,
-  'string': TokenType.attributeValue,
-  'punctuation.bracket': TokenType.delimiter,
+  'tag': tokenTypeIndex.tag,
+  'tag.error': tokenTypeIndex.tag,
+  'attribute': tokenTypeIndex.attributeName,
+  'string': tokenTypeIndex.attributeValue,
+  'punctuation.bracket': tokenTypeIndex.delimiter,
   // Mustache tokens
-  'variable': TokenType.mustacheVariable,
-  'keyword': TokenType.keyword,
-  'comment': TokenType.comment,
-  'constant': TokenType.tag, // DOCTYPE uses same color as tags
+  'variable': tokenTypeIndex.mustacheVariable,
+  'keyword': tokenTypeIndex.keyword,
+  'comment': tokenTypeIndex.comment,
+  'constant': tokenTypeIndex.tag, // DOCTYPE uses same color as tags
 };
 
 export interface TokenInfo {
@@ -126,6 +76,7 @@ export interface TokenInfo {
   col: number;
   length: number;
   tokenType: number;
+  tokenModifiers?: number;
 }
 
 /**
@@ -149,19 +100,19 @@ interface MustachePattern {
 
 const MUSTACHE_PATTERNS: MustachePattern[] = [
   // {{{...}}} unescaped - keyword delimiters, variable content
-  { pattern: /\{\{\{([^}]*)\}\}\}/g, openLen: 3, closeLen: 3, delimiterType: TokenType.keyword, contentType: TokenType.mustacheVariable },
+  { pattern: /\{\{\{([^}]*)\}\}\}/g, openLen: 3, closeLen: 3, delimiterType: tokenTypeIndex.keyword, contentType: tokenTypeIndex.mustacheVariable },
   // {{#...}} section start - keyword delimiters, variable content
-  { pattern: /\{\{#([^}]*)\}\}/g, openLen: 3, closeLen: 2, delimiterType: TokenType.keyword, contentType: TokenType.mustacheVariable },
+  { pattern: /\{\{#([^}]*)\}\}/g, openLen: 3, closeLen: 2, delimiterType: tokenTypeIndex.keyword, contentType: tokenTypeIndex.mustacheVariable },
   // {{/...}} section end - keyword delimiters, variable content
-  { pattern: /\{\{\/([^}]*)\}\}/g, openLen: 3, closeLen: 2, delimiterType: TokenType.keyword, contentType: TokenType.mustacheVariable },
+  { pattern: /\{\{\/([^}]*)\}\}/g, openLen: 3, closeLen: 2, delimiterType: tokenTypeIndex.keyword, contentType: tokenTypeIndex.mustacheVariable },
   // {{^...}} inverted section - keyword delimiters, variable content
-  { pattern: /\{\{\^([^}]*)\}\}/g, openLen: 3, closeLen: 2, delimiterType: TokenType.keyword, contentType: TokenType.mustacheVariable },
+  { pattern: /\{\{\^([^}]*)\}\}/g, openLen: 3, closeLen: 2, delimiterType: tokenTypeIndex.keyword, contentType: tokenTypeIndex.mustacheVariable },
   // {{>...}} partial - keyword delimiters, variable content
-  { pattern: /\{\{>([^}]*)\}\}/g, openLen: 3, closeLen: 2, delimiterType: TokenType.keyword, contentType: TokenType.mustacheVariable },
+  { pattern: /\{\{>([^}]*)\}\}/g, openLen: 3, closeLen: 2, delimiterType: tokenTypeIndex.keyword, contentType: tokenTypeIndex.mustacheVariable },
   // {{!...}} comment - all comment colored
-  { pattern: /\{\{!([^}]*)\}\}/g, openLen: 3, closeLen: 2, delimiterType: TokenType.comment, contentType: TokenType.comment },
+  { pattern: /\{\{!([^}]*)\}\}/g, openLen: 3, closeLen: 2, delimiterType: tokenTypeIndex.comment, contentType: tokenTypeIndex.comment },
   // {{...}} variable (no special char after {{) - keyword delimiters, variable content
-  { pattern: /\{\{([^#/^>!{}][^}]*)\}\}/g, openLen: 2, closeLen: 2, delimiterType: TokenType.keyword, contentType: TokenType.mustacheVariable },
+  { pattern: /\{\{([^#/^>!{}][^}]*)\}\}/g, openLen: 2, closeLen: 2, delimiterType: tokenTypeIndex.keyword, contentType: tokenTypeIndex.mustacheVariable },
 ];
 
 /**
@@ -330,7 +281,7 @@ export function buildSemanticTokens(tree: Tree, query: Query, rawTextQuery?: Que
       continue;
     }
 
-    builder.push(token.row, token.col, token.length, token.tokenType, 0);
+    builder.push(token.row, token.col, token.length, token.tokenType, token.tokenModifiers ?? 0);
     lastEnd = token.col + token.length;
   }
 

@@ -11,13 +11,8 @@ import * as path from 'path';
 
 import type { Node as SyntaxNode } from 'web-tree-sitter';
 import { initializeParser, parseDocument, getLanguage, createQuery, Tree, Query, setLogger } from './parser';
-import {
-  buildSemanticTokens,
-  tokenTypesLegend,
-  tokenModifiersLegend,
-  HIGHLIGHT_QUERY,
-  RAW_TEXT_QUERY,
-} from './semanticTokens';
+import { tokenTypesLegend, tokenModifiersLegend, getLanguageModifier } from './tokenLegend';
+import { buildSemanticTokens, HIGHLIGHT_QUERY, RAW_TEXT_QUERY } from './semanticTokens';
 import type { TokenInfo } from './semanticTokens';
 import { getDocumentSymbols } from './documentSymbols';
 import { getHoverInfo } from './hover';
@@ -25,6 +20,8 @@ import { getFoldingRanges } from './folding';
 import { formatDocument, formatDocumentRange } from './formatting/index';
 import { getDiagnostics } from './diagnostics';
 import { initializeTextMateRegistry, isTextMateReady, tokenizeEmbeddedContent, setEmbeddedTokenizerLogger } from './embeddedTokenizer';
+import { findCustomCodeTagContent, parseCustomCodeTagSettings } from './customCodeTags';
+import type { CustomCodeTagConfig } from './customCodeTags';
 
 // Create connection and document manager
 const connection = createConnection(ProposedFeatures.all);
@@ -43,32 +40,10 @@ let rawTextQuery: Query | null = null;
 let customCodeTags: string[] = [];
 
 // Full custom code tag configs (for embedded language tokenization)
-interface CustomCodeTagConfig {
-  name: string;
-  syntaxAttribute?: string;
-  languageMap?: Record<string, string>;
-  defaultLanguage?: string;
-}
 let customCodeTagConfigs: CustomCodeTagConfig[] = [];
 
 // Print width setting (maximum line width before breaking)
 let printWidth = 80;
-
-/**
- * Parse customCodeTags settings, extracting tag names and full configs.
- */
-function parseCustomCodeTagSettings(tags: unknown[]): { tagNames: string[]; configs: CustomCodeTagConfig[] } {
-  const tagNames: string[] = [];
-  const configs: CustomCodeTagConfig[] = [];
-  for (const tag of tags) {
-    if (tag && typeof tag === 'object' && 'name' in tag && typeof (tag as { name: unknown }).name === 'string') {
-      const t = tag as CustomCodeTagConfig;
-      tagNames.push(t.name);
-      configs.push(t);
-    }
-  }
-  return { tagNames, configs };
-}
 
 connection.onInitialize(async (params: InitializeParams): Promise<InitializeResult> => {
   connection.console.log('onInitialize called');
@@ -193,14 +168,14 @@ connection.onInitialized(() => {
 // Handle configuration changes
 connection.onDidChangeConfiguration((change) => {
   const settings = change.settings;
-  if (settings?.htmlmustache?.formatting?.customCodeTags) {
-    const parsed = parseCustomCodeTagSettings(settings.htmlmustache.formatting.customCodeTags);
+  if (settings?.htmlmustache?.customCodeTags) {
+    const parsed = parseCustomCodeTagSettings(settings.htmlmustache.customCodeTags);
     customCodeTags = parsed.tagNames;
     customCodeTagConfigs = parsed.configs;
     connection.console.log(`Custom code tags updated: ${customCodeTags.join(', ')}`);
   }
-  if (settings?.htmlmustache?.formatting?.printWidth && typeof settings.htmlmustache.formatting.printWidth === 'number') {
-    printWidth = settings.htmlmustache.formatting.printWidth;
+  if (settings?.htmlmustache?.printWidth && typeof settings.htmlmustache.printWidth === 'number') {
+    printWidth = settings.htmlmustache.printWidth;
     connection.console.log(`Print width updated: ${printWidth}`);
   }
 });
@@ -257,149 +232,6 @@ function getTree(document: TextDocument): Tree | null {
   return tree ?? null;
 }
 
-/**
- * Get the attribute value for a given attribute name from an element's start tag.
- */
-function getAttributeValue(node: SyntaxNode, attrName: string): string | null {
-  for (let i = 0; i < node.childCount; i++) {
-    const child = node.child(i);
-    if (child?.type === 'html_start_tag') {
-      for (let j = 0; j < child.childCount; j++) {
-        const attr = child.child(j);
-        if (attr?.type === 'html_attribute') {
-          let name = '';
-          let value = '';
-          for (let k = 0; k < attr.childCount; k++) {
-            const part = attr.child(k);
-            if (part?.type === 'html_attribute_name') name = part.text.toLowerCase();
-            if (part?.type === 'html_quoted_attribute_value') value = part.text.replace(/^["']|["']$/g, '');
-            if (part?.type === 'html_attribute_value') value = part.text;
-          }
-          if (name === attrName.toLowerCase()) {
-            return value;
-          }
-        }
-      }
-    }
-  }
-  return null;
-}
-
-/**
- * Resolve the language ID for a custom code tag element.
- */
-function resolveCustomCodeLanguage(node: SyntaxNode, config: CustomCodeTagConfig): string | null {
-  if (config.syntaxAttribute) {
-    const attrValue = getAttributeValue(node, config.syntaxAttribute);
-    if (attrValue) {
-      // Check languageMap first
-      if (config.languageMap && config.languageMap[attrValue]) {
-        return config.languageMap[attrValue];
-      }
-      return attrValue.toLowerCase();
-    }
-  }
-  return config.defaultLanguage?.toLowerCase() ?? null;
-}
-
-interface CustomCodeTagContent {
-  text: string;
-  languageId: string;
-  startRow: number;
-  startCol: number;
-}
-
-/**
- * Walk the tree to find custom code tag elements and extract their content + language.
- */
-function findCustomCodeTagContent(
-  rootNode: SyntaxNode,
-  configs: CustomCodeTagConfig[],
-): CustomCodeTagContent[] {
-  if (configs.length === 0) return [];
-
-  const configsByName = new Map<string, CustomCodeTagConfig>();
-  for (const config of configs) {
-    if (config.syntaxAttribute || config.defaultLanguage) {
-      configsByName.set(config.name.toLowerCase(), config);
-    }
-  }
-  if (configsByName.size === 0) return [];
-
-  const results: CustomCodeTagContent[] = [];
-
-  const walk = (node: SyntaxNode) => {
-    // Custom code tags are parsed as html_element or html_raw_element
-    if (node.type === 'html_element' || node.type === 'html_raw_element') {
-      // Get the tag name from start tag
-      let tagName = '';
-      for (let i = 0; i < node.childCount; i++) {
-        const child = node.child(i);
-        if (child?.type === 'html_start_tag') {
-          for (let j = 0; j < child.childCount; j++) {
-            const nameNode = child.child(j);
-            if (nameNode?.type === 'html_tag_name') {
-              tagName = nameNode.text.toLowerCase();
-              break;
-            }
-          }
-          break;
-        }
-      }
-
-      const config = configsByName.get(tagName);
-      if (config) {
-        const languageId = resolveCustomCodeLanguage(node, config);
-        if (languageId) {
-          // Extract content between start and end tags.
-          // We use the node's full text and slice between the start tag end
-          // and end tag start, because tree-sitter produces separate `text`
-          // and `html_entity` children with gaps between them (whitespace).
-          let startTag: SyntaxNode | null = null;
-          let endTag: SyntaxNode | null = null;
-          for (let i = 0; i < node.childCount; i++) {
-            const child = node.child(i);
-            if (child?.type === 'html_start_tag') startTag = child;
-            if (child?.type === 'html_end_tag') endTag = child;
-            // For raw elements, grab raw text directly
-            if (child?.type === 'html_raw_text') {
-              results.push({
-                text: child.text,
-                languageId,
-                startRow: child.startPosition.row,
-                startCol: child.startPosition.column,
-              });
-            }
-          }
-
-          // For regular html_element, extract text between start and end tags
-          if (startTag && node.type === 'html_element') {
-            const contentStartIndex = startTag.endIndex;
-            const contentEndIndex = endTag ? endTag.startIndex : node.endIndex;
-            const contentText = node.tree.rootNode.text.slice(contentStartIndex, contentEndIndex);
-            if (contentText.length > 0) {
-              results.push({
-                text: contentText,
-                languageId,
-                startRow: startTag.endPosition.row,
-                startCol: startTag.endPosition.column,
-              });
-            }
-          }
-        }
-      }
-    }
-
-    for (let i = 0; i < node.childCount; i++) {
-      const child = node.child(i);
-      if (child) walk(child);
-    }
-  };
-
-  walk(rootNode);
-  return results;
-}
-
 // Semantic tokens handler
 connection.languages.semanticTokens.on(async (params) => {
   connection.console.log(`Semantic tokens requested for: ${params.textDocument.uri}`);
@@ -434,7 +266,7 @@ connection.languages.semanticTokens.on(async (params) => {
       if (codeTagContents.length > 0) {
         const tokenArrays = await Promise.all(
           codeTagContents.map((content) =>
-            tokenizeEmbeddedContent(content.text, content.languageId, content.startRow, content.startCol)
+            tokenizeEmbeddedContent(content.text, content.languageId, content.startRow, content.startCol, getLanguageModifier(content.languageId))
           )
         );
         embeddedTokens = tokenArrays.flat();

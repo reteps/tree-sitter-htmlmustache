@@ -3,54 +3,7 @@ import { Registry, parseRawGrammar, INITIAL } from 'vscode-textmate';
 import { createOnigScanner, createOnigString, loadWASM } from 'vscode-oniguruma';
 import * as fs from 'fs';
 import * as path from 'path';
-
-// Scope-to-semantic-token-type mapping.
-// Uses the same TokenType indices from semanticTokens.ts.
-// We import the numeric values directly to avoid circular deps.
-const ScopeTokenMap: [string, number][] = [
-  // Order matters: more specific prefixes first
-  ['comment.block.documentation', 23],
-  ['comment.line', 23],
-  ['comment.block', 23],
-  ['comment', 23],
-  ['string.quoted', 24],
-  ['string.template', 24],
-  ['string.regexp', 26],
-  ['string', 24],
-  ['constant.numeric', 25],
-  ['constant.language', 21],
-  ['constant.character.escape', 24],
-  ['constant', 25],
-  ['keyword.operator', 27],
-  ['keyword.control', 21],
-  ['keyword', 21],
-  ['storage.type', 21],
-  ['storage.modifier', 22],
-  ['storage', 21],
-  ['entity.name.function', 18],
-  ['entity.name.type', 7],
-  ['entity.name.tag', 0],       // tag
-  ['entity.other.attribute-name', 1],  // attributeName
-  ['entity.other.inherited-class', 7],
-  ['entity.name', 14],
-  ['variable.parameter', 13],
-  ['variable.language', 21],
-  ['variable.other.constant', 14],
-  ['variable', 14],
-  ['support.function', 18],
-  ['support.class', 7],
-  ['support.type', 7],
-  ['support.constant', 25],
-  ['support.variable', 14],
-  ['meta.tag', 0],               // tag
-  ['punctuation.definition.tag', 3],  // delimiter
-  ['punctuation.definition.string', 24],
-  ['punctuation.definition.comment', 23],
-  ['punctuation.separator', 27],
-  ['punctuation.accessor', 27],
-  ['punctuation.terminator', 27],
-  ['punctuation', 3],            // delimiter
-];
+import { scopeMatchTable } from './tokenLegend';
 
 /**
  * Decode HTML entities in text and build a mapping from decoded positions
@@ -126,6 +79,7 @@ export interface EmbeddedToken {
   col: number;
   length: number;
   tokenType: number;
+  tokenModifiers?: number;
 }
 
 /**
@@ -136,13 +90,40 @@ function scopeToTokenType(scopes: string[]): number {
   // Walk scopes from most specific (last) to least specific
   for (let i = scopes.length - 1; i >= 0; i--) {
     const scope = scopes[i];
-    for (const [prefix, tokenType] of ScopeTokenMap) {
+    for (const [prefix, tokenType] of scopeMatchTable) {
       if (scope.startsWith(prefix)) {
         return tokenType;
       }
     }
   }
   return -1;
+}
+
+/**
+ * Strip common leading whitespace from all non-empty lines.
+ * This prevents indentation-sensitive grammars (e.g., markdown) from
+ * misinterpreting document indentation as meaningful syntax (like code blocks).
+ */
+export function dedentText(text: string): { dedented: string; indent: number } {
+  const lines = text.split('\n');
+
+  let minIndent = Infinity;
+  for (const line of lines) {
+    if (line.trim().length === 0) continue;
+    const indent = line.length - line.trimStart().length;
+    minIndent = Math.min(minIndent, indent);
+  }
+
+  if (minIndent === 0 || minIndent === Infinity) {
+    return { dedented: text, indent: 0 };
+  }
+
+  const dedented = lines.map(line => {
+    if (line.trim().length === 0) return line;
+    return line.slice(minIndent);
+  }).join('\n');
+
+  return { dedented, indent: minIndent };
 }
 
 /**
@@ -363,6 +344,8 @@ const LANGUAGE_TO_SCOPE: Record<string, string> = {
   bash: 'source.shell',
   shellscript: 'source.shell',
   dockerfile: 'source.dockerfile',
+  dot: 'source.dot',
+  graphviz: 'source.dot',
   swift: 'source.swift',
   kotlin: 'source.kotlin',
   haskell: 'source.haskell',
@@ -405,6 +388,7 @@ async function getGrammar(languageId: string): Promise<IGrammar | null> {
  * @param languageId - The target language (e.g., "python", "html")
  * @param startRow - Row of the content start in the document
  * @param startCol - Column of the content start in the document
+ * @param languageModifier - Bitmask for the language modifier (from getLanguageModifier)
  * @returns Tokens mapped back to original document positions, or empty array
  */
 export async function tokenizeEmbeddedContent(
@@ -412,6 +396,7 @@ export async function tokenizeEmbeddedContent(
   languageId: string,
   startRow: number,
   startCol: number,
+  languageModifier?: number,
 ): Promise<EmbeddedToken[]> {
   _log(`tokenizeEmbeddedContent: lang=${languageId}, row=${startRow}, col=${startCol}, text=${entityEncodedText.length} chars`);
   const grammar = await getGrammar(languageId);
@@ -422,9 +407,33 @@ export async function tokenizeEmbeddedContent(
 
   const { decoded, offsetMap } = decodeEntities(entityEncodedText);
   _log(`tokenizeEmbeddedContent: decoded ${entityEncodedText.length} -> ${decoded.length} chars`);
-  const decodedTokens = tokenizeDecoded(decoded, grammar);
+
+  // Dedent to prevent indentation-sensitive grammars (markdown) from
+  // misinterpreting document indentation as syntax (e.g., 4-space code blocks).
+  const { dedented, indent } = dedentText(decoded);
+  if (indent > 0) {
+    _log(`tokenizeEmbeddedContent: dedented by ${indent} chars`);
+  }
+
+  const decodedTokens = tokenizeDecoded(dedented, grammar);
   _log(`tokenizeEmbeddedContent: ${decodedTokens.length} decoded tokens`);
+
+  // Shift columns back so positions reference the original decoded text
+  if (indent > 0) {
+    for (const token of decodedTokens) {
+      token.col += indent;
+    }
+  }
+
   const mapped = mapTokenPositions(decodedTokens, offsetMap, decoded, startRow, startCol, entityEncodedText);
   _log(`tokenizeEmbeddedContent: ${mapped.length} mapped tokens`);
+
+  // Tag all tokens with the language modifier
+  if (languageModifier) {
+    for (const token of mapped) {
+      token.tokenModifiers = languageModifier;
+    }
+  }
+
   return mapped;
 }

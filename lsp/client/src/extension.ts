@@ -7,12 +7,13 @@ import {
   ServerOptions,
   TransportKind,
 } from 'vscode-languageclient/node';
-import {
-  CustomCodeTagConfig,
-  parseCustomCodeTags,
-  generateInjectionGrammar,
-  computeHash,
-} from './grammarGenerator';
+
+interface CustomCodeTagConfig {
+  name: string;
+  languageAttribute?: string;
+  languageMap?: Record<string, string>;
+  languageDefault?: string;
+}
 
 let client: LanguageClient;
 const outputChannel = window.createOutputChannel('HTML Mustache');
@@ -20,44 +21,6 @@ const outputChannel = window.createOutputChannel('HTML Mustache');
 function log(message: string) {
   const timestamp = new Date().toISOString();
   outputChannel.appendLine(`[${timestamp}] ${message}`);
-}
-
-function updateInjectionGrammar(
-  syntaxTags: CustomCodeTagConfig[],
-  grammarPath: string,
-): boolean {
-  const newContent = generateInjectionGrammar(syntaxTags);
-  const newHash = computeHash(newContent);
-
-  let existingHash = '';
-  try {
-    const existing = fs.readFileSync(grammarPath, 'utf-8');
-    existingHash = computeHash(existing);
-  } catch {
-    // File doesn't exist yet
-  }
-
-  if (newHash === existingHash) {
-    return false;
-  }
-
-  fs.mkdirSync(path.dirname(grammarPath), { recursive: true });
-  fs.writeFileSync(grammarPath, newContent, 'utf-8');
-  log(`Updated injection grammar at ${grammarPath}`);
-  return true;
-}
-
-function promptReload() {
-  window
-    .showInformationMessage(
-      'Embedded language grammar updated. Reload window to apply syntax highlighting changes.',
-      'Reload Window',
-    )
-    .then((selection) => {
-      if (selection === 'Reload Window') {
-        commands.executeCommand('workbench.action.reloadWindow');
-      }
-    });
 }
 
 /**
@@ -116,20 +79,8 @@ export function activate(context: ExtensionContext) {
 
   // Read settings to send as initialization options
   const config = workspace.getConfiguration('htmlmustache');
-  const rawCustomCodeTags = config.get<CustomCodeTagConfig[]>('formatting.customCodeTags', []);
-  const printWidth = config.get<number>('formatting.printWidth', 80);
-
-  // Parse custom code tags: separate tag names (for LSP) from syntax configs (for grammar)
-  const { tagNames, syntaxTags } = parseCustomCodeTags(rawCustomCodeTags);
-
-  // Generate injection grammar on activation
-  const grammarPath = context.asAbsolutePath(
-    path.join('syntaxes', 'embedded-languages.json')
-  );
-  const changed = updateInjectionGrammar(syntaxTags, grammarPath);
-  if (changed) {
-    promptReload();
-  }
+  const customCodeTags = config.get<CustomCodeTagConfig[]>('customCodeTags', []);
+  const printWidth = config.get<number>('printWidth', 80);
 
   // Client options - define which documents the server handles
   const clientOptions: LanguageClientOptions = {
@@ -144,7 +95,7 @@ export function activate(context: ExtensionContext) {
     },
     outputChannel: outputChannel,
     initializationOptions: {
-      customCodeTags: rawCustomCodeTags,
+      customCodeTags,
       printWidth,
     },
   };
@@ -221,31 +172,20 @@ export function activate(context: ExtensionContext) {
   // Send updated settings to the server when configuration changes
   context.subscriptions.push(
     workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('htmlmustache.formatting')) {
+      if (e.affectsConfiguration('htmlmustache.customCodeTags') || e.affectsConfiguration('htmlmustache.printWidth')) {
         const updatedConfig = workspace.getConfiguration('htmlmustache');
-        const updatedRawTags = updatedConfig.get<CustomCodeTagConfig[]>('formatting.customCodeTags', []);
-        const updatedPrintWidth = updatedConfig.get<number>('formatting.printWidth', 80);
+        const updatedTags = updatedConfig.get<CustomCodeTagConfig[]>('customCodeTags', []);
+        const updatedPrintWidth = updatedConfig.get<number>('printWidth', 80);
 
-        const { tagNames: updatedTagNames, syntaxTags: updatedSyntaxTags } = parseCustomCodeTags(updatedRawTags);
-
-        // Regenerate injection grammar if syntax tags changed
-        const grammarChanged = updateInjectionGrammar(updatedSyntaxTags, grammarPath);
-        if (grammarChanged) {
-          promptReload();
-        }
-
-        // Send full configs to the LSP server (for formatting + embedded tokenization)
         client.sendNotification('workspace/didChangeConfiguration', {
           settings: {
             htmlmustache: {
-              formatting: {
-                customCodeTags: updatedRawTags,
-                printWidth: updatedPrintWidth,
-              },
+              customCodeTags: updatedTags,
+              printWidth: updatedPrintWidth,
             },
           },
         });
-        log(`Sent updated customCodeTags: ${updatedTagNames.join(', ')}`);
+        log(`Sent updated customCodeTags: ${updatedTags.map(t => t.name).join(', ')}`);
         log(`Sent updated printWidth: ${updatedPrintWidth}`);
       }
     })
