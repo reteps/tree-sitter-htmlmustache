@@ -77,16 +77,29 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["name"],
+            "required": [
+              "name"
+            ],
             "properties": {
-              "name": { "type": "string", "description": "Custom tag name" },
-              "languageAttribute": { "type": "string", "description": "Attribute name containing the language" },
+              "name": {
+                "type": "string",
+                "description": "Custom tag name"
+              },
+              "languageAttribute": {
+                "type": "string",
+                "description": "Attribute name containing the language"
+              },
               "languageMap": {
                 "type": "object",
-                "additionalProperties": { "type": "string" },
+                "additionalProperties": {
+                  "type": "string"
+                },
                 "description": "Map of attribute values to language names (for non-standard values like ace/mode/python -> python)"
               },
-              "languageDefault": { "type": "string", "description": "Always inject this language for the tag content (no attribute needed)" }
+              "languageDefault": {
+                "type": "string",
+                "description": "Always inject this language for the tag content (no attribute needed)"
+              }
             }
           },
           "default": [],
@@ -102,91 +115,295 @@
       }
     },
     "semanticTokenTypes": [
-      { "id": "tag", "description": "HTML/XML tag name" },
-      { "id": "attributeName", "description": "HTML attribute name" },
-      { "id": "attributeValue", "description": "HTML attribute value" },
-      { "id": "delimiter", "description": "HTML tag delimiters like < > </ />" },
-      { "id": "mustacheVariable", "description": "Mustache variable or section name" },
-      { "id": "mustacheDelimiter", "description": "Mustache delimiters like {{ }} {{# {{/" },
-      { "id": "constantLanguage", "superType": "keyword", "description": "Language constant (true, false, null)" },
-      { "id": "operatorComparison", "superType": "operator", "description": "Comparison operator (==, !=, <, >)" },
-      { "id": "operatorArithmetic", "superType": "operator", "description": "Arithmetic operator (+, -, *, /)" },
-      { "id": "operatorLogical", "superType": "operator", "description": "Logical operator (&&, ||, !)" },
-      { "id": "operatorAssignment", "superType": "operator", "description": "Assignment operator (=, +=, -=)" },
-      { "id": "operatorBitwise", "superType": "operator", "description": "Bitwise operator (&, |, ^, ~)" },
-      { "id": "operatorWord", "superType": "operator", "description": "Word operator (and, or, not, in)" },
-      { "id": "keywordControl", "superType": "keyword", "description": "Control flow keyword (if, else, for, while)" },
-      { "id": "storageType", "superType": "keyword", "description": "Storage type keyword (int, float, class, def)" },
-      { "id": "supportFunction", "superType": "function", "description": "Built-in or library function" },
-      { "id": "supportType", "superType": "type", "description": "Built-in or library type" },
-      { "id": "variableLanguage", "superType": "variable", "description": "Language variable (self, this, super)" },
-      { "id": "punctuation", "description": "Punctuation characters" }
+      {
+        "id": "tag",
+        "description": "HTML/XML tag name"
+      },
+      {
+        "id": "attributeName",
+        "description": "HTML attribute name"
+      },
+      {
+        "id": "attributeValue",
+        "description": "HTML attribute value"
+      },
+      {
+        "id": "delimiter",
+        "description": "HTML tag delimiters like < > </ />"
+      },
+      {
+        "id": "mustacheVariable",
+        "description": "Mustache variable or section name"
+      },
+      {
+        "id": "mustacheDelimiter",
+        "description": "Mustache delimiters like {{ }} {{# {{/"
+      },
+      {
+        "id": "constantLanguage",
+        "superType": "keyword",
+        "description": "Language constant (true, false, null)"
+      },
+      {
+        "id": "operatorComparison",
+        "superType": "operator",
+        "description": "Comparison operator (==, !=, <, >)"
+      },
+      {
+        "id": "operatorArithmetic",
+        "superType": "operator",
+        "description": "Arithmetic operator (+, -, *, /)"
+      },
+      {
+        "id": "operatorLogical",
+        "superType": "operator",
+        "description": "Logical operator (&&, ||, !)"
+      },
+      {
+        "id": "operatorAssignment",
+        "superType": "operator",
+        "description": "Assignment operator (=, +=, -=)"
+      },
+      {
+        "id": "operatorBitwise",
+        "superType": "operator",
+        "description": "Bitwise operator (&, |, ^, ~)"
+      },
+      {
+        "id": "operatorWord",
+        "superType": "operator",
+        "description": "Word operator (and, or, not, in)"
+      },
+      {
+        "id": "keywordControl",
+        "superType": "keyword",
+        "description": "Control flow keyword (if, else, for, while)"
+      },
+      {
+        "id": "storageType",
+        "superType": "keyword",
+        "description": "Storage type keyword (int, float, class, def)"
+      },
+      {
+        "id": "supportFunction",
+        "superType": "function",
+        "description": "Built-in or library function"
+      },
+      {
+        "id": "supportType",
+        "superType": "type",
+        "description": "Built-in or library type"
+      },
+      {
+        "id": "variableLanguage",
+        "superType": "variable",
+        "description": "Language variable (self, this, super)"
+      },
+      {
+        "id": "punctuation",
+        "description": "Punctuation characters"
+      }
     ],
     "semanticTokenModifiers": [
-      { "id": "c", "description": "C language" },
-      { "id": "cpp", "description": "C++ language" },
-      { "id": "python", "description": "Python language" },
-      { "id": "javascript", "description": "JavaScript language" },
-      { "id": "typescript", "description": "TypeScript language" },
-      { "id": "java", "description": "Java language" },
-      { "id": "go", "description": "Go language" },
-      { "id": "rust", "description": "Rust language" },
-      { "id": "ruby", "description": "Ruby language" },
-      { "id": "css", "description": "CSS language" },
-      { "id": "html", "description": "HTML language" },
-      { "id": "sql", "description": "SQL language" },
-      { "id": "php", "description": "PHP language" },
-      { "id": "csharp", "description": "C# language" }
+      {
+        "id": "c",
+        "description": "C language"
+      },
+      {
+        "id": "cpp",
+        "description": "C++ language"
+      },
+      {
+        "id": "python",
+        "description": "Python language"
+      },
+      {
+        "id": "javascript",
+        "description": "JavaScript language"
+      },
+      {
+        "id": "typescript",
+        "description": "TypeScript language"
+      },
+      {
+        "id": "java",
+        "description": "Java language"
+      },
+      {
+        "id": "go",
+        "description": "Go language"
+      },
+      {
+        "id": "rust",
+        "description": "Rust language"
+      },
+      {
+        "id": "ruby",
+        "description": "Ruby language"
+      },
+      {
+        "id": "css",
+        "description": "CSS language"
+      },
+      {
+        "id": "html",
+        "description": "HTML language"
+      },
+      {
+        "id": "sql",
+        "description": "SQL language"
+      },
+      {
+        "id": "php",
+        "description": "PHP language"
+      },
+      {
+        "id": "csharp",
+        "description": "C# language"
+      }
     ],
     "semanticTokenScopes": [
       {
         "language": "htmlmustache",
         "scopes": {
-          "tag": [ "entity.name.tag.html" ],
-          "attributeName": [ "entity.other.attribute-name.html" ],
-          "attributeValue": [ "string.quoted.double.html" ],
-          "delimiter": [ "punctuation.definition.tag.begin.html" ],
-          "mustacheVariable": [ "variable.other.constant" ],
-          "mustacheDelimiter": [ "keyword.control.handlebars" ],
-          "comment": [ "comment" ],
-          "string": [ "string" ],
-          "regexp": [ "string.regexp" ],
-          "number": [ "constant.numeric" ],
-          "constantLanguage": [ "constant.language" ],
-          "operatorComparison": [ "keyword.operator.comparison" ],
-          "operatorArithmetic": [ "keyword.operator.arithmetic" ],
-          "operatorLogical": [ "keyword.operator.logical" ],
-          "operatorAssignment": [ "keyword.operator.assignment" ],
-          "operatorBitwise": [ "keyword.operator.bitwise" ],
-          "operatorWord": [ "keyword.operator.word" ],
-          "operator": [ "keyword.operator" ],
-          "keywordControl": [ "keyword.control" ],
-          "keyword": [ "keyword" ],
-          "storageType": [ "storage.type" ],
-          "modifier": [ "storage.modifier" ],
-          "function": [ "entity.name.function" ],
-          "functionCall": [ "meta.function-call.generic", "entity.name.function" ],
-          "supportFunction": [ "support.function" ],
-          "type": [ "entity.name.type" ],
-          "supportType": [ "support.type" ],
-          "property": [ "meta.attribute", "variable.other.property" ],
-          "indexedName": [ "meta.indexed-name", "variable.other" ],
-          "parameter": [ "variable.parameter" ],
-          "variableLanguage": [ "variable.language" ],
-          "variable": [ "variable" ],
-          "punctuation": [ "punctuation" ],
-          "markupHeading": [ "markup.heading" ],
-          "markupBold": [ "markup.bold" ],
-          "markupItalic": [ "markup.italic" ],
-          "markupUnderline": [ "markup.underline" ],
-          "markupStrikethrough": [ "markup.strikethrough" ],
-          "markupInlineCode": [ "markup.inline.raw" ],
-          "markupFencedCode": [ "markup.fenced_code" ],
-          "markupLink": [ "markup.underline.link" ],
-          "markupList": [ "markup.list" ],
-          "markupQuote": [ "markup.quote" ],
-          "markupRaw": [ "markup.raw" ],
-          "markup": [ "markup" ]
+          "tag": [
+            "entity.name.tag.html"
+          ],
+          "attributeName": [
+            "entity.other.attribute-name.html"
+          ],
+          "attributeValue": [
+            "string.quoted.double.html"
+          ],
+          "delimiter": [
+            "punctuation.definition.tag.begin.html"
+          ],
+          "mustacheVariable": [
+            "variable.other.constant"
+          ],
+          "mustacheDelimiter": [
+            "keyword.control.handlebars"
+          ],
+          "comment": [
+            "comment"
+          ],
+          "string": [
+            "string"
+          ],
+          "regexp": [
+            "string.regexp"
+          ],
+          "number": [
+            "constant.numeric"
+          ],
+          "constantLanguage": [
+            "constant.language"
+          ],
+          "operatorComparison": [
+            "keyword.operator.comparison"
+          ],
+          "operatorArithmetic": [
+            "keyword.operator.arithmetic"
+          ],
+          "operatorLogical": [
+            "keyword.operator.logical"
+          ],
+          "operatorAssignment": [
+            "keyword.operator.assignment"
+          ],
+          "operatorBitwise": [
+            "keyword.operator.bitwise"
+          ],
+          "operatorWord": [
+            "keyword.operator.word"
+          ],
+          "operator": [
+            "keyword.operator"
+          ],
+          "keywordControl": [
+            "keyword.control"
+          ],
+          "keyword": [
+            "keyword"
+          ],
+          "storageType": [
+            "storage.type"
+          ],
+          "modifier": [
+            "storage.modifier"
+          ],
+          "function": [
+            "entity.name.function"
+          ],
+          "functionCall": [
+            "meta.function-call.generic",
+            "entity.name.function"
+          ],
+          "supportFunction": [
+            "support.function"
+          ],
+          "type": [
+            "entity.name.type"
+          ],
+          "supportType": [
+            "support.type"
+          ],
+          "property": [
+            "meta.attribute",
+            "variable.other.property"
+          ],
+          "indexedName": [
+            "meta.indexed-name",
+            "variable.other"
+          ],
+          "parameter": [
+            "variable.parameter"
+          ],
+          "variableLanguage": [
+            "variable.language"
+          ],
+          "variable": [
+            "variable"
+          ],
+          "punctuation": [
+            "punctuation"
+          ],
+          "markupHeading": [
+            "markup.heading"
+          ],
+          "markupBold": [
+            "markup.bold"
+          ],
+          "markupItalic": [
+            "markup.italic"
+          ],
+          "markupUnderline": [
+            "markup.underline"
+          ],
+          "markupStrikethrough": [
+            "markup.strikethrough"
+          ],
+          "markupInlineCode": [
+            "markup.inline.raw"
+          ],
+          "markupFencedCode": [
+            "markup.fenced_code"
+          ],
+          "markupLink": [
+            "markup.underline.link"
+          ],
+          "markupList": [
+            "markup.list"
+          ],
+          "markupQuote": [
+            "markup.quote"
+          ],
+          "markupRaw": [
+            "markup.raw"
+          ],
+          "markup": [
+            "markup"
+          ]
         }
       }
     ]

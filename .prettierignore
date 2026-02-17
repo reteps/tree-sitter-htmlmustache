@@ -14,3 +14,5 @@ test/
 *.dylib
 package-lock.json
 pnpm-lock.yaml
+.claude/
+lsp/.claude/

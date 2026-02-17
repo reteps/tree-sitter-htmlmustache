@@ -2,7 +2,6 @@ import type { IGrammar, IRawGrammar, IOnigLib, RegistryOptions } from 'vscode-te
 import { Registry, parseRawGrammar, INITIAL } from 'vscode-textmate';
 import { createOnigScanner, createOnigString, loadWASM } from 'vscode-oniguruma';
 import * as fs from 'fs';
-import * as path from 'path';
 import { scopeMatchTable } from './tokenLegend';
 
 /**
@@ -241,7 +240,7 @@ function mapTokenPositions(
 
 let onigLib: IOnigLib | null = null;
 let registry: Registry | null = null;
-let grammarCache = new Map<string, IGrammar | null>();
+const grammarCache = new Map<string, IGrammar | null>();
 
 type GrammarFetcher = (scopeName: string) => Promise<{ content: string; format: 'json' | 'plist' } | null>;
 type Logger = (msg: string) => void;

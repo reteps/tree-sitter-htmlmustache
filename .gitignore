@@ -50,8 +50,13 @@ zig-out/
 # OS
 .DS_Store
 
+# Claude Code
+.claude/
+
 # Debug files
 lsp/server/debug-*.ts
 
 # TypeScript build info
 *.tsbuildinfo
+
+cli/out
