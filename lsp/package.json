@@ -2,7 +2,7 @@
   "name": "htmlmustache-lsp",
   "displayName": "HTML Mustache Language Support",
   "description": "Language server for HTML with Mustache template syntax",
-  "version": "0.0.32",
+  "version": "0.0.33",
   "publisher": "reteps",
   "private": true,
   "license": "MIT",
@@ -99,6 +99,20 @@
               "languageDefault": {
                 "type": "string",
                 "description": "Always inject this language for the tag content (no attribute needed)"
+              },
+              "indent": {
+                "type": "string",
+                "enum": [
+                  "never",
+                  "always",
+                  "attribute"
+                ],
+                "default": "never",
+                "description": "Content indentation mode: 'never' preserves as-is, 'always' dedents and re-indents, 'attribute' re-indents when indentAttribute has a truthy value."
+              },
+              "indentAttribute": {
+                "type": "string",
+                "description": "Attribute name to check when indent is 'attribute'. Content is indented when the attribute value is truthy (not empty, 'false', or '0')."
               }
             }
           },

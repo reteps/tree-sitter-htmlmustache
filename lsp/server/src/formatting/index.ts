@@ -19,6 +19,7 @@ import { formatDocument as formatDocumentToDoc, FormatterContext } from './forma
 import { mergeOptions, createIndentUnit } from './editorconfig';
 import { findContainingNode, calculateIndentLevel } from './utils';
 import { isBlockLevel, getContentNodes, hasImplicitEndTags, setCustomCodeTags } from './classifier';
+import type { CustomCodeTagConfig } from '../customCodeTags';
 
 /**
  * Format an entire document.
@@ -30,7 +31,8 @@ export function formatDocument(
   customCodeTags?: string[],
   printWidth = 80,
   embeddedFormatted?: Map<number, string>,
-  mustacheSpaces?: boolean
+  mustacheSpaces?: boolean,
+  customCodeTagConfigs?: CustomCodeTagConfig[]
 ): TextEdit[] {
   const mergedOptions = mergeOptions(options, document.uri);
   const indentUnit = createIndentUnit(mergedOptions);
@@ -39,9 +41,11 @@ export function formatDocument(
     setCustomCodeTags(customCodeTags);
   }
 
+  const configMap = buildConfigMap(customCodeTagConfigs);
   const context: FormatterContext = {
     document,
     customCodeTags: customCodeTags ? new Set(customCodeTags.map(t => t.toLowerCase())) : undefined,
+    customCodeTagConfigs: configMap,
     embeddedFormatted,
     mustacheSpaces,
   };
@@ -68,7 +72,8 @@ export function formatDocumentRange(
   customCodeTags?: string[],
   printWidth = 80,
   embeddedFormatted?: Map<number, string>,
-  mustacheSpaces?: boolean
+  mustacheSpaces?: boolean,
+  customCodeTagConfigs?: CustomCodeTagConfig[]
 ): TextEdit[] {
   const mergedOptions = mergeOptions(options, document.uri);
   const indentUnit = createIndentUnit(mergedOptions);
@@ -104,9 +109,11 @@ export function formatDocumentRange(
     getContentNodes
   );
 
+  const configMap = buildConfigMap(customCodeTagConfigs);
   const context: FormatterContext = {
     document,
     customCodeTags: customCodeTags ? new Set(customCodeTags.map(t => t.toLowerCase())) : undefined,
+    customCodeTagConfigs: configMap,
     embeddedFormatted,
     mustacheSpaces,
   };
@@ -145,6 +152,15 @@ function formatNodeForRange(
 /**
  * Apply base indentation to each line of formatted output.
  */
+function buildConfigMap(configs?: CustomCodeTagConfig[]): Map<string, CustomCodeTagConfig> | undefined {
+  if (!configs || configs.length === 0) return undefined;
+  const map = new Map<string, CustomCodeTagConfig>();
+  for (const config of configs) {
+    map.set(config.name.toLowerCase(), config);
+  }
+  return map;
+}
+
 function applyBaseIndent(
   formatted: string,
   indentLevel: number,

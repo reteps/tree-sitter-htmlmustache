@@ -1,10 +1,14 @@
 import type { Node as SyntaxNode } from 'web-tree-sitter';
 
+export type CustomCodeTagIndentMode = 'never' | 'always' | 'attribute';
+
 export interface CustomCodeTagConfig {
   name: string;
   languageAttribute?: string;
   languageMap?: Record<string, string>;
   languageDefault?: string;
+  indent?: CustomCodeTagIndentMode;
+  indentAttribute?: string;
 }
 
 export interface CustomCodeTagContent {
@@ -17,14 +21,24 @@ export interface CustomCodeTagContent {
 /**
  * Parse customCodeTags settings, extracting tag names and full configs.
  */
+const VALID_INDENT_MODES = new Set<string>(['never', 'always', 'attribute']);
+
 export function parseCustomCodeTagSettings(tags: unknown[]): { tagNames: string[]; configs: CustomCodeTagConfig[] } {
   const tagNames: string[] = [];
   const configs: CustomCodeTagConfig[] = [];
   for (const tag of tags) {
     if (tag && typeof tag === 'object' && 'name' in tag && typeof (tag as { name: unknown }).name === 'string') {
-      const t = tag as CustomCodeTagConfig;
-      tagNames.push(t.name);
-      configs.push(t);
+      const t = tag as Record<string, unknown>;
+      const config: CustomCodeTagConfig = { name: t.name as string };
+      if (typeof t.languageAttribute === 'string') config.languageAttribute = t.languageAttribute;
+      if (t.languageMap && typeof t.languageMap === 'object') config.languageMap = t.languageMap as Record<string, string>;
+      if (typeof t.languageDefault === 'string') config.languageDefault = t.languageDefault;
+      if (typeof t.indent === 'string' && VALID_INDENT_MODES.has(t.indent)) {
+        config.indent = t.indent as CustomCodeTagIndentMode;
+      }
+      if (typeof t.indentAttribute === 'string') config.indentAttribute = t.indentAttribute;
+      tagNames.push(config.name);
+      configs.push(config);
     }
   }
   return { tagNames, configs };
@@ -33,7 +47,7 @@ export function parseCustomCodeTagSettings(tags: unknown[]): { tagNames: string[
 /**
  * Get the attribute value for a given attribute name from an element's start tag.
  */
-function getAttributeValue(node: SyntaxNode, attrName: string): string | null {
+export function getAttributeValue(node: SyntaxNode, attrName: string): string | null {
   for (let i = 0; i < node.childCount; i++) {
     const child = node.child(i);
     if (child?.type === 'html_start_tag') {

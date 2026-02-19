@@ -3,6 +3,8 @@ import { FormattingOptions } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { parseText, createMockDocument } from './setup';
 import { formatDocument, formatDocumentRange } from '../src/formatting/index';
+import { setCustomCodeTags } from '../src/formatting/classifier';
+import type { CustomCodeTagConfig } from '../src/customCodeTags';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -661,5 +663,137 @@ indent_style = tab
     expect(edits.length).toBe(1);
     // Should fall back to 3-space indent from LSP options
     expect(edits[0].newText).toBe('<div>\n   <p>text</p>\n</div>\n');
+  });
+});
+
+describe('Custom Code Tag Indentation', () => {
+  const defaultOpts: FormattingOptions = { tabSize: 2, insertSpaces: true };
+
+  function formatWithConfigs(
+    content: string,
+    configs: CustomCodeTagConfig[],
+    options: FormattingOptions = defaultOpts
+  ): string {
+    const tagNames = configs.map(c => c.name);
+    setCustomCodeTags(tagNames);
+    const tree = parseText(content);
+    const document = createMockDocument(content);
+    const edits = formatDocument(tree, document, options, tagNames, 80, undefined, undefined, configs);
+    expect(edits.length).toBe(1);
+    return edits[0].newText;
+  }
+
+  afterAll(() => {
+    setCustomCodeTags([]);
+  });
+
+  describe('indent: "never"', () => {
+    it('preserves content as-is with no indent config', () => {
+      const result = formatWithConfigs(
+        '<pl-code>\n    indented content\n      more indented\n</pl-code>',
+        [{ name: 'pl-code' }]
+      );
+      expect(result).toBe('<pl-code>\n    indented content\n      more indented\n</pl-code>\n');
+    });
+
+    it('preserves content as-is with explicit indent: "never"', () => {
+      const result = formatWithConfigs(
+        '<pl-code>\n    indented content\n      more indented\n</pl-code>',
+        [{ name: 'pl-code', indent: 'never' }]
+      );
+      expect(result).toBe('<pl-code>\n    indented content\n      more indented\n</pl-code>\n');
+    });
+  });
+
+  describe('indent: "always"', () => {
+    it('dedents and re-indents content at nesting level 0', () => {
+      const result = formatWithConfigs(
+        '<pl-code>\n    line one\n    line two\n</pl-code>',
+        [{ name: 'pl-code', indent: 'always' }]
+      );
+      expect(result).toBe('<pl-code>\n  line one\n  line two\n</pl-code>\n');
+    });
+
+    it('handles mixed indentation levels', () => {
+      const result = formatWithConfigs(
+        '<pl-code>\n        def foo():\n            return 1\n</pl-code>',
+        [{ name: 'pl-code', indent: 'always' }]
+      );
+      expect(result).toBe('<pl-code>\n  def foo():\n      return 1\n</pl-code>\n');
+    });
+
+    it('handles nesting inside other elements', () => {
+      const result = formatWithConfigs(
+        '<div>\n  <pl-code>\n      line one\n      line two\n  </pl-code>\n</div>',
+        [{ name: 'pl-code', indent: 'always' }]
+      );
+      expect(result).toBe('<div>\n  <pl-code>\n    line one\n    line two\n  </pl-code>\n</div>\n');
+    });
+
+    it('preserves empty lines within content', () => {
+      const result = formatWithConfigs(
+        '<pl-code>\n    line one\n\n    line two\n</pl-code>',
+        [{ name: 'pl-code', indent: 'always' }]
+      );
+      expect(result).toBe('<pl-code>\n  line one\n\n  line two\n</pl-code>\n');
+    });
+
+    it('handles content with no common indent', () => {
+      const result = formatWithConfigs(
+        '<pl-code>\nline one\n  indented\n</pl-code>',
+        [{ name: 'pl-code', indent: 'always' }]
+      );
+      expect(result).toBe('<pl-code>\n  line one\n    indented\n</pl-code>\n');
+    });
+  });
+
+  describe('indent: "attribute"', () => {
+    it('indents when attribute has truthy value "true"', () => {
+      const result = formatWithConfigs(
+        '<pl-code source-file-name="test.py">\n    line one\n    line two\n</pl-code>',
+        [{ name: 'pl-code', indent: 'attribute', indentAttribute: 'source-file-name' }]
+      );
+      expect(result).toBe('<pl-code source-file-name="test.py">\n  line one\n  line two\n</pl-code>\n');
+    });
+
+    it('indents when attribute has any non-falsy string', () => {
+      const result = formatWithConfigs(
+        '<pl-code source-file-name="anything">\n    line one\n</pl-code>',
+        [{ name: 'pl-code', indent: 'attribute', indentAttribute: 'source-file-name' }]
+      );
+      expect(result).toBe('<pl-code source-file-name="anything">\n  line one\n</pl-code>\n');
+    });
+
+    it('preserves content when attribute is missing', () => {
+      const result = formatWithConfigs(
+        '<pl-code>\n    line one\n    line two\n</pl-code>',
+        [{ name: 'pl-code', indent: 'attribute', indentAttribute: 'source-file-name' }]
+      );
+      expect(result).toBe('<pl-code>\n    line one\n    line two\n</pl-code>\n');
+    });
+
+    it('preserves content when attribute is "false"', () => {
+      const result = formatWithConfigs(
+        '<pl-code source-file-name="false">\n    line one\n</pl-code>',
+        [{ name: 'pl-code', indent: 'attribute', indentAttribute: 'source-file-name' }]
+      );
+      expect(result).toBe('<pl-code source-file-name="false">\n    line one\n</pl-code>\n');
+    });
+
+    it('preserves content when attribute is "0"', () => {
+      const result = formatWithConfigs(
+        '<pl-code source-file-name="0">\n    line one\n</pl-code>',
+        [{ name: 'pl-code', indent: 'attribute', indentAttribute: 'source-file-name' }]
+      );
+      expect(result).toBe('<pl-code source-file-name="0">\n    line one\n</pl-code>\n');
+    });
+
+    it('preserves content when attribute is empty string', () => {
+      const result = formatWithConfigs(
+        '<pl-code source-file-name="">\n    line one\n</pl-code>',
+        [{ name: 'pl-code', indent: 'attribute', indentAttribute: 'source-file-name' }]
+      );
+      expect(result).toBe('<pl-code source-file-name="">\n    line one\n</pl-code>\n');
+    });
   });
 });

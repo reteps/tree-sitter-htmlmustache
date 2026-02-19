@@ -466,7 +466,7 @@ connection.onDocumentFormatting(async (params) => {
   }
 
   const embeddedFormatted = await formatEmbeddedRegions(tree.rootNode, params.options);
-  return formatDocument(tree, document, params.options, customCodeTags, printWidth, embeddedFormatted, mustacheSpaces);
+  return formatDocument(tree, document, params.options, customCodeTags, printWidth, embeddedFormatted, mustacheSpaces, customCodeTagConfigs);
 });
 
 // Document range formatting handler
@@ -482,7 +482,7 @@ connection.onDocumentRangeFormatting(async (params) => {
   }
 
   const embeddedFormatted = await formatEmbeddedRegions(tree.rootNode, params.options);
-  return formatDocumentRange(tree, document, params.range, params.options, customCodeTags, printWidth, embeddedFormatted, mustacheSpaces);
+  return formatDocumentRange(tree, document, params.range, params.options, customCodeTags, printWidth, embeddedFormatted, mustacheSpaces, customCodeTagConfigs);
 });
 
 // Listen on the documents and connection

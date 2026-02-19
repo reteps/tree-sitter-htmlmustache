@@ -33,12 +33,82 @@ import {
   isWhitespaceInsensitive,
 } from './classifier';
 import { normalizeText, getVisibleChildren, normalizeMustacheWhitespace, normalizeMustacheWhitespaceAll } from './utils';
+import type { CustomCodeTagConfig } from '../customCodeTags';
+import { getAttributeValue } from '../customCodeTags';
 
 export interface FormatterContext {
   document: TextDocument;
   customCodeTags?: Set<string>;
+  customCodeTagConfigs?: Map<string, CustomCodeTagConfig>;
   embeddedFormatted?: Map<number, string>;
   mustacheSpaces?: boolean;
+}
+
+/**
+ * Check if an attribute value is truthy (not null, empty, "false", or "0").
+ */
+export function isAttributeTruthy(value: string | null): boolean {
+  if (value === null || value === '' || value === 'false' || value === '0') {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Dedent content by stripping leading/trailing empty lines and removing the
+ * minimum common indentation from all non-empty lines.
+ */
+export function dedentContent(rawContent: string): string {
+  const lines = rawContent.split('\n');
+
+  // Strip leading empty lines
+  while (lines.length > 0 && lines[0].trim() === '') {
+    lines.shift();
+  }
+  // Strip trailing empty lines
+  while (lines.length > 0 && lines[lines.length - 1].trim() === '') {
+    lines.pop();
+  }
+
+  if (lines.length === 0) return '';
+
+  // Find minimum indentation across non-empty lines
+  let minIndent = Infinity;
+  for (const l of lines) {
+    if (l.trim() === '') continue;
+    const match = l.match(/^(\s*)/);
+    if (match && match[1].length < minIndent) {
+      minIndent = match[1].length;
+    }
+  }
+  if (minIndent === Infinity) minIndent = 0;
+
+  // Strip common indent
+  return lines.map(l => l.trim() === '' ? '' : l.slice(minIndent)).join('\n');
+}
+
+/**
+ * Resolve whether a custom code tag's content should be indented.
+ */
+function resolveIndentMode(
+  node: SyntaxNode,
+  config: CustomCodeTagConfig
+): boolean {
+  const mode = config.indent ?? 'never';
+  if (mode === 'never') return false;
+  if (mode === 'always') return true;
+  // mode === 'attribute'
+  if (!config.indentAttribute) return false;
+  const value = getAttributeValue(node, config.indentAttribute);
+  return isAttributeTruthy(value);
+}
+
+function getTagNameFromStartTag(startTag: SyntaxNode): string | null {
+  for (let i = 0; i < startTag.childCount; i++) {
+    const child = startTag.child(i);
+    if (child?.type === 'html_tag_name') return child.text.toLowerCase();
+  }
+  return null;
 }
 
 function mustacheText(raw: string, context: FormatterContext): string {
@@ -175,9 +245,39 @@ export function formatHtmlElement(node: SyntaxNode, context: FormatterContext): 
 
   // Handle content
   if (preserveContent) {
-    // Use raw document text to preserve all whitespace, since tree-sitter
-    // text nodes strip boundary whitespace from regular html_element children
-    if (startTag && endTag) {
+    // Check if this custom code tag should be indented
+    const tagNameLower = startTag ? getTagNameFromStartTag(startTag) : null;
+    const tagConfig = tagNameLower ? context.customCodeTagConfigs?.get(tagNameLower) : undefined;
+    const shouldIndent = tagConfig ? resolveIndentMode(node, tagConfig) : false;
+
+    if (shouldIndent && startTag && endTag) {
+      const rawContent = context.document.getText().slice(
+        startTag.endIndex,
+        endTag.startIndex
+      );
+      const dedented = dedentContent(rawContent);
+      if (dedented.length > 0) {
+        const contentLines = dedented.split('\n');
+        const lineDocs: Doc[] = [];
+        for (let j = 0; j < contentLines.length; j++) {
+          if (j > 0) {
+            if (contentLines[j] === '') {
+              // Empty line: literal \n avoids indentation from the printer
+              lineDocs.push('\n');
+            } else {
+              lineDocs.push(hardline);
+            }
+          }
+          if (contentLines[j] !== '') {
+            lineDocs.push(text(contentLines[j]));
+          }
+        }
+        parts.push(indent(concat([hardline, ...lineDocs])));
+        parts.push(hardline);
+      }
+    } else if (startTag && endTag) {
+      // Use raw document text to preserve all whitespace, since tree-sitter
+      // text nodes strip boundary whitespace from regular html_element children
       const rawContent = context.document.getText().slice(
         startTag.endIndex,
         endTag.startIndex
@@ -306,7 +406,37 @@ export function formatScriptStyleElement(
         }
       } else {
         // Fallback: preserve raw content as-is (also used for html_raw_element)
-        parts.push(text(child.text));
+        // Check if this is a custom code tag that should be indented
+        if (node.type === 'html_raw_element') {
+          const startTagNode = node.child(0);
+          const tagNameLower = startTagNode?.type === 'html_start_tag' ? getTagNameFromStartTag(startTagNode) : null;
+          const tagConfig = tagNameLower ? context.customCodeTagConfigs?.get(tagNameLower) : undefined;
+          if (tagConfig && resolveIndentMode(node, tagConfig)) {
+            const dedented = dedentContent(child.text);
+            if (dedented.length > 0) {
+              const contentLines = dedented.split('\n');
+              const lineDocs: Doc[] = [];
+              for (let j = 0; j < contentLines.length; j++) {
+                if (j > 0) {
+                  if (contentLines[j] === '') {
+                    lineDocs.push('\n');
+                  } else {
+                    lineDocs.push(hardline);
+                  }
+                }
+                if (contentLines[j] !== '') {
+                  lineDocs.push(text(contentLines[j]));
+                }
+              }
+              parts.push(indent(concat([hardline, ...lineDocs])));
+              parts.push(hardline);
+            }
+          } else {
+            parts.push(text(child.text));
+          }
+        } else {
+          parts.push(text(child.text));
+        }
       }
     }
   }
