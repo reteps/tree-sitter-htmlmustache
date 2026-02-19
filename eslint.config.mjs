@@ -74,10 +74,7 @@ export default [
   ...tseslint.config(
     {
       files: ['cli/src/**/*.ts', 'lsp/**/*.ts'],
-      extends: [
-        eslintJs.configs.recommended,
-        ...tseslint.configs.recommended,
-      ],
+      extends: [eslintJs.configs.recommended, ...tseslint.configs.recommended],
       rules: {
         '@typescript-eslint/no-unused-vars': [
           'error',

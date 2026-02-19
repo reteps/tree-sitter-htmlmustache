@@ -218,7 +218,13 @@ module.exports = grammar({
     html_erroneous_end_tag: ($) =>
       seq('</', $.html_erroneous_end_tag_name, '>'),
 
-    _attribute: ($) => choice($.mustache_attribute, $.html_attribute, $.mustache_interpolation, $.mustache_triple),
+    _attribute: ($) =>
+      choice(
+        $.mustache_attribute,
+        $.html_attribute,
+        $.mustache_interpolation,
+        $.mustache_triple,
+      ),
     html_attribute: ($) =>
       seq(
         seq(

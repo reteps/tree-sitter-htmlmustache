@@ -9,12 +9,14 @@ on:
       - tree-sitter-htmlmustache.wasm
       - grammar.js
       - src/**
+      - eslint.config.mjs
   pull_request:
     paths:
       - lsp/**
       - tree-sitter-htmlmustache.wasm
       - grammar.js
       - src/**
+      - eslint.config.mjs
 
 jobs:
   build:
@@ -35,6 +37,8 @@ jobs:
         uses: tree-sitter/setup-action/cli@v2
       - name: Build WASM
         run: tree-sitter build --wasm
+      - name: Install root dependencies
+        run: pnpm install
       - name: Install LSP dependencies
         run: pnpm install
         working-directory: lsp

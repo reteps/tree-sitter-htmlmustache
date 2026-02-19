@@ -114,14 +114,14 @@ echo '<div><p>hi</p></div>' | htmlmustache format --stdin
 
 **Options:**
 
-| Flag                 | Description                                    |
-| -------------------- | ---------------------------------------------- |
-| `--write`            | Modify files in-place (default: print to stdout) |
-| `--check`            | Exit 1 if any files would change (for CI)      |
-| `--stdin`            | Read from stdin, write to stdout               |
-| `--indent-size N`    | Spaces per indent level (default: 2)           |
-| `--print-width N`    | Max line width (default: 80)                   |
-| `--mustache-spaces`  | Add spaces inside mustache delimiters          |
+| Flag                | Description                                      |
+| ------------------- | ------------------------------------------------ |
+| `--write`           | Modify files in-place (default: print to stdout) |
+| `--check`           | Exit 1 if any files would change (for CI)        |
+| `--stdin`           | Read from stdin, write to stdout                 |
+| `--indent-size N`   | Spaces per indent level (default: 2)             |
+| `--print-width N`   | Max line width (default: 80)                     |
+| `--mustache-spaces` | Add spaces inside mustache delimiters            |
 
 ## Configuration
 
@@ -144,9 +144,9 @@ Create a `.htmlmustache.jsonc` file in your project root to configure formatting
   "customCodeTags": [
     {
       "name": "x-code",
-      "languageDefault": "javascript"
-    }
-  ]
+      "languageDefault": "javascript",
+    },
+  ],
 }
 ```
 

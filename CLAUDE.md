@@ -90,6 +90,7 @@ When a Mustache section ends (`{{/...}}`), it may need to implicitly close HTML 
 <li>
   {{name}}{{/items}}
   <!-- The </li> is implicit when {{/items}} is encountered -->
+</li>
 ```
 
 ### LSP Architecture
