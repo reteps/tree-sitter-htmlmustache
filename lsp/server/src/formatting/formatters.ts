@@ -32,7 +32,7 @@ import {
   getCSSDisplay,
   isWhitespaceInsensitive,
 } from './classifier';
-import { normalizeText, getVisibleChildren, normalizeMustacheWhitespace, normalizeMustacheWhitespaceAll } from './utils';
+import { normalizeText, getVisibleChildren, normalizeMustacheWhitespace, normalizeMustacheWhitespaceAll, getIgnoreDirective } from './utils';
 import type { CustomCodeTagConfig } from '../customCodeTags';
 import { getAttributeValue } from '../customCodeTags';
 
@@ -298,8 +298,18 @@ export function formatHtmlElement(node: SyntaxNode, context: FormatterContext): 
     }
   } else if (!isBlock && !hasHtmlElementChildren) {
     // Inline element with only text/interpolation content - keep tight
+    // Preserve whitespace gaps between sibling nodes (e.g. space between
+    // mustache_interpolation and text that tree-sitter puts in the gap)
+    let prevEnd = startTag ? startTag.endIndex : -1;
     for (const child of contentNodes) {
+      if (prevEnd >= 0 && child.startIndex > prevEnd) {
+        const gap = context.document.getText().slice(prevEnd, child.startIndex);
+        if (/\s/.test(gap)) {
+          parts.push(text(' '));
+        }
+      }
       parts.push(formatNode(child, context));
+      prevEnd = child.endIndex;
     }
   } else {
     // Block element or inline-with-block-children: use hardline + indent
@@ -435,7 +445,32 @@ export function formatScriptStyleElement(
             parts.push(text(child.text));
           }
         } else {
-          parts.push(text(child.text));
+          // Script/style fallback: dedent and re-emit with hardlines so the
+          // printer can apply proper indentation from parent context.
+          const dedented = dedentContent(child.text);
+          if (dedented.length > 0) {
+            const contentLines = dedented.split('\n');
+            if (contentLines.length === 1) {
+              // Single-line content: keep inline
+              parts.push(text(contentLines[0]));
+            } else {
+              const lineDocs: Doc[] = [];
+              for (let j = 0; j < contentLines.length; j++) {
+                if (j > 0) {
+                  if (contentLines[j] === '') {
+                    lineDocs.push('\n');
+                  } else {
+                    lineDocs.push(hardline);
+                  }
+                }
+                if (contentLines[j] !== '') {
+                  lineDocs.push(text(contentLines[j]));
+                }
+              }
+              parts.push(indent(concat([hardline, ...lineDocs])));
+              parts.push(hardline);
+            }
+          }
         }
       }
     }
@@ -716,25 +751,115 @@ export function formatBlockChildren(
   let lastNodeEnd = -1;
   let pendingBlankLine = false;
   let blankLineBeforeCurrentLine = false;
+  let ignoreNext = false;
+  let inIgnoreRegion = false;
+  let ignoreRegionStartIndex = -1;
 
   for (let i = 0; i < nodes.length; i++) {
     const node = nodes[i];
 
-    const treatAsBlock = shouldTreatAsBlock(node, i, nodes);
-
-    // Check for whitespace between nodes in original document
-    if (lastNodeEnd >= 0 && node.startIndex > lastNodeEnd) {
+    // Detect blank lines in gap between nodes (before directive handling)
+    if (lastNodeEnd >= 0 && node.startIndex > lastNodeEnd && !inIgnoreRegion) {
       const gap = context.document.getText().slice(lastNodeEnd, node.startIndex);
-      const prevNode = nodes[i - 1];
-      const prevTreatAsBlock = shouldTreatAsBlock(prevNode, i - 1, nodes);
-
-      // Detect blank lines (≥2 newlines) in any gap between nodes
       const newlineCount = (gap.match(/\n/g) || []).length;
       if (newlineCount >= 2) {
         pendingBlankLine = true;
       }
+    }
+
+    const directive = getIgnoreDirective(node);
+
+    // --- Ignore directive handling ---
+
+    // ignore-end: close a region
+    if (directive === 'ignore-end' && inIgnoreRegion) {
+      // Flush any pending inline content
+      if (currentLine.length > 0) {
+        const lineContent = trimDoc(inlineContentToFill(currentLine));
+        if (hasDocContent(lineContent)) {
+          lines.push({ doc: lineContent, blankLineBefore: blankLineBeforeCurrentLine });
+        }
+        currentLine = [];
+        blankLineBeforeCurrentLine = false;
+      }
+      // Emit raw text from region start to this comment, trimming boundary newlines
+      const rawText = context.document.getText().slice(ignoreRegionStartIndex, node.startIndex)
+        .replace(/^\n/, '').replace(/\n$/, '');
+      if (rawText.length > 0) {
+        lines.push({ doc: text(rawText), blankLineBefore: false });
+      }
+      // Emit the ignore-end comment itself
+      const commentText = node.type === 'mustache_comment' ? mustacheText(node.text, context) : node.text;
+      lines.push({ doc: text(commentText), blankLineBefore: false });
+      inIgnoreRegion = false;
+      ignoreRegionStartIndex = -1;
+      lastNodeEnd = node.endIndex;
+      continue;
+    }
+
+    // Inside ignore region: skip (content captured as raw text at ignore-end)
+    if (inIgnoreRegion) {
+      lastNodeEnd = node.endIndex;
+      continue;
+    }
+
+    // ignore-start: begin a region
+    if (directive === 'ignore-start') {
+      if (currentLine.length > 0) {
+        const lineContent = trimDoc(inlineContentToFill(currentLine));
+        if (hasDocContent(lineContent)) {
+          lines.push({ doc: lineContent, blankLineBefore: blankLineBeforeCurrentLine });
+        }
+        currentLine = [];
+        blankLineBeforeCurrentLine = false;
+      }
+      const commentText = node.type === 'mustache_comment' ? mustacheText(node.text, context) : node.text;
+      lines.push({ doc: text(commentText), blankLineBefore: pendingBlankLine });
+      pendingBlankLine = false;
+      inIgnoreRegion = true;
+      ignoreRegionStartIndex = node.endIndex;
+      lastNodeEnd = node.endIndex;
+      continue;
+    }
+
+    // ignore (next-node): emit the comment, set flag
+    if (directive === 'ignore') {
+      if (currentLine.length > 0) {
+        const lineContent = trimDoc(inlineContentToFill(currentLine));
+        if (hasDocContent(lineContent)) {
+          lines.push({ doc: lineContent, blankLineBefore: blankLineBeforeCurrentLine });
+        }
+        currentLine = [];
+        blankLineBeforeCurrentLine = false;
+      }
+      const commentText = node.type === 'mustache_comment' ? mustacheText(node.text, context) : node.text;
+      lines.push({ doc: text(commentText), blankLineBefore: pendingBlankLine });
+      pendingBlankLine = false;
+      ignoreNext = true;
+      lastNodeEnd = node.endIndex;
+      continue;
+    }
+
+    // Ignored next-node: emit raw text, clear flag
+    if (ignoreNext) {
+      lines.push({ doc: text(node.text), blankLineBefore: pendingBlankLine });
+      pendingBlankLine = false;
+      ignoreNext = false;
+      lastNodeEnd = node.endIndex;
+      continue;
+    }
+
+    // ignore-end without ignore-start: treat as normal comment (fall through)
+
+    const treatAsBlock = shouldTreatAsBlock(node, i, nodes);
+
+    // Check for whitespace between nodes in original document (inline gap handling)
+    if (lastNodeEnd >= 0 && node.startIndex > lastNodeEnd) {
+      const prevNode = nodes[i - 1];
+      const prevTreatAsBlock = shouldTreatAsBlock(prevNode, i - 1, nodes);
 
       if (!prevTreatAsBlock && !treatAsBlock) {
+        const gap = context.document.getText().slice(lastNodeEnd, node.startIndex);
         if (/\s/.test(gap)) {
           currentLine.push(line);
         }
@@ -873,6 +998,16 @@ export function formatBlockChildren(
     }
 
     lastNodeEnd = node.endIndex;
+  }
+
+  // Handle unterminated ignore region: emit remaining raw text
+  if (inIgnoreRegion && nodes.length > 0) {
+    const lastNode = nodes[nodes.length - 1];
+    const rawText = context.document.getText().slice(ignoreRegionStartIndex, lastNode.endIndex)
+      .replace(/^\n/, '');
+    if (rawText.length > 0) {
+      lines.push({ doc: text(rawText), blankLineBefore: false });
+    }
   }
 
   // Flush remaining inline content

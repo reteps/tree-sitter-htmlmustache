@@ -71,6 +71,11 @@ export function formatDocument(
     setCustomCodeTags(customCodeTags);
   }
 
+  // Bail out if the tree has parse errors to avoid mangling content
+  if (tree.rootNode.hasError) {
+    return [];
+  }
+
   const configMap = buildConfigMap(customCodeTagConfigs);
   const context: FormatterContext = {
     document,
@@ -107,6 +112,11 @@ export function formatDocumentRange(
 
   if (customCodeTags) {
     setCustomCodeTags(customCodeTags);
+  }
+
+  // Bail out if the tree has parse errors to avoid mangling content
+  if (tree.rootNode.hasError) {
+    return [];
   }
 
   // Find nodes that overlap with the range

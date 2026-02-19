@@ -149,8 +149,7 @@ Void element br with surrounding mustache
       (mustache_tag_name))
     (html_element
       (html_start_tag
-        (html_tag_name))
-      (html_forced_end_tag))
+        (html_tag_name)))
     (mustache_section_end
       (mustache_tag_name))))
 
@@ -171,8 +170,7 @@ HR void element with mustache conditional
           (html_attribute_name)
           (html_quoted_attribute_value
             (mustache_interpolation
-              (mustache_identifier)))))
-      (html_forced_end_tag))
+              (mustache_identifier))))))
     (mustache_section_end
       (mustache_tag_name))))
 
@@ -1258,8 +1256,7 @@ Picture element with source and mustache
             (html_attribute_name)
             (html_quoted_attribute_value
               (mustache_interpolation
-                (mustache_identifier)))))
-        (html_forced_end_tag))
+                (mustache_identifier))))))
       (mustache_section_end
         (mustache_tag_name)))
     (html_element
@@ -1406,8 +1403,7 @@ Area void element in map with mustache
             (html_attribute_name)
             (html_quoted_attribute_value
               (mustache_interpolation
-                (mustache_identifier)))))
-        (html_forced_end_tag))
+                (mustache_identifier))))))
       (mustache_section_end
         (mustache_tag_name)))
     (html_end_tag
@@ -1449,8 +1445,7 @@ Track void element in video with mustache
             (html_attribute_name)
             (html_quoted_attribute_value
               (mustache_interpolation
-                (mustache_identifier)))))
-        (html_forced_end_tag))
+                (mustache_identifier))))))
       (mustache_section_end
         (mustache_tag_name)))
     (html_end_tag
@@ -1568,8 +1563,7 @@ Col void element in colgroup with mustache
               (html_attribute_name)
               (html_quoted_attribute_value
                 (mustache_interpolation
-                  (mustache_identifier)))))
-          (html_forced_end_tag))
+                  (mustache_identifier))))))
         (mustache_section_end
           (mustache_tag_name)))
       (html_end_tag
@@ -1611,8 +1605,7 @@ Param void element in object with mustache
             (html_attribute_name)
             (html_quoted_attribute_value
               (mustache_interpolation
-                (mustache_identifier)))))
-        (html_forced_end_tag))
+                (mustache_identifier))))))
       (mustache_section_end
         (mustache_tag_name)))
     (html_end_tag
@@ -2332,8 +2325,7 @@ Audio element with source and mustache
             (html_attribute_name)
             (html_quoted_attribute_value
               (mustache_interpolation
-                (mustache_identifier)))))
-        (html_forced_end_tag))
+                (mustache_identifier))))))
       (mustache_section_end
         (mustache_tag_name)))
     (html_end_tag
@@ -3082,8 +3074,7 @@ Form with labels and inputs with mustache
             (html_attribute_name)
             (html_quoted_attribute_value
               (mustache_interpolation
-                (mustache_identifier)))))
-        (html_forced_end_tag))
+                (mustache_identifier))))))
       (mustache_section_end
         (mustache_tag_name)))
     (html_end_tag

@@ -107,20 +107,22 @@ export function normalizeMustacheWhitespace(raw: string, addSpaces: boolean): st
     const prefix = prefixedMatch[1];
     const inner = prefixedMatch[2];
 
-    // Multiline comments: preserve internal newlines
+    // Multiline comments: preserve internal newlines, always use spaces
     if (prefix === '!' && inner.includes('\n')) {
       const lines = inner.split('\n');
       const first = lines[0].trimStart();
       const last = lines[lines.length - 1].trimEnd();
       if (lines.length === 1) {
-        return `{{${prefix}${space}${first}${space}}}`;
+        return `{{${prefix} ${first} }}`;
       }
       const middle = lines.slice(1, -1);
-      return `{{${prefix}${space}${first}\n${middle.join('\n')}\n${last}${space}}}`;
+      return `{{${prefix} ${first}\n${middle.join('\n')}\n${last} }}`;
     }
 
     const trimmed = inner.trim();
-    return `{{${prefix}${space}${trimmed}${space}}}`;
+    // Comments always get spaces for readability, regardless of mustacheSpaces setting
+    const s = prefix === '!' ? ' ' : space;
+    return `{{${prefix}${s}${trimmed}${s}}}`;
   }
 
   // Plain: {{...}}
@@ -143,6 +145,42 @@ export function normalizeMustacheWhitespaceAll(raw: string, addSpaces: boolean):
   return raw.replace(/\{\{\{[\s\S]*?\}\}\}|\{\{[\s\S]*?\}\}/g, (match) => {
     return normalizeMustacheWhitespace(match, addSpaces);
   });
+}
+
+/**
+ * Check if a node is a format-ignore directive comment.
+ * Returns the directive type or null if not a directive.
+ */
+export function getIgnoreDirective(
+  node: SyntaxNode
+): 'ignore' | 'ignore-start' | 'ignore-end' | null {
+  if (node.type !== 'html_comment' && node.type !== 'mustache_comment') {
+    return null;
+  }
+
+  let inner: string | null = null;
+
+  if (node.type === 'html_comment') {
+    // <!-- ... -->
+    const match = node.text.match(/^<!--([\s\S]*)-->$/);
+    if (match) {
+      inner = match[1].trim();
+    }
+  } else {
+    // {{! ... }}
+    const match = node.text.match(/^\{\{!([\s\S]*)\}\}$/);
+    if (match) {
+      inner = match[1].trim();
+    }
+  }
+
+  if (!inner) return null;
+
+  if (inner === 'htmlmustache-ignore') return 'ignore';
+  if (inner === 'htmlmustache-ignore-start') return 'ignore-start';
+  if (inner === 'htmlmustache-ignore-end') return 'ignore-end';
+
+  return null;
 }
 
 /**

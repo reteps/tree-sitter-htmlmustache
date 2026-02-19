@@ -101,6 +101,54 @@ describe('formatSource', () => {
     });
   });
 
+  describe('script and style in mustache conditionals', () => {
+    it('re-indents script content inside mustache section', () => {
+      const input = [
+        '{{#show}}',
+        '<script>',
+        'const x = 1;',
+        'const y = 2;',
+        '</script>',
+        '{{/show}}',
+      ].join('\n');
+      const result = formatSource(input, defaultOptions);
+      expect(result).toBe(
+        [
+          '{{#show}}',
+          '  <script>',
+          '    const x = 1;',
+          '    const y = 2;',
+          '  </script>',
+          '{{/show}}',
+          '',
+        ].join('\n')
+      );
+    });
+
+    it('re-indents style content inside mustache section', () => {
+      const input = [
+        '{{#show}}',
+        '<style>',
+        '.foo { color: red; }',
+        '.bar { color: blue; }',
+        '</style>',
+        '{{/show}}',
+      ].join('\n');
+      const result = formatSource(input, defaultOptions);
+      expect(result).toBe(
+        [
+          '{{#show}}',
+          '  <style>',
+          '    .foo { color: red; }',
+          '    .bar { color: blue; }',
+          '  </style>',
+          '{{/show}}',
+          '',
+        ].join('\n')
+      );
+    });
+  });
+
   describe('config file integration', () => {
     it('applies config file settings via configFile param', () => {
       const config: HtmlMustacheConfig = { indentSize: 4 };

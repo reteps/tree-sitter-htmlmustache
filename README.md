@@ -135,6 +135,47 @@ echo '<div><p>hi</p></div>' | htmlmustache format --stdin
 | `--print-width N`   | Max line width (default: 80)                     |
 | `--mustache-spaces` | Add spaces inside mustache delimiters            |
 
+## Format Ignore
+
+Skip formatting for specific regions using ignore directives. Both HTML and Mustache comment forms are supported.
+
+### Ignore Next Node
+
+Place a comment immediately before the element to preserve its original formatting:
+
+```html
+<!-- htmlmustache-ignore -->
+<div   class="a"   id="b"  >
+  manually   formatted
+</div>
+```
+
+```html
+{{! htmlmustache-ignore }}
+<table><tr><td>compact</td><td>table</td></tr></table>
+```
+
+Only the immediately following sibling node is ignored. Subsequent nodes are formatted normally.
+
+### Ignore Region
+
+Wrap a region in start/end comments to preserve everything between them:
+
+```html
+<!-- htmlmustache-ignore-start -->
+<div   class="a"  >content</div>
+<p>  kept   as-is  </p>
+<!-- htmlmustache-ignore-end -->
+```
+
+```html
+{{! htmlmustache-ignore-start }}
+{{#items}}<li>{{name}}</li>{{/items}}
+{{! htmlmustache-ignore-end }}
+```
+
+If `ignore-start` has no matching `ignore-end`, all remaining siblings in the current scope are preserved as raw text.
+
 ## Configuration
 
 ### `.htmlmustache.jsonc`

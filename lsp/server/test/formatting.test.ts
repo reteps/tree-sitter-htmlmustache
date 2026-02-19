@@ -170,12 +170,23 @@ describe('Document Formatting', () => {
       const result = format('<span class="input-group">{{#label}}<span>{{{label}}}</span>{{/label}}<input /></span>');
       expect(result).toBe('<span class="input-group">\n  {{#label}}<span>{{{label}}}</span>{{/label}}\n  <input />\n</span>\n');
     });
+
+    it('indents void elements inside mustache sections', () => {
+      const input = '{{#img-top-src}}\n<img src="{{img-top-src}}" alt="{{img-top-alt}}" class="card-img-top">\n{{/img-top-src}}';
+      const result = format(input);
+      expect(result).toBe('{{#img-top-src}}\n  <img src="{{img-top-src}}" alt="{{img-top-alt}}" class="card-img-top">\n{{/img-top-src}}\n');
+    });
   });
 
   describe('Mustache interpolation', () => {
     it('keeps short element with interpolation flat', () => {
       const result = format('<p>Hello, {{name}}!</p>');
       expect(result).toBe('<p>Hello, {{name}}!</p>\n');
+    });
+
+    it('preserves space between interpolation and text in inline element', () => {
+      const result = format('<strong>{{tol_translation}} units</strong>');
+      expect(result).toBe('<strong>{{tol_translation}} units</strong>\n');
     });
 
     it('keeps short element with triple mustache flat', () => {
@@ -569,9 +580,9 @@ describe('Mustache Spaces', () => {
       expect(result).toBe('<div>{{>header}}</div>\n');
     });
 
-    it('removes spaces from comment', () => {
+    it('keeps spaces in comment even with mustacheSpaces false', () => {
       const result = formatWithSpaces('<div>{{! comment }}</div>', false);
-      expect(result).toBe('<div>{{!comment}}</div>\n');
+      expect(result).toBe('<div>{{! comment }}</div>\n');
     });
 
     it('removes spaces from force-inlined sections', () => {
@@ -796,6 +807,91 @@ describe('Custom Code Tag Indentation', () => {
       );
       expect(result).toBe('<pl-code source-file-name="">\n    line one\n</pl-code>\n');
     });
+  });
+});
+
+describe('Format Ignore', () => {
+  function format(content: string, options: FormattingOptions = defaultOptions): string {
+    const tree = parseText(content);
+    const document = createMockDocument(content);
+    const edits = formatDocument(tree, document, options);
+    expect(edits.length).toBe(1);
+    return edits[0].newText;
+  }
+
+  it('ignores the next node with HTML comment', () => {
+    const input = '<!-- htmlmustache-ignore -->\n<div   class="a"   id="b"  >\n  badly   formatted\n</div>';
+    const result = format(input);
+    expect(result).toBe('<!-- htmlmustache-ignore -->\n<div   class="a"   id="b"  >\n  badly   formatted\n</div>\n');
+  });
+
+  it('ignores the next node with Mustache comment', () => {
+    const input = '{{! htmlmustache-ignore }}\n<div   class="a"  >content</div>';
+    const result = format(input);
+    expect(result).toBe('{{! htmlmustache-ignore }}\n<div   class="a"  >content</div>\n');
+  });
+
+  it('only ignores the immediately next node', () => {
+    const input = '<!-- htmlmustache-ignore -->\n<div   class="a"  >content</div>\n<div   class="b"  ><p>text</p></div>';
+    const result = format(input);
+    // First div preserved as-is, second div gets formatted
+    expect(result).toBe('<!-- htmlmustache-ignore -->\n<div   class="a"  >content</div>\n<div class="b">\n  <p>text</p>\n</div>\n');
+  });
+
+  it('ignores a region with HTML comments', () => {
+    const input = '<!-- htmlmustache-ignore-start -->\n<div   class="a"  >content</div>\n<p>  text  </p>\n<!-- htmlmustache-ignore-end -->';
+    const result = format(input);
+    expect(result).toBe('<!-- htmlmustache-ignore-start -->\n<div   class="a"  >content</div>\n<p>  text  </p>\n<!-- htmlmustache-ignore-end -->\n');
+  });
+
+  it('ignores a region with Mustache comments', () => {
+    const input = '{{! htmlmustache-ignore-start }}\n<div   class="a"  >content</div>\n{{! htmlmustache-ignore-end }}';
+    const result = format(input);
+    expect(result).toBe('{{! htmlmustache-ignore-start }}\n<div   class="a"  >content</div>\n{{! htmlmustache-ignore-end }}\n');
+  });
+
+  it('ignores content inside a mustache section', () => {
+    const input = '{{#show}}\n<!-- htmlmustache-ignore -->\n<div   class="a"  >content</div>\n{{/show}}';
+    const result = format(input);
+    expect(result).toBe('{{#show}}\n  <!-- htmlmustache-ignore -->\n  <div   class="a"  >content</div>\n{{/show}}\n');
+  });
+
+  it('handles ignore comment at end of file with no next node', () => {
+    const input = '<div>text</div>\n<!-- htmlmustache-ignore -->';
+    const result = format(input);
+    expect(result).toBe('<div>text</div>\n<!-- htmlmustache-ignore -->\n');
+  });
+
+  it('treats ignore-end without ignore-start as normal comment', () => {
+    const input = '<div>text</div>\n<!-- htmlmustache-ignore-end -->';
+    const result = format(input);
+    expect(result).toBe('<div>text</div>\n<!-- htmlmustache-ignore-end -->\n');
+  });
+
+  it('handles unterminated ignore-start by preserving remaining content', () => {
+    const input = '<!-- htmlmustache-ignore-start -->\n<div   class="a"  >content</div>\n<p>  text  </p>';
+    const result = format(input);
+    expect(result).toBe('<!-- htmlmustache-ignore-start -->\n<div   class="a"  >content</div>\n<p>  text  </p>\n');
+  });
+
+  it('preserves original indentation in ignored content', () => {
+    const input = '<div>\n  <!-- htmlmustache-ignore -->\n  <span   class="x"  >\n      preserved indentation\n  </span>\n</div>';
+    const result = format(input);
+    expect(result).toContain('<span   class="x"  >');
+    expect(result).toContain('      preserved indentation');
+  });
+
+  it('ignores a mustache section', () => {
+    const input = '<!-- htmlmustache-ignore -->\n{{#items}}<li>{{name}}</li>{{/items}}';
+    const result = format(input);
+    expect(result).toBe('<!-- htmlmustache-ignore -->\n{{#items}}<li>{{name}}</li>{{/items}}\n');
+  });
+
+  it('preserves blank lines around ignored regions', () => {
+    const input = '<p>before</p>\n\n<!-- htmlmustache-ignore -->\n<div   class="a"  >content</div>\n\n<p>after</p>';
+    const result = format(input);
+    expect(result).toContain('<p>before</p>\n\n<!-- htmlmustache-ignore -->');
+    expect(result).toContain('<div   class="a"  >content</div>\n\n<p>after</p>');
   });
 });
 

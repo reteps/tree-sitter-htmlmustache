@@ -401,15 +401,17 @@ function hasImplicitEndTagsRecursive(node: SyntaxNode): boolean {
   if (node.type === 'html_element') {
     let hasStartTag = false;
     let hasEndTag = false;
+    let hasContentChildren = false;
     for (let i = 0; i < node.childCount; i++) {
       const child = node.child(i);
       if (!child) continue;
       if (child.type === 'html_start_tag') hasStartTag = true;
-      if (child.type === 'html_end_tag') hasEndTag = true;
-      if (child.type === 'html_forced_end_tag') return true; // Explicit implicit end
+      else if (child.type === 'html_end_tag') hasEndTag = true;
+      else if (child.type === 'html_forced_end_tag') return true;
+      else if (!child.type.startsWith('_')) hasContentChildren = true;
     }
-    // If there's a start tag but no end tag at all, it's implicit
-    if (hasStartTag && !hasEndTag) return true;
+    // Void elements (start tag only, no content, no end tag) aren't boundary-crossing
+    if (hasStartTag && !hasEndTag && hasContentChildren) return true;
   }
 
   // Check children recursively

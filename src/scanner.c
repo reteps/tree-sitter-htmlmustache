@@ -516,6 +516,12 @@ static bool scan_mustache_end_tag_html_implicit_end_tag(Scanner *scanner, TSLexe
     if (scanner->mustache_tags.size > 0) {
         MustacheTag *current_mustache_tag = array_back(&scanner->mustache_tags);
         if (scanner->tags.size > current_mustache_tag->html_tag_stack_size) {
+            Tag *top_tag = array_back(&scanner->tags);
+            // Void elements don't cross mustache boundaries — let the normal
+            // implicit end handler close them instead of forcing closure.
+            if (tag_is_void(top_tag)) {
+                return false;
+            }
             pop_html_tag(scanner);
             lexer->result_symbol = MUSTACHE_END_TAG_HTML_IMPLICIT_END_TAG;
             return true;
