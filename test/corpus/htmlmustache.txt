@@ -185,3 +185,69 @@ Mustache attribute inside section
             (mustache_tag_name)))))
     (html_end_tag
       (html_tag_name))))
+
+===
+Bare mustache interpolation as attribute
+===
+<div {{ dynamic_attrs }}></div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (mustache_interpolation
+        (mustache_identifier)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Bare mustache triple as attribute
+===
+<div {{{ raw_attrs }}}></div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (mustache_triple
+        (mustache_identifier)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Bare mustache interpolation mixed with regular attributes
+===
+<div class="container" {{ dynamic_attrs }} id="main"></div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (html_attribute_value)))
+      (mustache_interpolation
+        (mustache_identifier))
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (html_attribute_value))))
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Bare mustache interpolation on self-closing tag
+===
+<input {{ attrs }} />
+---
+
+(document
+  (html_element
+    (html_self_closing_tag
+      (html_tag_name)
+      (mustache_interpolation
+        (mustache_identifier)))))

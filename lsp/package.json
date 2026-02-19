@@ -2,7 +2,7 @@
   "name": "htmlmustache-lsp",
   "displayName": "HTML Mustache Language Support",
   "description": "Language server for HTML with Mustache template syntax",
-  "version": "0.0.29",
+  "version": "0.0.30",
   "publisher": "reteps",
   "private": true,
   "license": "MIT",
@@ -111,6 +111,12 @@
           "default": 80,
           "minimum": 1,
           "description": "Maximum line width before the formatter breaks content onto multiple lines."
+        },
+        "htmlmustache.mustacheSpaces": {
+          "scope": "resource",
+          "type": "boolean",
+          "default": false,
+          "description": "Add spaces inside mustache delimiters: {{ foo }} instead of {{foo}}."
         }
       }
     },

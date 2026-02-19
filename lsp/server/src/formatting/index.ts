@@ -29,7 +29,8 @@ export function formatDocument(
   options: FormattingOptions,
   customCodeTags?: string[],
   printWidth = 80,
-  embeddedFormatted?: Map<number, string>
+  embeddedFormatted?: Map<number, string>,
+  mustacheSpaces?: boolean
 ): TextEdit[] {
   const mergedOptions = mergeOptions(options, document.uri);
   const indentUnit = createIndentUnit(mergedOptions);
@@ -42,6 +43,7 @@ export function formatDocument(
     document,
     customCodeTags: customCodeTags ? new Set(customCodeTags.map(t => t.toLowerCase())) : undefined,
     embeddedFormatted,
+    mustacheSpaces,
   };
   const doc = formatDocumentToDoc(tree.rootNode, context);
   const formatted = print(doc, { indentUnit, printWidth });
@@ -65,7 +67,8 @@ export function formatDocumentRange(
   options: FormattingOptions,
   customCodeTags?: string[],
   printWidth = 80,
-  embeddedFormatted?: Map<number, string>
+  embeddedFormatted?: Map<number, string>,
+  mustacheSpaces?: boolean
 ): TextEdit[] {
   const mergedOptions = mergeOptions(options, document.uri);
   const indentUnit = createIndentUnit(mergedOptions);
@@ -105,6 +108,7 @@ export function formatDocumentRange(
     document,
     customCodeTags: customCodeTags ? new Set(customCodeTags.map(t => t.toLowerCase())) : undefined,
     embeddedFormatted,
+    mustacheSpaces,
   };
   const doc = formatNodeForRange(targetNode, context);
   const formatted = print(doc, { indentUnit, printWidth });

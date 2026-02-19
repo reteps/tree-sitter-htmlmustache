@@ -181,6 +181,21 @@ describe('Document Formatting', () => {
       const result = format('<div value={{variable}}>content</div>');
       expect(result).toBe('<div value={{variable}}>content</div>\n');
     });
+
+    it('formats bare mustache interpolation as attribute', () => {
+      const result = format('<div {{ dynamic_attrs }}></div>');
+      expect(result).toBe('<div {{ dynamic_attrs }}>\n</div>\n');
+    });
+
+    it('formats bare mustache triple as attribute', () => {
+      const result = format('<div {{{ raw_attrs }}}></div>');
+      expect(result).toBe('<div {{{ raw_attrs }}}>\n</div>\n');
+    });
+
+    it('formats bare mustache interpolation mixed with regular attributes', () => {
+      const result = format('<div class="a" {{attrs}} id="b">text</div>');
+      expect(result).toBe('<div class="a" {{attrs}} id="b">text</div>\n');
+    });
   });
 
   describe('Comments', () => {
@@ -260,6 +275,26 @@ describe('Document Formatting', () => {
     it('handles entities', () => {
       const result = format('<div>&amp; &lt;</div>');
       expect(result).toBe('<div>&amp; &lt;</div>\n');
+    });
+  });
+
+  describe('Prose with inline code elements', () => {
+    it('keeps inline elements attached to surrounding text across newlines', () => {
+      const input = `{{#net-correct}}
+You must select {{{insert_text}}} You will receive a score of <code>100% * (t - f) / n</code>,
+where <code>t</code> is the number of true options that you select, <code>f</code>
+is the number of false options that you select, and <code>n</code> is the total number of true options.
+At minimum, you will receive a score of 0%.
+{{/net-correct}}`;
+      const result = format(input);
+      // Comma stays with </code>, "where" stays with <code>t</code>, etc.
+      expect(result).toBe(
+        '{{#net-correct}}\n' +
+        '  You must select {{{insert_text}}} You will receive a score of <code>100% * (t - f) / n</code>,\n' +
+        '  where <code>t</code> is the number of true options that you select, <code>f</code> is the number of false options that you select, and <code>n</code> is the total number of true options.\n' +
+        '  At minimum, you will receive a score of 0%.\n' +
+        '{{/net-correct}}\n'
+      );
     });
   });
 
@@ -359,6 +394,122 @@ describe('Document Range Formatting', () => {
     const result = formatRange(content, 1, 0, 1, 21);
 
     expect(result).toContain('<div>');
+  });
+});
+
+describe('Mustache Spaces', () => {
+  function formatWithSpaces(content: string, mustacheSpaces?: boolean): string {
+    const tree = parseText(content);
+    const document = createMockDocument(content);
+    const edits = formatDocument(tree, document, defaultOptions, undefined, 80, undefined, mustacheSpaces);
+    expect(edits.length).toBe(1);
+    return edits[0].newText;
+  }
+
+  describe('spaces: true (add spaces)', () => {
+    it('adds spaces to interpolation', () => {
+      const result = formatWithSpaces('<p>{{name}}</p>', true);
+      expect(result).toBe('<p>{{ name }}</p>\n');
+    });
+
+    it('adds spaces to triple mustache', () => {
+      const result = formatWithSpaces('<div>{{{html}}}</div>', true);
+      expect(result).toBe('<div>{{{ html }}}</div>\n');
+    });
+
+    it('adds spaces to section begin and end', () => {
+      const result = formatWithSpaces('{{#items}}<li>item</li>{{/items}}', true);
+      expect(result).toBe('{{# items }}\n  <li>item</li>\n{{/ items }}\n');
+    });
+
+    it('adds spaces to inverted section', () => {
+      const result = formatWithSpaces('{{^items}}<p>No items</p>{{/items}}', true);
+      expect(result).toBe('{{^ items }}\n  <p>No items</p>\n{{/ items }}\n');
+    });
+
+    it('adds spaces to partial', () => {
+      const result = formatWithSpaces('<div>{{>header}}</div>', true);
+      expect(result).toBe('<div>{{> header }}</div>\n');
+    });
+
+    it('adds spaces to comment', () => {
+      const result = formatWithSpaces('<div>{{!comment}}</div>', true);
+      expect(result).toBe('<div>{{! comment }}</div>\n');
+    });
+
+    it('adds spaces to mustache section attribute', () => {
+      const result = formatWithSpaces('<div {{#show}}class="active"{{/show}}>content</div>', true);
+      expect(result).toBe('<div {{# show }}class="active"{{/ show }}>content</div>\n');
+    });
+
+    it('adds spaces to unquoted mustache attribute value', () => {
+      const result = formatWithSpaces('<div value={{variable}}>content</div>', true);
+      expect(result).toBe('<div value={{ variable }}>content</div>\n');
+    });
+
+    it('adds spaces to force-inlined sections', () => {
+      const result = formatWithSpaces('<p>figure{{#plural}}s{{/plural}}.</p>', true);
+      expect(result).toBe('<p>figure{{# plural }}s{{/ plural }}.</p>\n');
+    });
+  });
+
+  describe('spaces: false (remove spaces)', () => {
+    it('removes spaces from interpolation', () => {
+      const result = formatWithSpaces('<p>{{ name }}</p>', false);
+      expect(result).toBe('<p>{{name}}</p>\n');
+    });
+
+    it('removes spaces from triple mustache', () => {
+      const result = formatWithSpaces('<div>{{{ html }}}</div>', false);
+      expect(result).toBe('<div>{{{html}}}</div>\n');
+    });
+
+    it('removes spaces from section begin and end', () => {
+      const result = formatWithSpaces('{{# items }}<li>item</li>{{/ items }}', false);
+      expect(result).toBe('{{#items}}\n  <li>item</li>\n{{/items}}\n');
+    });
+
+    it('removes spaces from inverted section', () => {
+      const result = formatWithSpaces('{{^ items }}<p>No items</p>{{/ items }}', false);
+      expect(result).toBe('{{^items}}\n  <p>No items</p>\n{{/items}}\n');
+    });
+
+    it('removes spaces from partial', () => {
+      const result = formatWithSpaces('<div>{{> header }}</div>', false);
+      expect(result).toBe('<div>{{>header}}</div>\n');
+    });
+
+    it('removes spaces from comment', () => {
+      const result = formatWithSpaces('<div>{{! comment }}</div>', false);
+      expect(result).toBe('<div>{{!comment}}</div>\n');
+    });
+
+    it('removes spaces from force-inlined sections', () => {
+      const result = formatWithSpaces('<p>figure{{# plural }}s{{/ plural }}.</p>', false);
+      expect(result).toBe('<p>figure{{#plural}}s{{/plural}}.</p>\n');
+    });
+  });
+
+  describe('default (undefined) preserves original', () => {
+    it('preserves no-space interpolation', () => {
+      const result = formatWithSpaces('<p>{{name}}</p>', undefined);
+      expect(result).toBe('<p>{{name}}</p>\n');
+    });
+
+    it('preserves spaced interpolation', () => {
+      const result = formatWithSpaces('<p>{{ name }}</p>', undefined);
+      expect(result).toBe('<p>{{ name }}</p>\n');
+    });
+
+    it('preserves no-space section tags', () => {
+      const result = formatWithSpaces('{{#items}}<li>item</li>{{/items}}', undefined);
+      expect(result).toBe('{{#items}}\n  <li>item</li>\n{{/items}}\n');
+    });
+
+    it('preserves spaced section tags', () => {
+      const result = formatWithSpaces('{{# items }}<li>item</li>{{/ items }}', undefined);
+      expect(result).toBe('{{# items }}\n  <li>item</li>\n{{/ items }}\n');
+    });
   });
 });
 

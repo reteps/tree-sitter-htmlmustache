@@ -30,12 +30,20 @@ import {
   getCSSDisplay,
   isWhitespaceInsensitive,
 } from './classifier';
-import { normalizeText, getVisibleChildren } from './utils';
+import { normalizeText, getVisibleChildren, normalizeMustacheWhitespace, normalizeMustacheWhitespaceAll } from './utils';
 
 export interface FormatterContext {
   document: TextDocument;
   customCodeTags?: Set<string>;
   embeddedFormatted?: Map<number, string>;
+  mustacheSpaces?: boolean;
+}
+
+function mustacheText(raw: string, context: FormatterContext): string {
+  if (context.mustacheSpaces !== undefined) {
+    return normalizeMustacheWhitespace(raw, context.mustacheSpaces);
+  }
+  return raw;
 }
 
 /**
@@ -73,6 +81,9 @@ export function formatNode(
     case 'mustache_section':
     case 'mustache_inverted_section':
       if (forceInline) {
+        if (context.mustacheSpaces !== undefined) {
+          return text(normalizeMustacheWhitespaceAll(node.text, context.mustacheSpaces));
+        }
         return text(node.text);
       }
       return formatMustacheSection(node, context);
@@ -81,6 +92,8 @@ export function formatNode(
     case 'mustache_triple':
     case 'mustache_partial':
     case 'mustache_comment':
+      return text(mustacheText(node.text, context));
+
     case 'html_comment':
     case 'html_doctype':
     case 'html_entity':
@@ -116,7 +129,7 @@ export function formatHtmlElement(node: SyntaxNode, context: FormatterContext): 
 
   if (selfClosing) {
     const tag = node.child(0)!;
-    return formatStartTag(tag);
+    return formatStartTag(tag, context);
   }
 
   // Get start tag, children, and end tag
@@ -145,7 +158,7 @@ export function formatHtmlElement(node: SyntaxNode, context: FormatterContext): 
 
   // Format start tag
   if (startTag) {
-    parts.push(formatStartTag(startTag));
+    parts.push(formatStartTag(startTag, context));
   }
 
   // Check if content contains any HTML element children
@@ -260,7 +273,7 @@ export function formatScriptStyleElement(
     if (!child) continue;
 
     if (child.type === 'html_start_tag') {
-      parts.push(formatStartTag(child));
+      parts.push(formatStartTag(child, context));
     } else if (child.type === 'html_end_tag') {
       parts.push(formatEndTag(child));
     } else if (child.type === 'html_raw_text') {
@@ -331,7 +344,7 @@ export function formatMustacheSection(
 
   // Opening tag
   if (beginNode) {
-    parts.push(text(beginNode.text));
+    parts.push(text(mustacheText(beginNode.text, context)));
   }
 
   // Determine indentation: if content has implicit end tags (HTML crossing mustache
@@ -375,7 +388,7 @@ export function formatMustacheSection(
 
   // Closing tag
   if (endNode) {
-    parts.push(text(endNode.text));
+    parts.push(text(mustacheText(endNode.text, context)));
   }
 
   // Wrap in group so inline-only content can stay flat
@@ -387,7 +400,7 @@ export function formatMustacheSection(
  * Wraps in a group so attributes break onto separate lines when
  * the tag exceeds print width.
  */
-export function formatStartTag(node: SyntaxNode): Doc {
+export function formatStartTag(node: SyntaxNode, context?: FormatterContext): Doc {
   let tagNameText = '';
   const attrs: Doc[] = [];
 
@@ -398,9 +411,15 @@ export function formatStartTag(node: SyntaxNode): Doc {
     if (child.type === 'html_tag_name') {
       tagNameText = child.text;
     } else if (child.type === 'html_attribute') {
-      attrs.push(formatAttribute(child));
+      attrs.push(formatAttribute(child, context));
     } else if (child.type === 'mustache_attribute') {
-      attrs.push(text(child.text));
+      if (context?.mustacheSpaces !== undefined) {
+        attrs.push(text(normalizeMustacheWhitespaceAll(child.text, context.mustacheSpaces)));
+      } else {
+        attrs.push(text(child.text));
+      }
+    } else if (child.type === 'mustache_interpolation' || child.type === 'mustache_triple') {
+      attrs.push(text(context ? mustacheText(child.text, context) : child.text));
     }
   }
 
@@ -447,7 +466,7 @@ export function formatEndTag(node: SyntaxNode): Doc {
 /**
  * Format an HTML attribute.
  */
-export function formatAttribute(node: SyntaxNode): Doc {
+export function formatAttribute(node: SyntaxNode, context?: FormatterContext): Doc {
   const parts: Doc[] = [];
 
   for (let i = 0; i < node.childCount; i++) {
@@ -464,7 +483,7 @@ export function formatAttribute(node: SyntaxNode): Doc {
       parts.push(text(child.text));
     } else if (child.type === 'mustache_interpolation') {
       parts.push(text('='));
-      parts.push(text(child.text));
+      parts.push(text(context ? mustacheText(child.text, context) : child.text));
     }
   }
 
@@ -533,14 +552,16 @@ export function formatBlockChildren(
           currentLine = [];
           blankLineBeforeCurrentLine = false;
         }
-        lines.push({ doc: text(node.text), blankLineBefore: pendingBlankLine });
+        const commentText = node.type === 'mustache_comment' ? mustacheText(node.text, context) : node.text;
+        lines.push({ doc: text(commentText), blankLineBefore: pendingBlankLine });
         pendingBlankLine = false;
       } else {
         if (currentLine.length === 0) {
           blankLineBeforeCurrentLine = pendingBlankLine;
           pendingBlankLine = false;
         }
-        currentLine.push(text(node.text));
+        const commentText = node.type === 'mustache_comment' ? mustacheText(node.text, context) : node.text;
+        currentLine.push(text(commentText));
       }
     } else {
       // Inline content
@@ -553,7 +574,19 @@ export function formatBlockChildren(
 
       // Check if formatted content contains newlines (multi-line text)
       if (typeof formatted === 'string' && formatted.includes('\n')) {
-        // Flush current line first
+        // Split text into lines. The first part joins the current line
+        // (preserving text flow with preceding inline elements), and the
+        // last part becomes the new current line (so subsequent inline
+        // elements like <code> can join it).
+        const contentLines = formatted.split('\n');
+
+        // First part continues the current inline flow
+        const firstTrimmed = contentLines[0].trim();
+        if (firstTrimmed) {
+          currentLine.push(firstTrimmed);
+        }
+
+        // Flush current line before adding subsequent lines
         if (currentLine.length > 0) {
           const lineContent = trimDoc(concat(currentLine));
           if (hasDocContent(lineContent)) {
@@ -563,28 +596,31 @@ export function formatBlockChildren(
           }
           currentLine = [];
         }
-        // Add each line of multi-line content
-        const contentLines = formatted.split('\n');
-        let isFirst = true;
+
+        // Middle parts (index 1 to length-2) become separate lines
         let sawBlankLine = false;
-        for (const contentLine of contentLines) {
-          const trimmed = contentLine.trim();
+        for (let j = 1; j < contentLines.length - 1; j++) {
+          const trimmed = contentLines[j].trim();
           if (trimmed) {
-            if (isFirst) {
-              lines.push({ doc: text(trimmed), blankLineBefore: blankLineBeforeCurrentLine || sawBlankLine });
-              blankLineBeforeCurrentLine = false;
-              isFirst = false;
-            } else {
-              lines.push({ doc: text(trimmed), blankLineBefore: sawBlankLine });
-            }
+            lines.push({ doc: text(trimmed), blankLineBefore: blankLineBeforeCurrentLine || sawBlankLine });
+            blankLineBeforeCurrentLine = false;
             sawBlankLine = false;
           } else {
             sawBlankLine = true;
           }
         }
-        // Propagate trailing blank line
-        if (sawBlankLine) {
-          pendingBlankLine = true;
+
+        // Last part starts a new current line (subsequent inline elements join it)
+        if (contentLines.length > 1) {
+          const lastTrimmed = contentLines[contentLines.length - 1].trim();
+          if (lastTrimmed) {
+            blankLineBeforeCurrentLine = sawBlankLine;
+            sawBlankLine = false;
+            currentLine = [lastTrimmed];
+          }
+          if (sawBlankLine) {
+            pendingBlankLine = true;
+          }
         }
       } else {
         currentLine.push(formatted);

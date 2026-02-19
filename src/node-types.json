@@ -395,6 +395,14 @@
         {
           "type": "mustache_attribute",
           "named": true
+        },
+        {
+          "type": "mustache_interpolation",
+          "named": true
+        },
+        {
+          "type": "mustache_triple",
+          "named": true
         }
       ]
     }
@@ -417,6 +425,14 @@
         },
         {
           "type": "mustache_attribute",
+          "named": true
+        },
+        {
+          "type": "mustache_interpolation",
+          "named": true
+        },
+        {
+          "type": "mustache_triple",
           "named": true
         }
       ]

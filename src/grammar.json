@@ -785,6 +785,14 @@
         {
           "type": "SYMBOL",
           "name": "html_attribute"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "mustache_interpolation"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "mustache_triple"
         }
       ]
     },

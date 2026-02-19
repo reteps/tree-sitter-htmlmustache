@@ -87,6 +87,65 @@ export function calculateIndentLevel(
 }
 
 /**
+ * Normalize whitespace inside a single mustache expression.
+ * Handles triple ({{{...}}}), prefixed ({{#, {{/, {{^, {{!, {{>), and plain ({{...}}).
+ * For multiline comments, preserves internal newlines, only normalizes space adjacent to delimiters.
+ */
+export function normalizeMustacheWhitespace(raw: string, addSpaces: boolean): string {
+  const space = addSpaces ? ' ' : '';
+
+  // Triple mustache: {{{...}}}
+  const tripleMatch = raw.match(/^\{\{\{([\s\S]*)\}\}\}$/);
+  if (tripleMatch) {
+    const inner = tripleMatch[1].trim();
+    return `{{{${space}${inner}${space}}}}`;
+  }
+
+  // Prefixed: {{#, {{/, {{^, {{!, {{>
+  const prefixedMatch = raw.match(/^\{\{([#/^!>])([\s\S]*)\}\}$/);
+  if (prefixedMatch) {
+    const prefix = prefixedMatch[1];
+    const inner = prefixedMatch[2];
+
+    // Multiline comments: preserve internal newlines
+    if (prefix === '!' && inner.includes('\n')) {
+      const lines = inner.split('\n');
+      const first = lines[0].trimStart();
+      const last = lines[lines.length - 1].trimEnd();
+      if (lines.length === 1) {
+        return `{{${prefix}${space}${first}${space}}}`;
+      }
+      const middle = lines.slice(1, -1);
+      return `{{${prefix}${space}${first}\n${middle.join('\n')}\n${last}${space}}}`;
+    }
+
+    const trimmed = inner.trim();
+    return `{{${prefix}${space}${trimmed}${space}}}`;
+  }
+
+  // Plain: {{...}}
+  const plainMatch = raw.match(/^\{\{([\s\S]*)\}\}$/);
+  if (plainMatch) {
+    const inner = plainMatch[1].trim();
+    return `{{${space}${inner}${space}}}`;
+  }
+
+  return raw;
+}
+
+/**
+ * Normalize whitespace in ALL mustache expressions within a string.
+ * Used for force-inlined sections where the full section text (e.g. `{{#plural}}s{{/plural}}`)
+ * is emitted as one string.
+ */
+export function normalizeMustacheWhitespaceAll(raw: string, addSpaces: boolean): string {
+  // Match triple mustache first, then double
+  return raw.replace(/\{\{\{[\s\S]*?\}\}\}|\{\{[\s\S]*?\}\}/g, (match) => {
+    return normalizeMustacheWhitespace(match, addSpaces);
+  });
+}
+
+/**
  * Find the smallest node that contains the entire range.
  */
 export function findContainingNode(

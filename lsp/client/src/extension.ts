@@ -81,6 +81,7 @@ export function activate(context: ExtensionContext) {
   const config = workspace.getConfiguration('htmlmustache');
   const customCodeTags = config.get<CustomCodeTagConfig[]>('customCodeTags', []);
   const printWidth = config.get<number>('printWidth', 80);
+  const mustacheSpaces = config.get<boolean>('mustacheSpaces');
 
   // Client options - define which documents the server handles
   const clientOptions: LanguageClientOptions = {
@@ -97,6 +98,7 @@ export function activate(context: ExtensionContext) {
     initializationOptions: {
       customCodeTags,
       printWidth,
+      mustacheSpaces,
     },
   };
 
@@ -172,21 +174,24 @@ export function activate(context: ExtensionContext) {
   // Send updated settings to the server when configuration changes
   context.subscriptions.push(
     workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('htmlmustache.customCodeTags') || e.affectsConfiguration('htmlmustache.printWidth')) {
+      if (e.affectsConfiguration('htmlmustache.customCodeTags') || e.affectsConfiguration('htmlmustache.printWidth') || e.affectsConfiguration('htmlmustache.mustacheSpaces')) {
         const updatedConfig = workspace.getConfiguration('htmlmustache');
         const updatedTags = updatedConfig.get<CustomCodeTagConfig[]>('customCodeTags', []);
         const updatedPrintWidth = updatedConfig.get<number>('printWidth', 80);
+        const updatedMustacheSpaces = updatedConfig.get<boolean>('mustacheSpaces');
 
         client.sendNotification('workspace/didChangeConfiguration', {
           settings: {
             htmlmustache: {
               customCodeTags: updatedTags,
               printWidth: updatedPrintWidth,
+              mustacheSpaces: updatedMustacheSpaces,
             },
           },
         });
         log(`Sent updated customCodeTags: ${updatedTags.map(t => t.name).join(', ')}`);
         log(`Sent updated printWidth: ${updatedPrintWidth}`);
+        log(`Sent updated mustacheSpaces: ${updatedMustacheSpaces}`);
       }
     })
   );

@@ -45,6 +45,9 @@ let customCodeTagConfigs: CustomCodeTagConfig[] = [];
 // Print width setting (maximum line width before breaking)
 let printWidth = 80;
 
+// Mustache spaces setting (add spaces inside delimiters)
+let mustacheSpaces: boolean | undefined;
+
 connection.onInitialize(async (params: InitializeParams): Promise<InitializeResult> => {
   connection.console.log('onInitialize called');
   connection.console.log(`Client info: ${params.clientInfo?.name} ${params.clientInfo?.version}`);
@@ -60,6 +63,10 @@ connection.onInitialize(async (params: InitializeParams): Promise<InitializeResu
   if (initOptions?.printWidth && typeof initOptions.printWidth === 'number') {
     printWidth = initOptions.printWidth;
     connection.console.log(`Print width: ${printWidth}`);
+  }
+  if (typeof initOptions?.mustacheSpaces === 'boolean') {
+    mustacheSpaces = initOptions.mustacheSpaces;
+    connection.console.log(`Mustache spaces: ${mustacheSpaces}`);
   }
 
   // Wire up parser logging to LSP connection
@@ -177,6 +184,10 @@ connection.onDidChangeConfiguration((change) => {
   if (settings?.htmlmustache?.printWidth && typeof settings.htmlmustache.printWidth === 'number') {
     printWidth = settings.htmlmustache.printWidth;
     connection.console.log(`Print width updated: ${printWidth}`);
+  }
+  if (typeof settings?.htmlmustache?.mustacheSpaces === 'boolean') {
+    mustacheSpaces = settings.htmlmustache.mustacheSpaces;
+    connection.console.log(`Mustache spaces updated: ${mustacheSpaces}`);
   }
 });
 
@@ -450,12 +461,12 @@ connection.onDocumentFormatting(async (params) => {
   }
 
   const tree = getTree(document);
-  if (!tree) {
+  if (!tree || tree.rootNode.hasError) {
     return [];
   }
 
   const embeddedFormatted = await formatEmbeddedRegions(tree.rootNode, params.options);
-  return formatDocument(tree, document, params.options, customCodeTags, printWidth, embeddedFormatted);
+  return formatDocument(tree, document, params.options, customCodeTags, printWidth, embeddedFormatted, mustacheSpaces);
 });
 
 // Document range formatting handler
@@ -466,12 +477,12 @@ connection.onDocumentRangeFormatting(async (params) => {
   }
 
   const tree = getTree(document);
-  if (!tree) {
+  if (!tree || tree.rootNode.hasError) {
     return [];
   }
 
   const embeddedFormatted = await formatEmbeddedRegions(tree.rootNode, params.options);
-  return formatDocumentRange(tree, document, params.range, params.options, customCodeTags, printWidth, embeddedFormatted);
+  return formatDocumentRange(tree, document, params.range, params.options, customCodeTags, printWidth, embeddedFormatted, mustacheSpaces);
 });
 
 // Listen on the documents and connection
