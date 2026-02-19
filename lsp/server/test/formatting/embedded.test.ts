@@ -69,7 +69,7 @@ async function formatWithEmbedded(content: string): Promise<string> {
   const tree = parseText(content);
   const document = createMockDocument(content);
   const embeddedFormatted = await buildEmbeddedMap(tree.rootNode);
-  const edits = formatDocument(tree, document, defaultOptions, undefined, 80, embeddedFormatted);
+  const edits = formatDocument(tree, document, defaultOptions, { embeddedFormatted });
   expect(edits.length).toBe(1);
   return edits[0].newText;
 }

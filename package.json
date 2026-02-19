@@ -1,6 +1,6 @@
 {
   "name": "@reteps/tree-sitter-htmlmustache",
-  "version": "0.0.31",
+  "version": "0.0.34",
   "description": "HTML with Mustache/Handlebars template syntax grammar for tree-sitter",
   "repository": {
     "type": "git",
@@ -12,7 +12,7 @@
   },
   "main": "bindings/node",
   "bin": {
-    "htmlmustache": "cli/out/check.js"
+    "htmlmustache": "cli/out/main.js"
   },
   "types": "bindings/node",
   "keywords": [
@@ -36,12 +36,17 @@
   ],
   "dependencies": {
     "chalk": "^4.1.2",
+    "editorconfig": "^2.0.1",
     "node-addon-api": "^8.2.2",
     "node-gyp-build": "^4.8.2",
-    "tree-sitter": "^0.25.0"
+    "tree-sitter": "^0.25.0",
+    "vscode-languageserver-textdocument": "^1.0.12",
+    "web-tree-sitter": "^0.25.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.2",
     "@types/node": "^22.19.11",
+    "esbuild": "^0.25.0",
     "eslint": "^9.14.0",
     "eslint-config-treesitter": "^1.0.2",
     "prebuildify": "^6.0.1",
@@ -49,6 +54,7 @@
     "tree-sitter": "^0.25.0",
     "tree-sitter-cli": "^0.26.3",
     "typescript": "^5.7.0",
+    "typescript-eslint": "^8.54.0",
     "vitest": "^3.0.0"
   },
   "pnpm": {
@@ -61,8 +67,8 @@
   "scripts": {
     "install": "node-gyp-build",
     "build": "tree-sitter build --wasm",
-    "prepack": "tsc -p cli/tsconfig.json",
-    "build:cli": "tsc -p cli/tsconfig.json",
+    "prepack": "node cli/esbuild.mjs",
+    "build:cli": "node cli/esbuild.mjs",
     "check": "node cli/out/check.js check",
     "lint": "eslint .",
     "format": "prettier --write .",

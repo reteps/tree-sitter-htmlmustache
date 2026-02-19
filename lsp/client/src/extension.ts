@@ -8,13 +8,6 @@ import {
   TransportKind,
 } from 'vscode-languageclient/node';
 
-interface CustomCodeTagConfig {
-  name: string;
-  languageAttribute?: string;
-  languageMap?: Record<string, string>;
-  languageDefault?: string;
-}
-
 let client: LanguageClient;
 const outputChannel = window.createOutputChannel('HTML Mustache');
 
@@ -77,12 +70,6 @@ export function activate(context: ExtensionContext) {
     },
   };
 
-  // Read settings to send as initialization options
-  const config = workspace.getConfiguration('htmlmustache');
-  const customCodeTags = config.get<CustomCodeTagConfig[]>('customCodeTags', []);
-  const printWidth = config.get<number>('printWidth', 80);
-  const mustacheSpaces = config.get<boolean>('mustacheSpaces');
-
   // Client options - define which documents the server handles
   const clientOptions: LanguageClientOptions = {
     documentSelector: [
@@ -95,11 +82,6 @@ export function activate(context: ExtensionContext) {
       fileEvents: workspace.createFileSystemWatcher('**/*.{mustache,hbs,handlebars}'),
     },
     outputChannel: outputChannel,
-    initializationOptions: {
-      customCodeTags,
-      printWidth,
-      mustacheSpaces,
-    },
   };
 
   log('Creating language client...');
@@ -170,31 +152,6 @@ export function activate(context: ExtensionContext) {
       return null;
     }
   });
-
-  // Send updated settings to the server when configuration changes
-  context.subscriptions.push(
-    workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('htmlmustache.customCodeTags') || e.affectsConfiguration('htmlmustache.printWidth') || e.affectsConfiguration('htmlmustache.mustacheSpaces')) {
-        const updatedConfig = workspace.getConfiguration('htmlmustache');
-        const updatedTags = updatedConfig.get<CustomCodeTagConfig[]>('customCodeTags', []);
-        const updatedPrintWidth = updatedConfig.get<number>('printWidth', 80);
-        const updatedMustacheSpaces = updatedConfig.get<boolean>('mustacheSpaces');
-
-        client.sendNotification('workspace/didChangeConfiguration', {
-          settings: {
-            htmlmustache: {
-              customCodeTags: updatedTags,
-              printWidth: updatedPrintWidth,
-              mustacheSpaces: updatedMustacheSpaces,
-            },
-          },
-        });
-        log(`Sent updated customCodeTags: ${updatedTags.map(t => t.name).join(', ')}`);
-        log(`Sent updated printWidth: ${updatedPrintWidth}`);
-        log(`Sent updated mustacheSpaces: ${updatedMustacheSpaces}`);
-      }
-    })
-  );
 
   // Start the client, which also starts the server
   log('Starting language client...');

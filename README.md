@@ -18,9 +18,9 @@
 
 ## Features
 
-- **CLI Linter** — Check templates for errors from the command line
-- **Syntax Highlighting** — Full semantic highlighting for HTML and Mustache syntax
-- **Document Formatting** — Auto-format with EditorConfig support
+- **Syntax Highlighting** — Full semantic highlighting for HTML and Mustache, plus embedded JS/TS in `<script>` and CSS in `<style>`
+- **Document Formatting** — Auto-format with EditorConfig and config file support
+- **CLI Linter & Formatter** — Check and format templates from the command line
 - **Document Symbols** — Outline view and breadcrumb navigation
 - **Folding** — Collapse HTML elements and Mustache sections
 - **Hover Information** — Tag and attribute documentation
@@ -36,51 +36,20 @@
 | `{{! comment }}`          | Comments               |
 | `{{> partial}}`           | Partials               |
 
-## CLI
-
-Check templates for errors before committing:
-
-```
-npx @reteps/tree-sitter-htmlmustache check '**/*.mustache' '**/*.hbs'
-```
-
-```
-file.mustache:3:3 error: Mismatched mustache section: {{/wrong}}
-  |
-1 | {{#items}}
-2 |   <li>{{name}}
-3 |   {{/wrong}}
-  |   ^^^^^^^^^^ Mismatched mustache section: {{/wrong}}
-
-1 error in 1 file (5 files checked)
-```
-
-Or install globally:
-
-```
-npm install -g @reteps/tree-sitter-htmlmustache
-htmlmustache check '**/*.mustache'
-```
-
-Detects parse errors, mismatched Mustache sections, mismatched HTML end tags, and missing tokens.
-
-## Installation
-
-### VS Code Extension
+## VS Code Extension
 
 Install from the [VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=reteps.htmlmustache-lsp) or search for "HTML Mustache" in the Extensions view.
 
-Alternatively, download `htmlmustache-lsp.vsix` from the [latest release](https://github.com/reteps/tree-sitter-htmlmustache/releases) and install via:
+What you get out of the box:
 
-```
-code --install-extension htmlmustache-lsp.vsix
-```
+- Syntax highlighting (including embedded JS/TS and CSS)
+- Document formatting (format on save, format selection)
+- Error diagnostics (parse errors, mismatched tags)
+- Document outline and breadcrumbs
+- Hover information for HTML tags and attributes
+- Code folding for HTML elements and Mustache sections
 
-### WASM
-
-Download `tree-sitter-htmlmustache.wasm` from the [latest release](https://github.com/reteps/tree-sitter-htmlmustache/releases).
-
-## Using with `.html` Files
+### Using with `.html` Files
 
 By default, the extension activates for `.mustache`, `.hbs`, and `.handlebars` files. To use it with `.html` files, add this to your VS Code settings:
 
@@ -94,12 +63,99 @@ By default, the extension activates for `.mustache`, `.hbs`, and `.handlebars` f
 
 You can also change the language mode for a single file by clicking the language indicator in the status bar and selecting "HTML Mustache".
 
+## CLI
+
+Install globally or run via `npx`:
+
+```
+npm install -g @reteps/tree-sitter-htmlmustache
+```
+
+### `htmlmustache check`
+
+Check templates for parse errors:
+
+```
+htmlmustache check '**/*.mustache' '**/*.hbs'
+```
+
+```
+file.mustache:3:3 error: Mismatched mustache section: {{/wrong}}
+  |
+1 | {{#items}}
+2 |   <li>{{name}}
+3 |   {{/wrong}}
+  |   ^^^^^^^^^^ Mismatched mustache section: {{/wrong}}
+
+1 error in 1 file (5 files checked)
+```
+
+Detects parse errors, mismatched Mustache sections, mismatched HTML end tags, and missing tokens.
+
+### `htmlmustache format`
+
+Format templates:
+
+```
+htmlmustache format --write '**/*.mustache'
+```
+
+Check formatting in CI (exits 1 if any files would change):
+
+```
+htmlmustache format --check 'templates/**/*.hbs'
+```
+
+Read from stdin:
+
+```
+echo '<div><p>hi</p></div>' | htmlmustache format --stdin
+```
+
+**Options:**
+
+| Flag                 | Description                                    |
+| -------------------- | ---------------------------------------------- |
+| `--write`            | Modify files in-place (default: print to stdout) |
+| `--check`            | Exit 1 if any files would change (for CI)      |
+| `--stdin`            | Read from stdin, write to stdout               |
+| `--indent-size N`    | Spaces per indent level (default: 2)           |
+| `--print-width N`    | Max line width (default: 80)                   |
+| `--mustache-spaces`  | Add spaces inside mustache delimiters          |
+
+## Configuration
+
+### `.htmlmustache.jsonc`
+
+Create a `.htmlmustache.jsonc` file in your project root to configure formatting options. Both the VS Code extension and CLI will pick it up automatically (the file is found by walking up from the formatted file).
+
+```jsonc
+{
+  // Max line width before wrapping (default: 80)
+  "printWidth": 100,
+
+  // Spaces per indent level (default: 2)
+  "indentSize": 4,
+
+  // Add spaces inside mustache delimiters: {{ foo }} vs {{foo}} (default: false)
+  "mustacheSpaces": true,
+
+  // Treat custom tags as raw code blocks (like <script>/<style>)
+  "customCodeTags": [
+    {
+      "name": "x-code",
+      "languageDefault": "javascript"
+    }
+  ]
+}
+```
+
+### EditorConfig
+
+Both the CLI and VS Code extension respect your `.editorconfig` file for indentation settings (`indent_style`, `indent_size`). EditorConfig values override `.htmlmustache.jsonc` for indentation, and CLI flags override everything.
+
+**Priority order:** defaults < `.htmlmustache.jsonc` < `.editorconfig` (indent only) < CLI flags
+
 ## Acknowledgments
 
 This project is based on [tree-sitter-html](https://github.com/tree-sitter/tree-sitter-html) by Max Brunsfeld and Amaan Qureshi.
-
-## References
-
-- [The HTML5 Spec](https://www.w3.org/TR/html5/syntax.html)
-- [Mustache Manual](https://mustache.github.io/mustache.5.html)
-- [Handlebars Language Guide](https://handlebarsjs.com/guide/)

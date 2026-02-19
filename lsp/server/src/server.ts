@@ -22,6 +22,8 @@ import { getDiagnostics } from './diagnostics';
 import { initializeTextMateRegistry, isTextMateReady, tokenizeEmbeddedContent, setEmbeddedTokenizerLogger } from './embeddedTokenizer';
 import { findCustomCodeTagContent, parseCustomCodeTagSettings } from './customCodeTags';
 import type { CustomCodeTagConfig } from './customCodeTags';
+import { loadConfigFile } from './configFile';
+import type { HtmlMustacheConfig } from './configFile';
 
 // Create connection and document manager
 const connection = createConnection(ProposedFeatures.all);
@@ -36,38 +38,37 @@ let highlightQuery: Query | null = null;
 // Raw text query for finding Mustache in script/style tags
 let rawTextQuery: Query | null = null;
 
-// Custom code tags setting (tags treated like <pre>/<code>)
-let customCodeTags: string[] = [];
-
-// Full custom code tag configs (for embedded language tokenization)
-let customCodeTagConfigs: CustomCodeTagConfig[] = [];
-
-// Print width setting (maximum line width before breaking)
-let printWidth = 80;
-
-// Mustache spaces setting (add spaces inside delimiters)
-let mustacheSpaces: boolean | undefined = false;
+/**
+ * Resolve config settings for a document URI.
+ * Returns config file values with defaults applied.
+ */
+function resolveConfig(uri: string): {
+  config: HtmlMustacheConfig | null;
+  customCodeTags: string[];
+  customCodeTagConfigs: CustomCodeTagConfig[];
+  printWidth: number;
+  mustacheSpaces: boolean | undefined;
+} {
+  const config = loadConfigFile(uri);
+  let customCodeTags: string[] = [];
+  let customCodeTagConfigs: CustomCodeTagConfig[] = [];
+  if (config?.customCodeTags && config.customCodeTags.length > 0) {
+    const parsed = parseCustomCodeTagSettings(config.customCodeTags);
+    customCodeTags = parsed.tagNames;
+    customCodeTagConfigs = parsed.configs;
+  }
+  return {
+    config,
+    customCodeTags,
+    customCodeTagConfigs,
+    printWidth: config?.printWidth ?? 80,
+    mustacheSpaces: config?.mustacheSpaces,
+  };
+}
 
 connection.onInitialize(async (params: InitializeParams): Promise<InitializeResult> => {
   connection.console.log('onInitialize called');
   connection.console.log(`Client info: ${params.clientInfo?.name} ${params.clientInfo?.version}`);
-
-  // Read settings from initialization options
-  const initOptions = params.initializationOptions;
-  if (initOptions?.customCodeTags && Array.isArray(initOptions.customCodeTags)) {
-    const parsed = parseCustomCodeTagSettings(initOptions.customCodeTags);
-    customCodeTags = parsed.tagNames;
-    customCodeTagConfigs = parsed.configs;
-    connection.console.log(`Custom code tags: ${customCodeTags.join(', ')}`);
-  }
-  if (initOptions?.printWidth && typeof initOptions.printWidth === 'number') {
-    printWidth = initOptions.printWidth;
-    connection.console.log(`Print width: ${printWidth}`);
-  }
-  if (typeof initOptions?.mustacheSpaces === 'boolean') {
-    mustacheSpaces = initOptions.mustacheSpaces;
-    connection.console.log(`Mustache spaces: ${mustacheSpaces}`);
-  }
 
   // Wire up parser logging to LSP connection
   setLogger((msg) => connection.console.log(msg));
@@ -172,25 +173,6 @@ connection.onInitialized(() => {
   connection.console.log('HTML Mustache Language Server initialized');
 });
 
-// Handle configuration changes
-connection.onDidChangeConfiguration((change) => {
-  const settings = change.settings;
-  if (settings?.htmlmustache?.customCodeTags) {
-    const parsed = parseCustomCodeTagSettings(settings.htmlmustache.customCodeTags);
-    customCodeTags = parsed.tagNames;
-    customCodeTagConfigs = parsed.configs;
-    connection.console.log(`Custom code tags updated: ${customCodeTags.join(', ')}`);
-  }
-  if (settings?.htmlmustache?.printWidth && typeof settings.htmlmustache.printWidth === 'number') {
-    printWidth = settings.htmlmustache.printWidth;
-    connection.console.log(`Print width updated: ${printWidth}`);
-  }
-  if (typeof settings?.htmlmustache?.mustacheSpaces === 'boolean') {
-    mustacheSpaces = settings.htmlmustache.mustacheSpaces;
-    connection.console.log(`Mustache spaces updated: ${mustacheSpaces}`);
-  }
-});
-
 // Parse document on open
 documents.onDidOpen((event) => {
   connection.console.log(`Document opened: ${event.document.uri} (language: ${event.document.languageId})`);
@@ -263,6 +245,9 @@ connection.languages.semanticTokens.on(async (params) => {
     connection.console.log('  -> No highlight query available');
     return { data: [] };
   }
+
+  // Load config for this document
+  const { customCodeTagConfigs } = resolveConfig(document.uri);
 
   // Tokenize embedded language content in custom code tags
   let embeddedTokens: TokenInfo[] = [];
@@ -465,8 +450,11 @@ connection.onDocumentFormatting(async (params) => {
     return [];
   }
 
+  const { config, customCodeTags, customCodeTagConfigs, printWidth, mustacheSpaces } = resolveConfig(document.uri);
   const embeddedFormatted = await formatEmbeddedRegions(tree.rootNode, params.options);
-  return formatDocument(tree, document, params.options, customCodeTags, printWidth, embeddedFormatted, mustacheSpaces, customCodeTagConfigs);
+  return formatDocument(tree, document, params.options, {
+    customCodeTags, printWidth, embeddedFormatted, mustacheSpaces, customCodeTagConfigs, configFile: config,
+  });
 });
 
 // Document range formatting handler
@@ -481,8 +469,11 @@ connection.onDocumentRangeFormatting(async (params) => {
     return [];
   }
 
+  const { config, customCodeTags, customCodeTagConfigs, printWidth, mustacheSpaces } = resolveConfig(document.uri);
   const embeddedFormatted = await formatEmbeddedRegions(tree.rootNode, params.options);
-  return formatDocumentRange(tree, document, params.range, params.options, customCodeTags, printWidth, embeddedFormatted, mustacheSpaces, customCodeTagConfigs);
+  return formatDocumentRange(tree, document, params.range, params.options, {
+    customCodeTags, printWidth, embeddedFormatted, mustacheSpaces, customCodeTagConfigs, configFile: config,
+  });
 });
 
 // Listen on the documents and connection

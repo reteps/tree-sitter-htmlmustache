@@ -11,15 +11,48 @@
 
 import type { Node as SyntaxNode } from 'web-tree-sitter';
 import type { Tree } from '../parser';
-import { TextDocument } from 'vscode-languageserver-textdocument';
-import { FormattingOptions, TextEdit, Range } from 'vscode-languageserver/node';
+import type { TextDocument } from 'vscode-languageserver-textdocument';
+
+/** Formatting options (structurally compatible with LSP FormattingOptions). */
+export interface FormattingOptions {
+  tabSize: number;
+  insertSpaces: boolean;
+}
+
+/** A position in a text document (0-based line and character). */
+export interface Position {
+  line: number;
+  character: number;
+}
+
+/** A range in a text document. */
+export interface Range {
+  start: Position;
+  end: Position;
+}
+
+/** A text edit to apply to a document. */
+export interface TextEdit {
+  range: Range;
+  newText: string;
+}
 
 import { print } from './printer';
 import { formatDocument as formatDocumentToDoc, FormatterContext } from './formatters';
 import { mergeOptions, createIndentUnit } from './editorconfig';
+import type { HtmlMustacheConfig } from '../configFile';
 import { findContainingNode, calculateIndentLevel } from './utils';
 import { isBlockLevel, getContentNodes, hasImplicitEndTags, setCustomCodeTags } from './classifier';
 import type { CustomCodeTagConfig } from '../customCodeTags';
+
+export interface FormatDocumentParams {
+  customCodeTags?: string[];
+  printWidth?: number;
+  embeddedFormatted?: Map<number, string>;
+  mustacheSpaces?: boolean;
+  customCodeTagConfigs?: CustomCodeTagConfig[];
+  configFile?: HtmlMustacheConfig | null;
+}
 
 /**
  * Format an entire document.
@@ -28,13 +61,10 @@ export function formatDocument(
   tree: Tree,
   document: TextDocument,
   options: FormattingOptions,
-  customCodeTags?: string[],
-  printWidth = 80,
-  embeddedFormatted?: Map<number, string>,
-  mustacheSpaces?: boolean,
-  customCodeTagConfigs?: CustomCodeTagConfig[]
+  params: FormatDocumentParams = {},
 ): TextEdit[] {
-  const mergedOptions = mergeOptions(options, document.uri);
+  const { customCodeTags, printWidth = 80, embeddedFormatted, mustacheSpaces, customCodeTagConfigs, configFile } = params;
+  const mergedOptions = mergeOptions(options, document.uri, configFile);
   const indentUnit = createIndentUnit(mergedOptions);
 
   if (customCodeTags) {
@@ -69,13 +99,10 @@ export function formatDocumentRange(
   document: TextDocument,
   range: Range,
   options: FormattingOptions,
-  customCodeTags?: string[],
-  printWidth = 80,
-  embeddedFormatted?: Map<number, string>,
-  mustacheSpaces?: boolean,
-  customCodeTagConfigs?: CustomCodeTagConfig[]
+  params: FormatDocumentParams = {},
 ): TextEdit[] {
-  const mergedOptions = mergeOptions(options, document.uri);
+  const { customCodeTags, printWidth = 80, embeddedFormatted, mustacheSpaces, customCodeTagConfigs, configFile } = params;
+  const mergedOptions = mergeOptions(options, document.uri, configFile);
   const indentUnit = createIndentUnit(mergedOptions);
 
   if (customCodeTags) {
@@ -149,9 +176,6 @@ function formatNodeForRange(
   return formatNode(node, context);
 }
 
-/**
- * Apply base indentation to each line of formatted output.
- */
 function buildConfigMap(configs?: CustomCodeTagConfig[]): Map<string, CustomCodeTagConfig> | undefined {
   if (!configs || configs.length === 0) return undefined;
   const map = new Map<string, CustomCodeTagConfig>();

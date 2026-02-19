@@ -2,7 +2,7 @@
   "name": "htmlmustache-lsp",
   "displayName": "HTML Mustache Language Support",
   "description": "Language server for HTML with Mustache template syntax",
-  "version": "0.0.33",
+  "version": "0.0.34",
   "publisher": "reteps",
   "private": true,
   "license": "MIT",
@@ -71,66 +71,6 @@
           ],
           "default": "off",
           "description": "Traces the communication between VS Code and the language server."
-        },
-        "htmlmustache.customCodeTags": {
-          "scope": "resource",
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "name"
-            ],
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "Custom tag name"
-              },
-              "languageAttribute": {
-                "type": "string",
-                "description": "Attribute name containing the language"
-              },
-              "languageMap": {
-                "type": "object",
-                "additionalProperties": {
-                  "type": "string"
-                },
-                "description": "Map of attribute values to language names (for non-standard values like ace/mode/python -> python)"
-              },
-              "languageDefault": {
-                "type": "string",
-                "description": "Always inject this language for the tag content (no attribute needed)"
-              },
-              "indent": {
-                "type": "string",
-                "enum": [
-                  "never",
-                  "always",
-                  "attribute"
-                ],
-                "default": "never",
-                "description": "Content indentation mode: 'never' preserves as-is, 'always' dedents and re-indents, 'attribute' re-indents when indentAttribute has a truthy value."
-              },
-              "indentAttribute": {
-                "type": "string",
-                "description": "Attribute name to check when indent is 'attribute'. Content is indented when the attribute value is truthy (not empty, 'false', or '0')."
-              }
-            }
-          },
-          "default": [],
-          "description": "Custom tags to treat like <pre>/<code> blocks (content preserved as-is, block-level display). Add languageAttribute or languageDefault for embedded syntax highlighting."
-        },
-        "htmlmustache.printWidth": {
-          "scope": "resource",
-          "type": "number",
-          "default": 80,
-          "minimum": 1,
-          "description": "Maximum line width before the formatter breaks content onto multiple lines."
-        },
-        "htmlmustache.mustacheSpaces": {
-          "scope": "resource",
-          "type": "boolean",
-          "default": false,
-          "description": "Add spaces inside mustache delimiters: {{ foo }} instead of {{foo}}."
         }
       }
     },

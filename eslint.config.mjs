@@ -1,6 +1,52 @@
 import treesitter from 'eslint-config-treesitter';
+import eslintJs from '@eslint/js';
+import tseslint from 'typescript-eslint';
+
+const sharedRules = {
+  'max-params': ['error', 6],
+};
+
+// Rules from treesitter/jsdoc configs that conflict with Prettier or TS
+const treesitterOverrides = {
+  indent: 'off',
+  quotes: 'off',
+  semi: 'off',
+  'comma-dangle': 'off',
+  'object-curly-spacing': 'off',
+  'operator-linebreak': 'off',
+  'quote-props': 'off',
+  'space-before-function-paren': 'off',
+  'block-spacing': 'off',
+  'brace-style': 'off',
+  'comma-spacing': 'off',
+  'keyword-spacing': 'off',
+  'key-spacing': 'off',
+  'no-trailing-spaces': 'off',
+  'no-multiple-empty-lines': 'off',
+  'no-multi-spaces': 'off',
+  'padded-blocks': 'off',
+  'semi-spacing': 'off',
+  'array-bracket-spacing': 'off',
+  'computed-property-spacing': 'off',
+  'func-call-spacing': 'off',
+  'space-before-blocks': 'off',
+  'switch-colon-spacing': 'off',
+  'arrow-parens': 'off',
+  'generator-star-spacing': 'off',
+  'rest-spread-spacing': 'off',
+  'yield-star-spacing': 'off',
+  'jsdoc/require-jsdoc': 'off',
+  'jsdoc/require-param': 'off',
+  'jsdoc/require-param-type': 'off',
+  'jsdoc/require-returns-type': 'off',
+  'jsdoc/check-param-names': 'off',
+  'jsdoc/tag-lines': 'off',
+  'one-var': 'off',
+  'max-len': 'off',
+};
 
 export default [
+  // Tree-sitter config for grammar.js and other JS files
   ...treesitter,
   {
     ignores: [
@@ -10,8 +56,8 @@ export default [
     ],
   },
   {
+    files: ['**/*.js', '**/*.mjs'],
     rules: {
-      // Allow underscore-prefixed variables to be unused
       'no-unused-vars': [
         'error',
         {
@@ -20,33 +66,33 @@ export default [
           caughtErrorsIgnorePattern: '^_',
         },
       ],
-      // Disable formatting rules that conflict with Prettier
-      indent: 'off',
-      quotes: 'off',
-      semi: 'off',
-      'comma-dangle': 'off',
-      'object-curly-spacing': 'off',
-      'operator-linebreak': 'off',
-      'quote-props': 'off',
-      'space-before-function-paren': 'off',
-      'block-spacing': 'off',
-      'brace-style': 'off',
-      'comma-spacing': 'off',
-      'keyword-spacing': 'off',
-      'key-spacing': 'off',
-      'no-trailing-spaces': 'off',
-      'no-multiple-empty-lines': 'off',
-      'padded-blocks': 'off',
-      'semi-spacing': 'off',
-      'array-bracket-spacing': 'off',
-      'computed-property-spacing': 'off',
-      'func-call-spacing': 'off',
-      'space-before-blocks': 'off',
-      'switch-colon-spacing': 'off',
-      'arrow-parens': 'off',
-      'generator-star-spacing': 'off',
-      'rest-spread-spacing': 'off',
-      'yield-star-spacing': 'off',
+      ...treesitterOverrides,
+      ...sharedRules,
     },
   },
+  // TypeScript config for cli/src and lsp/
+  ...tseslint.config(
+    {
+      files: ['cli/src/**/*.ts', 'lsp/**/*.ts'],
+      extends: [
+        eslintJs.configs.recommended,
+        ...tseslint.configs.recommended,
+      ],
+      rules: {
+        '@typescript-eslint/no-unused-vars': [
+          'error',
+          { argsIgnorePattern: '^_' },
+        ],
+        '@typescript-eslint/no-explicit-any': 'off',
+        ...treesitterOverrides,
+        ...sharedRules,
+      },
+    },
+    {
+      files: ['cli/src/check.ts', 'cli/src/check.test.ts'],
+      rules: {
+        '@typescript-eslint/no-require-imports': 'off',
+      },
+    },
+  ),
 ];

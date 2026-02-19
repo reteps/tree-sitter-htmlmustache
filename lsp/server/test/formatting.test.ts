@@ -5,6 +5,7 @@ import { parseText, createMockDocument } from './setup';
 import { formatDocument, formatDocumentRange } from '../src/formatting/index';
 import { setCustomCodeTags } from '../src/formatting/classifier';
 import type { CustomCodeTagConfig } from '../src/customCodeTags';
+import type { HtmlMustacheConfig } from '../src/configFile';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -29,7 +30,7 @@ describe('Document Formatting', () => {
   function formatWithPrintWidth(content: string, printWidth: number, options: FormattingOptions = defaultOptions): string {
     const tree = parseText(content);
     const document = createMockDocument(content);
-    const edits = formatDocument(tree, document, options, undefined, printWidth);
+    const edits = formatDocument(tree, document, options, { printWidth });
     expect(edits.length).toBe(1);
     return edits[0].newText;
   }
@@ -485,7 +486,7 @@ describe('Mustache Spaces', () => {
   function formatWithSpaces(content: string, mustacheSpaces?: boolean): string {
     const tree = parseText(content);
     const document = createMockDocument(content);
-    const edits = formatDocument(tree, document, defaultOptions, undefined, 80, undefined, mustacheSpaces);
+    const edits = formatDocument(tree, document, defaultOptions, { mustacheSpaces });
     expect(edits.length).toBe(1);
     return edits[0].newText;
   }
@@ -678,7 +679,7 @@ describe('Custom Code Tag Indentation', () => {
     setCustomCodeTags(tagNames);
     const tree = parseText(content);
     const document = createMockDocument(content);
-    const edits = formatDocument(tree, document, options, tagNames, 80, undefined, undefined, configs);
+    const edits = formatDocument(tree, document, options, { customCodeTags: tagNames, customCodeTagConfigs: configs });
     expect(edits.length).toBe(1);
     return edits[0].newText;
   }
@@ -795,5 +796,66 @@ describe('Custom Code Tag Indentation', () => {
       );
       expect(result).toBe('<pl-code source-file-name="">\n    line one\n</pl-code>\n');
     });
+  });
+});
+
+describe('Config File Integration', () => {
+  let tempDir: string;
+
+  beforeAll(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'configfile-fmt-test-'));
+  });
+
+  afterAll(() => {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  function formatWithConfig(content: string, config: HtmlMustacheConfig, filename = 'test.mustache'): string {
+    const tree = parseText(content);
+    const filePath = path.join(tempDir, filename);
+    const uri = pathToFileURL(filePath).toString();
+    const document = TextDocument.create(uri, 'htmlmustache', 1, content);
+    const edits = formatDocument(tree, document, defaultOptions, {
+      printWidth: config.printWidth, mustacheSpaces: config.mustacheSpaces, configFile: config,
+    });
+    expect(edits.length).toBe(1);
+    return edits[0].newText;
+  }
+
+  it('uses indentSize from config file', () => {
+    const result = formatWithConfig('<div><p>text</p></div>', { indentSize: 4 });
+    expect(result).toBe('<div>\n    <p>text</p>\n</div>\n');
+  });
+
+  it('uses printWidth from config file', () => {
+    const result = formatWithConfig(
+      '<p>Some medium length text here</p>',
+      { printWidth: 20 }
+    );
+    expect(result).toContain('\n');
+  });
+
+  it('uses mustacheSpaces from config file', () => {
+    const result = formatWithConfig('<p>{{name}}</p>', { mustacheSpaces: true });
+    expect(result).toBe('<p>{{ name }}</p>\n');
+  });
+
+  it('editorconfig overrides config file indent settings', () => {
+    // Create .editorconfig that sets 8-space indent
+    fs.writeFileSync(path.join(tempDir, '.editorconfig'), `root = true\n\n[*.mustache]\nindent_size = 8\nindent_style = space\n`);
+
+    const tree = parseText('<div><p>text</p></div>');
+    const filePath = path.join(tempDir, 'test.mustache');
+    const uri = pathToFileURL(filePath).toString();
+    const document = TextDocument.create(uri, 'htmlmustache', 1, '<div><p>text</p></div>');
+    // Config file says indentSize: 2, but editorconfig says 8
+    const config: HtmlMustacheConfig = { indentSize: 2 };
+    const edits = formatDocument(tree, document, defaultOptions, { configFile: config });
+    expect(edits.length).toBe(1);
+    // Editorconfig's 8-space indent should win over config file's 2
+    expect(edits[0].newText).toBe('<div>\n        <p>text</p>\n</div>\n');
+
+    // Clean up .editorconfig
+    fs.unlinkSync(path.join(tempDir, '.editorconfig'));
   });
 });

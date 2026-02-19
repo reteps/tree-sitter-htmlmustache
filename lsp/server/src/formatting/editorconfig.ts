@@ -2,7 +2,8 @@
  * EditorConfig integration for formatting options.
  */
 
-import { FormattingOptions } from 'vscode-languageserver/node';
+import type { FormattingOptions } from './index';
+import type { HtmlMustacheConfig } from '../configFile';
 import { parseSync as parseEditorConfig, Props as EditorConfigProps } from 'editorconfig';
 import { fileURLToPath } from 'url';
 
@@ -43,19 +44,27 @@ export function getEditorConfigOptions(uri: string): Partial<FormattingOptions> 
 }
 
 /**
- * Merge editor config options with LSP options.
- * EditorConfig provides defaults, LSP options override.
+ * Merge options from multiple sources with priority:
+ *   lspOptions (base) < configFile < editorconfig
  */
 export function mergeOptions(
   lspOptions: FormattingOptions,
-  uri: string
+  uri: string,
+  configFile?: HtmlMustacheConfig | null,
 ): FormattingOptions {
-  const editorConfigOptions = getEditorConfigOptions(uri);
+  // Start with LSP options as base
+  let tabSize = lspOptions.tabSize;
+  let insertSpaces = lspOptions.insertSpaces;
 
-  return {
-    tabSize: editorConfigOptions.tabSize ?? lspOptions.tabSize,
-    insertSpaces: editorConfigOptions.insertSpaces ?? lspOptions.insertSpaces,
-  };
+  // Config file overrides base
+  if (configFile?.indentSize !== undefined) tabSize = configFile.indentSize;
+
+  // Editorconfig overrides config file
+  const ec = getEditorConfigOptions(uri);
+  if (ec.tabSize !== undefined) tabSize = ec.tabSize;
+  if (ec.insertSpaces !== undefined) insertSpaces = ec.insertSpaces;
+
+  return { tabSize, insertSpaces };
 }
 
 /**

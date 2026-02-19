@@ -1,0 +1,238 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import chalk from 'chalk';
+import { TextDocument } from 'vscode-languageserver-textdocument';
+
+import { formatDocument } from '../../lsp/server/src/formatting/index';
+import type { FormattingOptions, FormatDocumentParams } from '../../lsp/server/src/formatting/index';
+import { getEditorConfigOptions } from '../../lsp/server/src/formatting/editorconfig';
+import { loadConfigFileForPath } from '../../lsp/server/src/configFile';
+import { parseCustomCodeTagSettings } from '../../lsp/server/src/customCodeTags';
+import { initializeParser, parseDocument } from './wasm';
+import { expandGlobs } from './check';
+
+const USAGE = `Usage: htmlmustache format [options] <patterns...>
+
+Format HTML Mustache templates.
+
+Arguments:
+  patterns          One or more glob patterns (e.g. '**/*.mustache')
+
+Options:
+  --write           Modify files in-place (default: print to stdout)
+  --check           Exit 1 if any files would change (for CI)
+  --stdin           Read from stdin, write to stdout
+  --indent-size N   Spaces per indent level (default: 2)
+  --print-width N   Max line width (default: 80)
+  --mustache-spaces Add spaces inside mustache delimiters
+  --help            Show this help message
+
+Examples:
+  htmlmustache format --write '**/*.mustache'
+  htmlmustache format --check 'templates/**/*.hbs'
+  echo '<div><p>hi</p></div>' | htmlmustache format --stdin`;
+
+interface FormatFlags {
+  write: boolean;
+  check: boolean;
+  stdin: boolean;
+  indentSize: number | undefined;
+  printWidth: number | undefined;
+  mustacheSpaces: boolean | undefined;
+  patterns: string[];
+}
+
+function parseFlags(args: string[]): FormatFlags {
+  const flags: FormatFlags = {
+    write: false,
+    check: false,
+    stdin: false,
+    indentSize: undefined,
+    printWidth: undefined,
+    mustacheSpaces: undefined,
+    patterns: [],
+  };
+
+  let i = 0;
+  while (i < args.length) {
+    const arg = args[i];
+    switch (arg) {
+      case '--write':
+        flags.write = true;
+        break;
+      case '--check':
+        flags.check = true;
+        break;
+      case '--stdin':
+        flags.stdin = true;
+        break;
+      case '--indent-size':
+        i++;
+        flags.indentSize = parseInt(args[i], 10);
+        if (isNaN(flags.indentSize)) {
+          console.error(chalk.red('Error: --indent-size requires a number'));
+          process.exit(1);
+        }
+        break;
+      case '--print-width':
+        i++;
+        flags.printWidth = parseInt(args[i], 10);
+        if (isNaN(flags.printWidth)) {
+          console.error(chalk.red('Error: --print-width requires a number'));
+          process.exit(1);
+        }
+        break;
+      case '--mustache-spaces':
+        flags.mustacheSpaces = true;
+        break;
+      default:
+        flags.patterns.push(arg);
+        break;
+    }
+    i++;
+  }
+
+  return flags;
+}
+
+/**
+ * Resolve all settings for a file with the full priority chain:
+ *   defaults < .htmlmustache.jsonc < .editorconfig (indent only) < CLI flags
+ */
+function resolveSettings(flags: FormatFlags, filePath?: string): {
+  options: FormattingOptions;
+} & FormatDocumentParams {
+  // 1. Defaults
+  let tabSize = 2;
+  let insertSpaces = true;
+  let printWidth = 80;
+  let mustacheSpaces: boolean | undefined = false;
+  let customCodeTags: string[] | undefined;
+  let customCodeTagConfigs: ReturnType<typeof parseCustomCodeTagSettings>['configs'] | undefined;
+
+  // 2. Config file overrides defaults
+  const configFile = filePath ? loadConfigFileForPath(filePath) : null;
+  if (configFile) {
+    if (configFile.indentSize !== undefined) tabSize = configFile.indentSize;
+    if (configFile.printWidth !== undefined) printWidth = configFile.printWidth;
+    if (configFile.mustacheSpaces !== undefined) mustacheSpaces = configFile.mustacheSpaces;
+    if (configFile.customCodeTags && configFile.customCodeTags.length > 0) {
+      const parsed = parseCustomCodeTagSettings(configFile.customCodeTags);
+      customCodeTags = parsed.tagNames;
+      customCodeTagConfigs = parsed.configs;
+    }
+  }
+
+  // 3. Editorconfig overrides config file (indent only)
+  if (filePath) {
+    const uri = pathToFileURL(filePath).href;
+    const ecOptions = getEditorConfigOptions(uri);
+    if (ecOptions.tabSize !== undefined) tabSize = ecOptions.tabSize;
+    if (ecOptions.insertSpaces !== undefined) insertSpaces = ecOptions.insertSpaces;
+  }
+
+  // 4. CLI flags override everything
+  if (flags.indentSize !== undefined) tabSize = flags.indentSize;
+  if (flags.printWidth !== undefined) printWidth = flags.printWidth;
+  if (flags.mustacheSpaces !== undefined) mustacheSpaces = flags.mustacheSpaces;
+
+  return {
+    options: { tabSize, insertSpaces },
+    printWidth,
+    mustacheSpaces,
+    customCodeTags,
+    customCodeTagConfigs,
+    configFile,
+  };
+}
+
+export function formatSource(
+  source: string,
+  options: FormattingOptions,
+  params: FormatDocumentParams = {},
+): string {
+  const tree = parseDocument(source);
+  const document = TextDocument.create('file:///stdin', 'htmlmustache', 1, source);
+  const edits = formatDocument(tree, document, options, params);
+  if (edits.length === 0) return source;
+  return edits[0].newText;
+}
+
+export async function run(args: string[]): Promise<number> {
+  if (args[0] === 'format') {
+    args = args.slice(1);
+  }
+
+  if (args.includes('--help')) {
+    console.log(USAGE);
+    return 0;
+  }
+
+  const flags = parseFlags(args);
+
+  if (!flags.stdin && flags.patterns.length === 0) {
+    console.log(USAGE);
+    return 1;
+  }
+
+  await initializeParser();
+
+  // Stdin mode
+  if (flags.stdin) {
+    const { options, ...params } = resolveSettings(flags);
+    const source = fs.readFileSync(0, 'utf-8');
+    const formatted = formatSource(source, options, params);
+    process.stdout.write(formatted);
+    return 0;
+  }
+
+  // File mode
+  const files = expandGlobs(flags.patterns);
+
+  if (files.length === 0) {
+    console.error(chalk.yellow('No files matched the given patterns:'));
+    for (const pattern of flags.patterns) {
+      console.error(chalk.yellow(`  ${pattern}`));
+    }
+    return 1;
+  }
+
+  const cwd = process.cwd();
+  let changedCount = 0;
+
+  for (const file of files) {
+    const displayPath = path.relative(cwd, file) || file;
+    const source = fs.readFileSync(file, 'utf-8');
+    const { options, ...params } = resolveSettings(flags, file);
+    const formatted = formatSource(source, options, params);
+    const changed = formatted !== source;
+
+    if (changed) changedCount++;
+
+    if (flags.check) {
+      console.log(changed ? chalk.red(displayPath) : chalk.dim(displayPath));
+    } else if (flags.write) {
+      if (changed) {
+        fs.writeFileSync(file, formatted);
+      }
+      console.log(changed ? chalk.green(displayPath) : chalk.dim(displayPath));
+    } else {
+      // Default: print to stdout
+      process.stdout.write(formatted);
+    }
+  }
+
+  if (flags.check && changedCount > 0) {
+    console.log(
+      chalk.red(`\n${changedCount} ${changedCount === 1 ? 'file' : 'files'} would be reformatted`)
+    );
+    return 1;
+  }
+
+  if (flags.check) {
+    console.log(chalk.green(`All ${files.length} ${files.length === 1 ? 'file' : 'files'} already formatted`));
+  }
+
+  return 0;
+}

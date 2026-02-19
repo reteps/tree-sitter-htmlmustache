@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { print } from '../../src/formatting/printer';
 import {
-  text,
   concat,
   indent,
   group,

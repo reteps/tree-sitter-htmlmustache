@@ -4,12 +4,9 @@ import { print } from '../../src/formatting/printer';
 import {
   formatDocument,
   formatNode,
-  formatHtmlElement,
-  formatMustacheSection,
   formatStartTag,
   formatEndTag,
   formatAttribute,
-  formatBlockChildren,
   FormatterContext,
 } from '../../src/formatting/formatters';
 
@@ -150,7 +147,7 @@ describe('Formatters', () => {
   describe('formatStartTag()', () => {
     it('formats simple start tag', () => {
       const tree = parseText('<div>');
-      const document = createMockDocument('<div>');
+      createMockDocument('<div>');
       const divNode = tree.rootNode.child(0)!;
       const startTag = divNode.child(0)!;
       const doc = formatStartTag(startTag);
@@ -159,7 +156,7 @@ describe('Formatters', () => {
 
     it('formats start tag with attributes', () => {
       const tree = parseText('<div class="test" id="main">');
-      const document = createMockDocument('<div class="test" id="main">');
+      createMockDocument('<div class="test" id="main">');
       const divNode = tree.rootNode.child(0)!;
       const startTag = divNode.child(0)!;
       const doc = formatStartTag(startTag);
@@ -168,7 +165,7 @@ describe('Formatters', () => {
 
     it('formats self-closing tag', () => {
       const tree = parseText('<br />');
-      const document = createMockDocument('<br />');
+      createMockDocument('<br />');
       const brNode = tree.rootNode.child(0)!;
       const selfClosingTag = brNode.child(0)!;
       const doc = formatStartTag(selfClosingTag);
@@ -178,7 +175,7 @@ describe('Formatters', () => {
     it('wraps long attributes onto multiple lines', () => {
       const longTag = '<div class="very-long-class-name-here" id="also-long-id-name" data-value="another-long-value">';
       const tree = parseText(longTag);
-      const document = createMockDocument(longTag);
+      createMockDocument(longTag);
       const divNode = tree.rootNode.child(0)!;
       const startTag = divNode.child(0)!;
       const doc = formatStartTag(startTag);
@@ -192,7 +189,7 @@ describe('Formatters', () => {
   describe('formatEndTag()', () => {
     it('formats end tag', () => {
       const tree = parseText('<div></div>');
-      const document = createMockDocument('<div></div>');
+      createMockDocument('<div></div>');
       const divNode = tree.rootNode.child(0)!;
       // Find end tag
       let endTag = null;
@@ -228,7 +225,7 @@ describe('Formatters', () => {
   describe('formatAttribute()', () => {
     it('formats boolean attribute', () => {
       const tree = parseText('<input disabled>');
-      const document = createMockDocument('<input disabled>');
+      createMockDocument('<input disabled>');
       const inputNode = tree.rootNode.child(0)!;
       const startTag = inputNode.child(0)!;
       // Find attribute
@@ -246,7 +243,7 @@ describe('Formatters', () => {
 
     it('formats attribute with value', () => {
       const tree = parseText('<div class="test">');
-      const document = createMockDocument('<div class="test">');
+      createMockDocument('<div class="test">');
       const divNode = tree.rootNode.child(0)!;
       const startTag = divNode.child(0)!;
       let attr = null;
@@ -263,7 +260,7 @@ describe('Formatters', () => {
 
     it('formats attribute with mustache value', () => {
       const tree = parseText('<div value={{variable}}>');
-      const document = createMockDocument('<div value={{variable}}>');
+      createMockDocument('<div value={{variable}}>');
       const divNode = tree.rootNode.child(0)!;
       const startTag = divNode.child(0)!;
       let attr = null;

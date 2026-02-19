@@ -299,21 +299,3 @@ export function run(args: string[]): number {
   console.log(formatSummary(totalErrors, filesWithErrors, files.length));
   return totalErrors > 0 ? 1 : 0;
 }
-
-// CLI entry point
-if (require.main === module) {
-  const args = process.argv.slice(2);
-
-  if (args[0] !== 'check' && !args.includes('--help')) {
-    if (args.length === 0) {
-      console.log(USAGE);
-      process.exit(1);
-    }
-    console.error(chalk.red(`Unknown command: ${args[0]}`));
-    console.error('Run "htmlmustache --help" for usage.');
-    process.exit(1);
-  }
-
-  const code = run(args);
-  process.exit(code);
-}

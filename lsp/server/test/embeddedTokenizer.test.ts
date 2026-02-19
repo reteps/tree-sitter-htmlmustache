@@ -588,7 +588,8 @@ describe('full pipeline: pl-code C++ example', () => {
   // Helper: decode delta-encoded semantic tokens data into absolute positions
   function decodeSemanticTokenData(data: Uint32Array) {
     const tokens: { row: number; col: number; length: number; type: number }[] = [];
-    let row = 0, col = 0;
+    let row = 0;
+    let col = 0;
     for (let i = 0; i < data.length; i += 5) {
       row += data[i];
       if (data[i] > 0) col = 0;

@@ -49,7 +49,8 @@ function decodeTokenData(data: Uint32Array): Array<{
   row: number; col: number; length: number; tokenType: number; typeName: string;
 }> {
   const tokens = [];
-  let row = 0, col = 0;
+  let row = 0;
+  let col = 0;
   for (let i = 0; i < data.length; i += 5) {
     row += data[i];
     if (data[i] > 0) col = 0;

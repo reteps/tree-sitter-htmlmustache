@@ -1,11 +1,9 @@
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import { parseText } from '../setup';
 import {
   isBlockLevel,
   isInlineElement,
   shouldPreserveContent,
-  hasBlockContent,
-  isBlockLevelContent,
   getContentNodes,
   hasImplicitEndTags,
   isInTextFlow,

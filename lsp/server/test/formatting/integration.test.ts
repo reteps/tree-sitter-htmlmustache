@@ -33,7 +33,7 @@ describe('Document Formatting (Integration)', () => {
   function formatWithPrintWidth(content: string, printWidth: number): string {
     const tree = parseText(content);
     const document = createMockDocument(content);
-    const edits = formatDocument(tree, document, defaultOptions, undefined, printWidth);
+    const edits = formatDocument(tree, document, defaultOptions, { printWidth });
     expect(edits.length).toBe(1);
     return edits[0].newText;
   }
@@ -346,7 +346,7 @@ describe('Custom Code Tags (Integration)', () => {
   function formatWithCodeTags(content: string, tags: string[]): string {
     const tree = parseText(content);
     const document = createMockDocument(content);
-    const edits = formatDocument(tree, document, defaultOptions, tags);
+    const edits = formatDocument(tree, document, defaultOptions, { customCodeTags: tags });
     expect(edits.length).toBe(1);
     return edits[0].newText;
   }
