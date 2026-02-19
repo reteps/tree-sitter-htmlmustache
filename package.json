@@ -1,6 +1,6 @@
 {
   "name": "@reteps/tree-sitter-htmlmustache",
-  "version": "0.0.35",
+  "version": "0.0.36",
   "description": "HTML with Mustache/Handlebars template syntax grammar for tree-sitter",
   "repository": {
     "type": "git",
@@ -40,10 +40,15 @@
     "vscode-languageserver-textdocument": "^1.0.12",
     "web-tree-sitter": "^0.25.0"
   },
-  "optionalDependencies": {
+  "peerDependencies": {
     "node-addon-api": "^8.2.2",
     "node-gyp-build": "^4.8.2",
     "tree-sitter": "^0.25.0"
+  },
+  "peerDependenciesMeta": {
+    "node-addon-api": { "optional": true },
+    "node-gyp-build": { "optional": true },
+    "tree-sitter": { "optional": true }
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
