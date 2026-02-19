@@ -1,14 +1,16 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import fs from 'node:fs';
 import path from 'node:path';
-import { collectErrors, formatError, formatSummary } from './check';
+import os from 'node:os';
+import { collectErrors, formatError, formatSummary, resolveFiles } from './check';
+import { initializeParser, parseDocument } from './wasm';
 
-const Parser = require('tree-sitter');
-const language = require(path.resolve(__dirname, '..', '..'));
+beforeAll(async () => {
+  await initializeParser();
+});
 
 function parse(source: string) {
-  const parser = new Parser();
-  parser.setLanguage(language);
-  return parser.parse(source);
+  return parseDocument(source);
 }
 
 describe('collectErrors', () => {
@@ -126,5 +128,111 @@ describe('formatSummary', () => {
     const output = formatSummary(1, 1, 1);
     expect(output).toContain('1 error in 1 file');
     expect(output).toContain('1 file checked');
+  });
+});
+
+describe('resolveFiles', () => {
+  let tempDir: string;
+  let origCwd: string;
+
+  beforeAll(() => {
+    origCwd = process.cwd();
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'resolvefiles-test-'));
+
+    // Create test files
+    fs.writeFileSync(path.join(tempDir, 'a.mustache'), '<div>a</div>');
+    fs.writeFileSync(path.join(tempDir, 'b.hbs'), '<div>b</div>');
+    fs.mkdirSync(path.join(tempDir, 'sub'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'sub', 'c.mustache'), '<div>c</div>');
+
+    // Create vendor dir with a file
+    fs.mkdirSync(path.join(tempDir, 'vendor'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'vendor', 'd.mustache'), '<div>d</div>');
+
+    // Create node_modules dir with a file
+    fs.mkdirSync(path.join(tempDir, 'node_modules', 'pkg'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, 'node_modules', 'pkg', 'e.mustache'), '<div>e</div>');
+
+    // Create .git dir with a file
+    fs.mkdirSync(path.join(tempDir, '.git'), { recursive: true });
+    fs.writeFileSync(path.join(tempDir, '.git', 'f.mustache'), '<div>f</div>');
+
+    process.chdir(tempDir);
+  });
+
+  afterAll(() => {
+    process.chdir(origCwd);
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  });
+
+  it('uses CLI patterns when provided', () => {
+    const { files } = resolveFiles(['*.mustache']);
+    expect(files.map(f => path.basename(f))).toEqual(['a.mustache']);
+  });
+
+  it('uses config include when no CLI patterns', () => {
+    fs.writeFileSync(
+      path.join(tempDir, '.htmlmustache.jsonc'),
+      JSON.stringify({ include: ['**/*.mustache'] }),
+    );
+    const { files } = resolveFiles([]);
+    const basenames = files.map(f => path.basename(f));
+    expect(basenames).toContain('a.mustache');
+    expect(basenames).toContain('c.mustache');
+  });
+
+  it('excludes node_modules by default', () => {
+    const { files } = resolveFiles([]);
+    const basenames = files.map(f => path.basename(f));
+    expect(basenames).not.toContain('e.mustache');
+  });
+
+  it('excludes .git by default', () => {
+    const { files } = resolveFiles([]);
+    const basenames = files.map(f => path.basename(f));
+    expect(basenames).not.toContain('f.mustache');
+  });
+
+  it('applies config exclude patterns', () => {
+    fs.writeFileSync(
+      path.join(tempDir, '.htmlmustache.jsonc'),
+      JSON.stringify({ include: ['**/*.mustache'], exclude: ['vendor/**'] }),
+    );
+    const { files } = resolveFiles([]);
+    const basenames = files.map(f => path.basename(f));
+    expect(basenames).toContain('a.mustache');
+    expect(basenames).not.toContain('d.mustache');
+  });
+
+  it('applies exclude even with CLI patterns', () => {
+    fs.writeFileSync(
+      path.join(tempDir, '.htmlmustache.jsonc'),
+      JSON.stringify({ exclude: ['vendor/**'] }),
+    );
+    const { files } = resolveFiles(['**/*.mustache']);
+    const basenames = files.map(f => path.basename(f));
+    expect(basenames).toContain('a.mustache');
+    expect(basenames).not.toContain('d.mustache');
+  });
+
+  it('returns empty files and null config when no patterns and no config', () => {
+    // Remove config file
+    const configPath = path.join(tempDir, '.htmlmustache.jsonc');
+    if (fs.existsSync(configPath)) fs.unlinkSync(configPath);
+
+    const { files, config } = resolveFiles([]);
+    expect(files).toEqual([]);
+    expect(config).toBeNull();
+  });
+
+  it('returns empty files when config has no include and no CLI patterns', () => {
+    fs.writeFileSync(
+      path.join(tempDir, '.htmlmustache.jsonc'),
+      JSON.stringify({ printWidth: 100 }),
+    );
+    const { files, config } = resolveFiles([]);
+    expect(files).toEqual([]);
+    expect(config).not.toBeNull();
+    expect(config!.include).toBeUndefined();
   });
 });

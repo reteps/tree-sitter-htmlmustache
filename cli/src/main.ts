@@ -16,7 +16,7 @@ async function main(): Promise<void> {
 
   switch (command) {
     case 'check':
-      process.exit(runCheck(args));
+      process.exit(await runCheck(args));
       break;
     case 'format':
       process.exit(await runFormat(args));

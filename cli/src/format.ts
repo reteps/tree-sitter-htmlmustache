@@ -10,14 +10,14 @@ import { getEditorConfigOptions } from '../../lsp/server/src/formatting/editorco
 import { loadConfigFileForPath } from '../../lsp/server/src/configFile';
 import { parseCustomCodeTagSettings } from '../../lsp/server/src/customCodeTags';
 import { initializeParser, parseDocument } from './wasm';
-import { expandGlobs } from './check';
+import { resolveFiles } from './check';
 
-const USAGE = `Usage: htmlmustache format [options] <patterns...>
+const USAGE = `Usage: htmlmustache format [options] [patterns...]
 
 Format HTML Mustache templates.
 
 Arguments:
-  patterns          One or more glob patterns (e.g. '**/*.mustache')
+  patterns          One or more glob patterns (optional if "include" is set in config)
 
 Options:
   --write           Modify files in-place (default: print to stdout)
@@ -31,6 +31,7 @@ Options:
 Examples:
   htmlmustache format --write '**/*.mustache'
   htmlmustache format --check 'templates/**/*.hbs'
+  htmlmustache format --write                       (uses "include" from .htmlmustache.jsonc)
   echo '<div><p>hi</p></div>' | htmlmustache format --stdin`;
 
 interface FormatFlags {
@@ -171,15 +172,9 @@ export async function run(args: string[]): Promise<number> {
 
   const flags = parseFlags(args);
 
-  if (!flags.stdin && flags.patterns.length === 0) {
-    console.log(USAGE);
-    return 1;
-  }
-
-  await initializeParser();
-
   // Stdin mode
   if (flags.stdin) {
+    await initializeParser();
     const { options, ...params } = resolveSettings(flags);
     const source = fs.readFileSync(0, 'utf-8');
     const formatted = formatSource(source, options, params);
@@ -188,15 +183,22 @@ export async function run(args: string[]): Promise<number> {
   }
 
   // File mode
-  const files = expandGlobs(flags.patterns);
+  const { files, config } = resolveFiles(flags.patterns);
 
   if (files.length === 0) {
+    if (flags.patterns.length === 0 && (!config?.include || config.include.length === 0)) {
+      console.log(USAGE);
+      return 1;
+    }
+    const patterns = flags.patterns.length > 0 ? flags.patterns : config?.include ?? [];
     console.error(chalk.yellow('No files matched the given patterns:'));
-    for (const pattern of flags.patterns) {
+    for (const pattern of patterns) {
       console.error(chalk.yellow(`  ${pattern}`));
     }
     return 1;
   }
+
+  await initializeParser();
 
   const cwd = process.cwd();
   let changedCount = 0;

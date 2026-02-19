@@ -8,6 +8,8 @@ export interface HtmlMustacheConfig {
   indentSize?: number;
   mustacheSpaces?: boolean;
   customCodeTags?: CustomCodeTagConfig[];
+  include?: string[];
+  exclude?: string[];
 }
 
 const CONFIG_FILENAME = '.htmlmustache.jsonc';
@@ -101,6 +103,15 @@ export function validateConfig(raw: unknown): HtmlMustacheConfig {
   }
   if (typeof obj.mustacheSpaces === 'boolean') {
     config.mustacheSpaces = obj.mustacheSpaces;
+  }
+
+  if (Array.isArray(obj.include)) {
+    const items = obj.include.filter((s: unknown) => typeof s === 'string' && s.length > 0);
+    if (items.length > 0) config.include = items as string[];
+  }
+  if (Array.isArray(obj.exclude)) {
+    const items = obj.exclude.filter((s: unknown) => typeof s === 'string' && s.length > 0);
+    if (items.length > 0) config.exclude = items as string[];
   }
 
   if (Array.isArray(obj.customCodeTags)) {

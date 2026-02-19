@@ -3,6 +3,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import chalk from 'chalk';
+import type { Tree } from './wasm';
+import { initializeParser, parseDocument } from './wasm';
+import { findConfigFile, parseJsonc, validateConfig } from '../../lsp/server/src/configFile';
+import type { HtmlMustacheConfig } from '../../lsp/server/src/configFile';
 
 // ── Types ──
 
@@ -21,33 +25,19 @@ export interface CheckResult {
   errors: CheckError[];
 }
 
-// ── Parser loading ──
+// ── Error collection ──
 
-interface TreeSitterParser {
-  parse(input: string): TreeSitterTree;
-  setLanguage(lang: unknown): void;
-}
-
-interface TreeSitterTree {
-  walk(): TreeSitterCursor;
-}
-
-interface TreeSitterPoint {
-  row: number;
-  column: number;
-}
-
-interface TreeSitterNode {
+interface SyntaxNode {
   type: string;
   isMissing: boolean;
   text: string;
-  startPosition: TreeSitterPoint;
-  endPosition: TreeSitterPoint;
-  children: TreeSitterNode[];
+  startPosition: { row: number; column: number };
+  endPosition: { row: number; column: number };
+  children: SyntaxNode[];
 }
 
-interface TreeSitterCursor {
-  currentNode: TreeSitterNode;
+interface TreeCursor {
+  currentNode: SyntaxNode;
   nodeType: string;
   nodeIsMissing: boolean;
   gotoFirstChild(): boolean;
@@ -55,43 +45,13 @@ interface TreeSitterCursor {
   gotoParent(): boolean;
 }
 
-function loadParser(): TreeSitterParser {
-  let Parser: new () => TreeSitterParser;
-  try {
-    Parser = require('tree-sitter');
-  } catch {
-    console.error(
-      chalk.red('Error: tree-sitter is not installed.\n') +
-      'Install it with: npm install tree-sitter'
-    );
-    process.exit(1);
-  }
-
-  let language: unknown;
-  try {
-    language = require(path.resolve(__dirname, '..', '..'));
-  } catch {
-    console.error(
-      chalk.red('Error: could not load tree-sitter-htmlmustache bindings.\n') +
-      'Run "npm install" in the tree-sitter-htmlmustache root first.'
-    );
-    process.exit(1);
-  }
-
-  const parser = new Parser();
-  parser.setLanguage(language);
-  return parser;
-}
-
-// ── Error collection ──
-
-function errorMessageForNode(nodeType: string, node: TreeSitterNode): string {
+function errorMessageForNode(nodeType: string, node: SyntaxNode): string {
   if (nodeType === 'mustache_erroneous_section_end' || nodeType === 'mustache_erroneous_inverted_section_end') {
-    const tagNameNode = node.children.find((c: TreeSitterNode) => c.type === 'mustache_erroneous_tag_name');
+    const tagNameNode = node.children.find((c: SyntaxNode) => c.type === 'mustache_erroneous_tag_name');
     return `Mismatched mustache section: {{/${tagNameNode?.text || '?'}}}`;
   }
   if (nodeType === 'html_erroneous_end_tag') {
-    const tagNameNode = node.children.find((c: TreeSitterNode) => c.type === 'html_erroneous_end_tag_name');
+    const tagNameNode = node.children.find((c: SyntaxNode) => c.type === 'html_erroneous_end_tag_name');
     return `Mismatched HTML end tag: </${tagNameNode?.text || '?'}>`;
   }
   if (nodeType === 'ERROR') {
@@ -108,9 +68,9 @@ const ERROR_NODE_TYPES = new Set([
   'html_erroneous_end_tag',
 ]);
 
-export function collectErrors(tree: TreeSitterTree, file: string): CheckError[] {
+export function collectErrors(tree: Tree, file: string): CheckError[] {
   const errors: CheckError[] = [];
-  const cursor = tree.walk();
+  const cursor = tree.walk() as unknown as TreeCursor;
 
   function visit() {
     const node = cursor.currentNode;
@@ -224,44 +184,104 @@ export function expandGlobs(patterns: string[]): string[] {
   return [...files].sort();
 }
 
+// ── File resolution ──
+
+const DEFAULT_EXCLUDE_SEGMENTS = ['/node_modules/', '/.git/'];
+
+export function resolveFiles(cliPatterns: string[]): { files: string[]; config: HtmlMustacheConfig | null } {
+  // Load config from cwd
+  const configPath = findConfigFile(process.cwd());
+  let config: HtmlMustacheConfig | null = null;
+  if (configPath) {
+    try {
+      const text = fs.readFileSync(configPath, 'utf-8');
+      const raw = parseJsonc(text);
+      config = validateConfig(raw);
+    } catch {
+      config = null;
+    }
+  }
+
+  // Determine include patterns
+  let patterns: string[];
+  if (cliPatterns.length > 0) {
+    patterns = cliPatterns;
+  } else if (config?.include && config.include.length > 0) {
+    patterns = config.include;
+  } else {
+    return { files: [], config };
+  }
+
+  // Expand globs
+  let files = expandGlobs(patterns);
+
+  // Apply default excludes
+  files = files.filter(f => !DEFAULT_EXCLUDE_SEGMENTS.some(seg => f.includes(seg)));
+
+  // Apply config excludes
+  if (config?.exclude && config.exclude.length > 0) {
+    const cwd = process.cwd();
+    const excludeSet = new Set<string>();
+    for (const pattern of config.exclude) {
+      if (!pattern.includes('*') && !pattern.includes('?')) {
+        excludeSet.add(path.resolve(cwd, pattern));
+      } else {
+        for (const match of fs.globSync(pattern, { cwd })) {
+          excludeSet.add(path.resolve(cwd, match));
+        }
+      }
+    }
+    files = files.filter(f => !excludeSet.has(f));
+  }
+
+  return { files, config };
+}
+
 // ── Main ──
 
-const USAGE = `Usage: htmlmustache check <patterns...>
+const USAGE = `Usage: htmlmustache check [patterns...]
 
 Check HTML Mustache templates for errors.
 
 Arguments:
-  patterns  One or more glob patterns (e.g. '**/*.mustache' '**/*.hbs')
+  patterns  One or more glob patterns (optional if "include" is set in config)
 
 Options:
   --help    Show this help message
 
 Examples:
   htmlmustache check '**/*.mustache'
-  htmlmustache check 'templates/**/*.hbs' 'partials/**/*.mustache'`;
+  htmlmustache check 'templates/**/*.hbs' 'partials/**/*.mustache'
+  htmlmustache check                       (uses "include" from .htmlmustache.jsonc)`;
 
-export function run(args: string[]): number {
+export async function run(args: string[]): Promise<number> {
   // Strip "check" subcommand if present
   if (args[0] === 'check') {
     args = args.slice(1);
   }
 
-  if (args.includes('--help') || args.length === 0) {
+  if (args.includes('--help')) {
     console.log(USAGE);
-    return args.includes('--help') ? 0 : 1;
+    return 0;
   }
 
-  const files = expandGlobs(args);
+  const { files, config } = resolveFiles(args);
 
   if (files.length === 0) {
+    if (args.length === 0 && (!config?.include || config.include.length === 0)) {
+      console.log(USAGE);
+      return 1;
+    }
+    const patterns = args.length > 0 ? args : config?.include ?? [];
     console.error(chalk.yellow('No files matched the given patterns:'));
-    for (const arg of args) {
-      console.error(chalk.yellow(`  ${arg}`));
+    for (const p of patterns) {
+      console.error(chalk.yellow(`  ${p}`));
     }
     return 1;
   }
 
-  const parser = loadParser();
+  await initializeParser();
+
   let totalErrors = 0;
   let filesWithErrors = 0;
 
@@ -272,7 +292,7 @@ export function run(args: string[]): number {
   for (const file of files) {
     const displayPath = path.relative(cwd, file) || file;
     const source = fs.readFileSync(file, 'utf-8');
-    const tree = parser.parse(source);
+    const tree = parseDocument(source);
     const errors = collectErrors(tree, displayPath);
 
     if (errors.length > 0) {

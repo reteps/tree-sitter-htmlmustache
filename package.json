@@ -1,6 +1,6 @@
 {
   "name": "@reteps/tree-sitter-htmlmustache",
-  "version": "0.0.34",
+  "version": "0.0.35",
   "description": "HTML with Mustache/Handlebars template syntax grammar for tree-sitter",
   "repository": {
     "type": "git",
@@ -37,11 +37,13 @@
   "dependencies": {
     "chalk": "^4.1.2",
     "editorconfig": "^2.0.1",
-    "node-addon-api": "^8.2.2",
-    "node-gyp-build": "^4.8.2",
-    "tree-sitter": "^0.25.0",
     "vscode-languageserver-textdocument": "^1.0.12",
     "web-tree-sitter": "^0.25.0"
+  },
+  "optionalDependencies": {
+    "node-addon-api": "^8.2.2",
+    "node-gyp-build": "^4.8.2",
+    "tree-sitter": "^0.25.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
@@ -65,9 +67,9 @@
     ]
   },
   "scripts": {
-    "install": "node-gyp-build",
+    "install": "node-gyp-build || exit 0",
     "build": "tree-sitter build --wasm",
-    "prepack": "node cli/esbuild.mjs",
+    "prepack": "tree-sitter build --wasm && node cli/esbuild.mjs",
     "build:cli": "node cli/esbuild.mjs",
     "check": "node cli/out/check.js check",
     "lint": "eslint .",

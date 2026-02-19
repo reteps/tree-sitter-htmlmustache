@@ -150,6 +150,44 @@ describe('validateConfig', () => {
     expect(result.customCodeTags![2].indent).toBe('attribute');
     expect(result.customCodeTags![2].indentAttribute).toBe('src');
   });
+
+  it('validates include array', () => {
+    expect(validateConfig({ include: ['**/*.mustache', '**/*.hbs'] })).toEqual({
+      include: ['**/*.mustache', '**/*.hbs'],
+    });
+  });
+
+  it('filters invalid include entries', () => {
+    const result = validateConfig({ include: ['**/*.mustache', '', 42, null, '**/*.hbs'] });
+    expect(result.include).toEqual(['**/*.mustache', '**/*.hbs']);
+  });
+
+  it('omits include when all entries are invalid', () => {
+    expect(validateConfig({ include: ['', 42, null] })).toEqual({});
+  });
+
+  it('ignores non-array include', () => {
+    expect(validateConfig({ include: '**/*.mustache' })).toEqual({});
+  });
+
+  it('validates exclude array', () => {
+    expect(validateConfig({ exclude: ['**/vendor/**'] })).toEqual({
+      exclude: ['**/vendor/**'],
+    });
+  });
+
+  it('filters invalid exclude entries', () => {
+    const result = validateConfig({ exclude: ['**/vendor/**', '', 123] });
+    expect(result.exclude).toEqual(['**/vendor/**']);
+  });
+
+  it('omits exclude when all entries are invalid', () => {
+    expect(validateConfig({ exclude: [''] })).toEqual({});
+  });
+
+  it('ignores non-array exclude', () => {
+    expect(validateConfig({ exclude: '**/vendor/**' })).toEqual({});
+  });
 });
 
 describe('findConfigFile', () => {

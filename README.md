@@ -79,6 +79,12 @@ Check templates for parse errors:
 htmlmustache check '**/*.mustache' '**/*.hbs'
 ```
 
+If `include` is configured in `.htmlmustache.jsonc`, patterns are optional:
+
+```
+htmlmustache check
+```
+
 ```
 file.mustache:3:3 error: Mismatched mustache section: {{/wrong}}
   |
@@ -98,6 +104,12 @@ Format templates:
 
 ```
 htmlmustache format --write '**/*.mustache'
+```
+
+If `include` is configured in `.htmlmustache.jsonc`, patterns are optional:
+
+```
+htmlmustache format --write
 ```
 
 Check formatting in CI (exits 1 if any files would change):
@@ -131,6 +143,12 @@ Create a `.htmlmustache.jsonc` file in your project root to configure formatting
 
 ```jsonc
 {
+  // File patterns for CLI commands (used when no patterns are passed as arguments)
+  "include": ["**/*.mustache", "**/*.hbs"],
+
+  // Patterns to always exclude (node_modules and .git are excluded by default)
+  "exclude": ["**/vendor/**"],
+
   // Max line width before wrapping (default: 80)
   "printWidth": 100,
 
