@@ -46,7 +46,7 @@ let customCodeTagConfigs: CustomCodeTagConfig[] = [];
 let printWidth = 80;
 
 // Mustache spaces setting (add spaces inside delimiters)
-let mustacheSpaces: boolean | undefined;
+let mustacheSpaces: boolean | undefined = false;
 
 connection.onInitialize(async (params: InitializeParams): Promise<InitializeResult> => {
   connection.console.log('onInitialize called');

@@ -180,7 +180,15 @@ export function formatHtmlElement(node: SyntaxNode, context: FormatterContext): 
         startTag.endIndex,
         endTag.startIndex
       );
-      parts.push(text(rawContent));
+      // For block-level elements, replace trailing newline+whitespace with
+      // a hardline so the closing tag gets proper indentation from the printer
+      const trailingMatch = isBlock ? rawContent.match(/\n[\t ]*$/) : null;
+      if (trailingMatch) {
+        parts.push(text(rawContent.slice(0, -trailingMatch[0].length)));
+        parts.push(hardline);
+      } else {
+        parts.push(text(rawContent));
+      }
     } else {
       for (const child of contentNodes) {
         parts.push(text(child.text));
@@ -480,7 +488,11 @@ export function formatAttribute(node: SyntaxNode, context?: FormatterContext): D
       parts.push(text(child.text));
     } else if (child.type === 'html_quoted_attribute_value') {
       parts.push(text('='));
-      parts.push(text(child.text));
+      if (context?.mustacheSpaces !== undefined) {
+        parts.push(text(normalizeMustacheWhitespaceAll(child.text, context.mustacheSpaces)));
+      } else {
+        parts.push(text(child.text));
+      }
     } else if (child.type === 'mustache_interpolation') {
       parts.push(text('='));
       parts.push(text(context ? mustacheText(child.text, context) : child.text));

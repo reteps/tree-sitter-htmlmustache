@@ -373,6 +373,14 @@ describe('Custom Code Tags (Integration)', () => {
     expect(result).toBe('<pl-file-editor>\n  line1\n  line2\n</pl-file-editor>\n');
   });
 
+  it('indents closing tag of nested custom code tag', () => {
+    const result = formatWithCodeTags(
+      '<div>\n<pl-code>\ndef square(x):\n    return x * x\n</pl-code>\n</div>',
+      ['pl-code']
+    );
+    expect(result).toBe('<div>\n  <pl-code>\ndef square(x):\n    return x * x\n  </pl-code>\n</div>\n');
+  });
+
   it('does not affect tags not in custom code tags list', () => {
     const result = formatWithCodeTags(
       '<div>  multiple   spaces  </div>',

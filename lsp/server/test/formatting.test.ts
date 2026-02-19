@@ -447,6 +447,11 @@ describe('Mustache Spaces', () => {
       expect(result).toBe('<div value={{ variable }}>content</div>\n');
     });
 
+    it('adds spaces to quoted mustache attribute value', () => {
+      const result = formatWithSpaces('<div value="{{variable}}">content</div>', true);
+      expect(result).toBe('<div value="{{ variable }}">content</div>\n');
+    });
+
     it('adds spaces to force-inlined sections', () => {
       const result = formatWithSpaces('<p>figure{{#plural}}s{{/plural}}.</p>', true);
       expect(result).toBe('<p>figure{{# plural }}s{{/ plural }}.</p>\n');
@@ -487,6 +492,11 @@ describe('Mustache Spaces', () => {
     it('removes spaces from force-inlined sections', () => {
       const result = formatWithSpaces('<p>figure{{# plural }}s{{/ plural }}.</p>', false);
       expect(result).toBe('<p>figure{{#plural}}s{{/plural}}.</p>\n');
+    });
+
+    it('removes spaces from quoted mustache attribute value', () => {
+      const result = formatWithSpaces('<div alt="{{ img-alt  }}">content</div>', false);
+      expect(result).toBe('<div alt="{{img-alt}}">content</div>\n');
     });
   });
 
