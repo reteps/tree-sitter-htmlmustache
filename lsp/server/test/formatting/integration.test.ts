@@ -76,13 +76,14 @@ describe('Document Formatting (Integration)', () => {
 
     it('breaks long text flow', () => {
       const result = format('<p>The answer must be a <i>double-precision</i> {{#complex}}or complex{{/complex}} number.</p>');
-      expect(result).toBe('<p>\n  The answer must be a <i>double-precision</i> {{#complex}}or complex{{/complex}} number.\n</p>\n');
+      expect(result).toBe('<p>\n  The answer must be a <i>double-precision</i>\n  {{#complex}}or complex{{/complex}} number.\n</p>\n');
     });
 
-    it('preserves multi-line text content', () => {
+    it('reflows multi-line text content', () => {
+      // Source newlines in text are treated as word boundaries; short content stays on one line
       const input = '<p>First line of text.\nSecond line of text.</p>';
       const result = format(input);
-      expect(result).toBe('<p>\n  First line of text.\n  Second line of text.\n</p>\n');
+      expect(result).toBe('<p>First line of text. Second line of text.</p>\n');
     });
 
     it('keeps short element with attributes flat', () => {
@@ -249,7 +250,8 @@ describe('Document Formatting (Integration)', () => {
       const wide = formatWithPrintWidth(content, 80);
       const narrow = formatWithPrintWidth(content, 40);
       expect(wide).toBe('<p>Hello <strong>world</strong> this is text</p>\n');
-      expect(narrow).toBe('<p>\n  Hello <strong>world</strong> this is text\n</p>\n');
+      // Fill wraps "text" to next line at print width 40
+      expect(narrow).toBe('<p>\n  Hello <strong>world</strong> this is\n  text\n</p>\n');
     });
   });
 

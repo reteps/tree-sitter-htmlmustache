@@ -24,6 +24,14 @@ describe('Document Formatting', () => {
     return edits[0].newText;
   }
 
+  function formatWithPrintWidth(content: string, printWidth: number, options: FormattingOptions = defaultOptions): string {
+    const tree = parseText(content);
+    const document = createMockDocument(content);
+    const edits = formatDocument(tree, document, options, undefined, printWidth);
+    expect(edits.length).toBe(1);
+    return edits[0].newText;
+  }
+
   describe('HTML elements', () => {
     it('keeps short block element on one line', () => {
       const result = format('<div>content</div>');
@@ -64,16 +72,16 @@ describe('Document Formatting', () => {
     });
 
     it('breaks long text flow', () => {
-      // This content exceeds 80 chars so the group breaks
+      // This content exceeds 80 chars so the group breaks, and fill wraps at print width
       const result = format('<p>The answer must be a <i>double-precision</i> {{#complex}}or complex{{/complex}} number.</p>');
-      expect(result).toBe('<p>\n  The answer must be a <i>double-precision</i> {{#complex}}or complex{{/complex}} number.\n</p>\n');
+      expect(result).toBe('<p>\n  The answer must be a <i>double-precision</i>\n  {{#complex}}or complex{{/complex}} number.\n</p>\n');
     });
 
-    it('preserves multi-line text content', () => {
-      // Content on multiple lines should stay on multiple lines
+    it('reflows multi-line text content', () => {
+      // Source newlines in text are treated as word boundaries; short content stays on one line
       const input = '<p>First line of text.\nSecond line of text.</p>';
       const result = format(input);
-      expect(result).toBe('<p>\n  First line of text.\n  Second line of text.\n</p>\n');
+      expect(result).toBe('<p>First line of text. Second line of text.</p>\n');
     });
 
     it('keeps short element with attributes flat', () => {
@@ -287,14 +295,88 @@ is the number of false options that you select, and <code>n</code> is the total 
 At minimum, you will receive a score of 0%.
 {{/net-correct}}`;
       const result = format(input);
-      // Comma stays with </code>, "where" stays with <code>t</code>, etc.
+      // Fill wraps at 80 chars; comma stays with </code>, inline elements stay atomic
       expect(result).toBe(
         '{{#net-correct}}\n' +
-        '  You must select {{{insert_text}}} You will receive a score of <code>100% * (t - f) / n</code>,\n' +
-        '  where <code>t</code> is the number of true options that you select, <code>f</code> is the number of false options that you select, and <code>n</code> is the total number of true options.\n' +
-        '  At minimum, you will receive a score of 0%.\n' +
+        '  You must select {{{insert_text}}} You will receive a score of\n' +
+        '  <code>100% * (t - f) / n</code>, where <code>t</code> is the number of true\n' +
+        '  options that you select, <code>f</code> is the number of false options that\n' +
+        '  you select, and <code>n</code> is the total number of true options. At\n' +
+        '  minimum, you will receive a score of 0%.\n' +
         '{{/net-correct}}\n'
       );
+    });
+
+    it('wraps at print width 100 with 4-space indent', () => {
+      const input = `{{#net-correct}}
+You must select {{{insert_text}}} You will receive a score of <code>100% * (t - f) / n</code>,
+where <code>t</code> is the number of true options that you select, <code>f</code>
+is the number of false options that you select, and <code>n</code> is the total number of true options.
+At minimum, you will receive a score of 0%.
+{{/net-correct}}`;
+      const result = formatWithPrintWidth(input, 100, { tabSize: 4, insertSpaces: true });
+      expect(result).toBe(
+        '{{#net-correct}}\n' +
+        '    You must select {{{insert_text}}} You will receive a score of <code>100% * (t - f) / n</code>,\n' +
+        '    where <code>t</code> is the number of true options that you select, <code>f</code> is the number\n' +
+        '    of false options that you select, and <code>n</code> is the total number of true options. At\n' +
+        '    minimum, you will receive a score of 0%.\n' +
+        '{{/net-correct}}\n'
+      );
+    });
+
+    it('keeps short inline content on one line', () => {
+      const input = '<p>Hello <code>world</code> and more.</p>';
+      const result = format(input);
+      expect(result).toBe('<p>Hello <code>world</code> and more.</p>\n');
+    });
+
+    it('wraps long inline text at word boundaries respecting print width', () => {
+      const input = '<p>This is a very long sentence that contains <code>inline code</code> and should wrap at word boundaries when it exceeds the print width limit.</p>';
+      const result = format(input);
+      // The group breaks because content exceeds 80 chars, then fill wraps at word boundaries
+      expect(result).toBe(
+        '<p>\n' +
+        '  This is a very long sentence that contains <code>inline code</code> and should\n' +
+        '  wrap at word boundaries when it exceeds the print width limit.\n' +
+        '</p>\n'
+      );
+    });
+
+    it('wraps at print width 100 with 8-space indent', () => {
+      // 8-space indent comes from nesting: e.g. tabSize=4 at depth 2
+      const input = `<div>
+<div>
+{{#net-correct}}
+You must select {{{insert_text}}} You will receive a score of <code>100% * (t - f) / n</code>,
+where <code>t</code> is the number of true options that you select, <code>f</code>
+is the number of false options that you select, and <code>n</code> is the total number of true options.
+At minimum, you will receive a score of 0%.
+{{/net-correct}}
+</div>
+</div>`;
+      const result = formatWithPrintWidth(input, 100, { tabSize: 4, insertSpaces: true });
+      // comma stays with </code>, "where" joins on same line, "At" joins "options."
+      expect(result).toBe(
+        '<div>\n' +
+        '    <div>\n' +
+        '        {{#net-correct}}\n' +
+        '            You must select {{{insert_text}}} You will receive a score of\n' +
+        '            <code>100% * (t - f) / n</code>, where <code>t</code> is the number of true options that\n' +
+        '            you select, <code>f</code> is the number of false options that you select, and\n' +
+        '            <code>n</code> is the total number of true options. At minimum, you will receive a score\n' +
+        '            of 0%.\n' +
+        '        {{/net-correct}}\n' +
+        '    </div>\n' +
+        '</div>\n'
+      );
+    });
+
+    it('attaches punctuation to preceding content after wrapping', () => {
+      const input = '<div>Some text before <code>value</code>, and some text after the comma.</div>';
+      const result = format(input);
+      // Comma stays attached to </code>
+      expect(result).toBe('<div>Some text before <code>value</code>, and some text after the comma.</div>\n');
     });
   });
 

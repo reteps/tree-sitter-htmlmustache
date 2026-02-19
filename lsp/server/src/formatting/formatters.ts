@@ -12,6 +12,7 @@ import type { TextDocument } from 'vscode-languageserver-textdocument';
 import {
   Doc,
   concat,
+  fill,
   hardline,
   softline,
   line,
@@ -20,6 +21,7 @@ import {
   text,
   empty,
   ifBreak,
+  isLine,
 } from './ir';
 import {
   isBlockLevel,
@@ -503,6 +505,76 @@ export function formatAttribute(node: SyntaxNode, context?: FormatterContext): D
 }
 
 /**
+ * Split a single-line text string into alternating words and `line` separators.
+ * Returns an array of fill-ready parts to spread into `currentLine`.
+ */
+function textWords(str: string): Doc[] {
+  const words = str.split(/\s+/).filter((w) => w.length > 0);
+  if (words.length === 0) return [];
+  const parts: Doc[] = [words[0]];
+  for (let i = 1; i < words.length; i++) {
+    parts.push(line);
+    parts.push(words[i]);
+  }
+  return parts;
+}
+
+/**
+ * Convert inline content parts into a fill Doc that wraps at word boundaries.
+ *
+ * `currentLine` is already fill-ready: text nodes are pre-split into
+ * alternating word/`line` parts by `textWords`, and inter-node gaps are
+ * `line` separators. This function enforces proper alternating
+ * content/separator structure, concatenates adjacent content, and attaches
+ * leading punctuation to the preceding content.
+ */
+function inlineContentToFill(parts: Doc[]): Doc {
+  if (parts.length === 0) return empty;
+  if (parts.length === 1) return parts[0];
+
+  const fillParts: Doc[] = [];
+  for (const item of parts) {
+    if (isLine(item)) {
+      // Only push separator after content (skip leading/duplicate separators)
+      if (fillParts.length > 0 && !isLine(fillParts[fillParts.length - 1])) {
+        fillParts.push(item);
+      }
+    } else {
+      const lastIdx = fillParts.length - 1;
+      if (lastIdx >= 0 && !isLine(fillParts[lastIdx])) {
+        // Adjacent content (no separator) — concat with previous
+        fillParts[lastIdx] = concat([fillParts[lastIdx], item]);
+      } else if (
+        typeof item === 'string' &&
+        /^[,.:;!?)\]]/.test(item) &&
+        lastIdx >= 0 &&
+        isLine(fillParts[lastIdx])
+      ) {
+        // Punctuation after separator — attach to preceding content
+        fillParts.pop();
+        if (fillParts.length > 0) {
+          fillParts[fillParts.length - 1] = concat([
+            fillParts[fillParts.length - 1],
+            item,
+          ]);
+        } else {
+          fillParts.push(item);
+        }
+      } else {
+        fillParts.push(item);
+      }
+    }
+  }
+
+  // Remove trailing separator
+  if (fillParts.length > 0 && isLine(fillParts[fillParts.length - 1])) {
+    fillParts.pop();
+  }
+
+  return fill(fillParts);
+}
+
+/**
  * Format block-level children with display-aware separators.
  */
 export function formatBlockChildren(
@@ -534,7 +606,7 @@ export function formatBlockChildren(
 
       if (!prevTreatAsBlock && !treatAsBlock) {
         if (/\s/.test(gap)) {
-          currentLine.push(text(' '));
+          currentLine.push(line);
         }
       }
     }
@@ -542,7 +614,7 @@ export function formatBlockChildren(
     if (treatAsBlock) {
       // Flush current inline content
       if (currentLine.length > 0) {
-        const lineContent = trimDoc(concat(currentLine));
+        const lineContent = trimDoc(inlineContentToFill(currentLine));
         if (hasDocContent(lineContent)) {
           lines.push({ doc: lineContent, blankLineBefore: blankLineBeforeCurrentLine });
         }
@@ -557,7 +629,7 @@ export function formatBlockChildren(
       const isMultiline = node.startPosition.row !== node.endPosition.row;
       if (isMultiline) {
         if (currentLine.length > 0) {
-          const lineContent = trimDoc(concat(currentLine));
+          const lineContent = trimDoc(inlineContentToFill(currentLine));
           if (hasDocContent(lineContent)) {
             lines.push({ doc: lineContent, blankLineBefore: blankLineBeforeCurrentLine });
           }
@@ -586,56 +658,87 @@ export function formatBlockChildren(
 
       // Check if formatted content contains newlines (multi-line text)
       if (typeof formatted === 'string' && formatted.includes('\n')) {
-        // Split text into lines. The first part joins the current line
-        // (preserving text flow with preceding inline elements), and the
-        // last part becomes the new current line (so subsequent inline
-        // elements like <code> can join it).
         const contentLines = formatted.split('\n');
+        const isTextNode = node.type === 'text';
 
-        // First part continues the current inline flow
-        const firstTrimmed = contentLines[0].trim();
-        if (firstTrimmed) {
-          currentLine.push(firstTrimmed);
-        }
-
-        // Flush current line before adding subsequent lines
-        if (currentLine.length > 0) {
-          const lineContent = trimDoc(concat(currentLine));
-          if (hasDocContent(lineContent)) {
-            lines.push({ doc: lineContent, blankLineBefore: blankLineBeforeCurrentLine });
-            blankLineBeforeCurrentLine = pendingBlankLine;
-            pendingBlankLine = false;
+        if (isTextNode) {
+          // Re-flow: treat source newlines as word boundaries, only flush at
+          // blank lines. This lets the fill algorithm handle all wrapping.
+          for (let j = 0; j < contentLines.length; j++) {
+            const trimmed = contentLines[j].trim();
+            if (!trimmed) {
+              // Empty line = paragraph break — flush current inline flow
+              if (currentLine.length > 0) {
+                const lineContent = trimDoc(inlineContentToFill(currentLine));
+                if (hasDocContent(lineContent)) {
+                  lines.push({ doc: lineContent, blankLineBefore: blankLineBeforeCurrentLine });
+                  blankLineBeforeCurrentLine = false;
+                }
+                currentLine = [];
+              }
+              pendingBlankLine = true;
+            } else {
+              if (currentLine.length === 0) {
+                blankLineBeforeCurrentLine = pendingBlankLine;
+                pendingBlankLine = false;
+              }
+              // Add a line separator between joined source lines (j > 0),
+              // but not before the first line — it continues the existing flow
+              if (j > 0 && currentLine.length > 0) {
+                currentLine.push(line);
+              }
+              currentLine.push(...textWords(trimmed));
+            }
           }
-          currentLine = [];
-        }
-
-        // Middle parts (index 1 to length-2) become separate lines
-        let sawBlankLine = false;
-        for (let j = 1; j < contentLines.length - 1; j++) {
-          const trimmed = contentLines[j].trim();
-          if (trimmed) {
-            lines.push({ doc: text(trimmed), blankLineBefore: blankLineBeforeCurrentLine || sawBlankLine });
-            blankLineBeforeCurrentLine = false;
-            sawBlankLine = false;
-          } else {
-            sawBlankLine = true;
+        } else {
+          // Non-text nodes (force-inline mustache sections, etc.):
+          // preserve source newlines as hard line breaks.
+          const firstTrimmed = contentLines[0].trim();
+          if (firstTrimmed) {
+            currentLine.push(firstTrimmed);
           }
-        }
 
-        // Last part starts a new current line (subsequent inline elements join it)
-        if (contentLines.length > 1) {
-          const lastTrimmed = contentLines[contentLines.length - 1].trim();
-          if (lastTrimmed) {
-            blankLineBeforeCurrentLine = sawBlankLine;
-            sawBlankLine = false;
-            currentLine = [lastTrimmed];
+          if (currentLine.length > 0) {
+            const lineContent = trimDoc(inlineContentToFill(currentLine));
+            if (hasDocContent(lineContent)) {
+              lines.push({ doc: lineContent, blankLineBefore: blankLineBeforeCurrentLine });
+              blankLineBeforeCurrentLine = pendingBlankLine;
+              pendingBlankLine = false;
+            }
+            currentLine = [];
           }
-          if (sawBlankLine) {
-            pendingBlankLine = true;
+
+          let sawBlankLine = false;
+          for (let j = 1; j < contentLines.length - 1; j++) {
+            const trimmed = contentLines[j].trim();
+            if (trimmed) {
+              lines.push({ doc: text(trimmed), blankLineBefore: blankLineBeforeCurrentLine || sawBlankLine });
+              blankLineBeforeCurrentLine = false;
+              sawBlankLine = false;
+            } else {
+              sawBlankLine = true;
+            }
+          }
+
+          if (contentLines.length > 1) {
+            const lastTrimmed = contentLines[contentLines.length - 1].trim();
+            if (lastTrimmed) {
+              blankLineBeforeCurrentLine = sawBlankLine;
+              sawBlankLine = false;
+              currentLine = [lastTrimmed];
+            }
+            if (sawBlankLine) {
+              pendingBlankLine = true;
+            }
           }
         }
       } else {
-        currentLine.push(formatted);
+        // For text nodes, spread word/line parts directly into currentLine
+        if (node.type === 'text' && typeof formatted === 'string') {
+          currentLine.push(...textWords(formatted));
+        } else {
+          currentLine.push(formatted);
+        }
       }
     }
 
@@ -644,7 +747,7 @@ export function formatBlockChildren(
 
   // Flush remaining inline content
   if (currentLine.length > 0) {
-    const lineContent = trimDoc(concat(currentLine));
+    const lineContent = trimDoc(inlineContentToFill(currentLine));
     if (hasDocContent(lineContent)) {
       lines.push({ doc: lineContent, blankLineBefore: blankLineBeforeCurrentLine });
     }
