@@ -1,6 +1,6 @@
 {
   "name": "@reteps/tree-sitter-htmlmustache",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "HTML with Mustache/Handlebars template syntax grammar for tree-sitter",
   "repository": {
     "type": "git",
@@ -35,10 +35,10 @@
     "cli/out/*"
   ],
   "dependencies": {
-    "chalk": "^4.1.2",
-    "editorconfig": "^2.0.1",
+    "chalk": "^5.6.2",
+    "editorconfig": "^3.0.1",
     "vscode-languageserver-textdocument": "^1.0.12",
-    "web-tree-sitter": "^0.25.0"
+    "web-tree-sitter": "^0.26.5"
   },
   "peerDependencies": {
     "node-addon-api": "^8.2.2",
@@ -58,17 +58,17 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
-    "@types/node": "^22.19.11",
-    "esbuild": "^0.25.0",
+    "@types/node": "^25.3.0",
+    "esbuild": "^0.27.3",
     "eslint": "^9.14.0",
     "eslint-config-treesitter": "^1.0.2",
     "prebuildify": "^6.0.1",
     "prettier": "^3.8.1",
     "tree-sitter": "^0.25.0",
-    "tree-sitter-cli": "^0.26.3",
-    "typescript": "^5.7.0",
-    "typescript-eslint": "^8.54.0",
-    "vitest": "^3.0.0"
+    "tree-sitter-cli": "^0.26.5",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.0",
+    "vitest": "^4.0.18"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

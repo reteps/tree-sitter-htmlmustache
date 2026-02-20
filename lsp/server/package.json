@@ -12,14 +12,14 @@
   "dependencies": {
     "editorconfig": "^3.0.1",
     "vscode-languageserver": "^9.0.1",
-    "vscode-languageserver-textdocument": "^1.0.11",
+    "vscode-languageserver-textdocument": "^1.0.12",
     "vscode-oniguruma": "^2.0.1",
-    "vscode-textmate": "^9.1.0",
-    "web-tree-sitter": "^0.26.3"
+    "vscode-textmate": "^9.3.2",
+    "web-tree-sitter": "^0.26.5"
   },
   "devDependencies": {
-    "@types/node": "^20.10.0",
+    "@types/node": "^25.3.0",
     "prettier": "^3.8.1",
-    "vitest": "^2.0.0"
+    "vitest": "^4.0.18"
   }
 }
