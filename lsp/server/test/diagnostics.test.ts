@@ -307,6 +307,56 @@ describe('Diagnostics', () => {
     });
   });
 
+  describe('unescaped entities', () => {
+    it('detects > in text content', () => {
+      const tree = parseText('<p>a > b</p>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message.includes('Unescaped ">"'))).toBe(true);
+    });
+
+    it('detects bare & in text content', () => {
+      const tree = parseText('<p>foo & bar</p>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message.includes('Unescaped "&"'))).toBe(true);
+    });
+
+    it('does not flag valid entities', () => {
+      const tree = parseText('<p>&gt; &amp; &nbsp;</p>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message.includes('Unescaped'))).toBe(false);
+    });
+
+    it('does not flag > or & in attribute values', () => {
+      const tree = parseText('<a title="a > b & c">link</a>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message.includes('Unescaped'))).toBe(false);
+    });
+
+    it('reports as warning severity', () => {
+      const tree = parseText('<p>a > b</p>');
+      const diagnostics = getDiagnostics(tree);
+
+      const unescaped = diagnostics.find(d => d.message.includes('Unescaped'));
+      expect(unescaped).toBeDefined();
+      expect(unescaped!.severity).toBe(DiagnosticSeverity.Warning);
+    });
+
+    it('includes fix data in diagnostic', () => {
+      const tree = parseText('<p>a > b</p>');
+      const diagnostics = getDiagnostics(tree);
+
+      const unescaped = diagnostics.find(d => d.message.includes('Unescaped'));
+      expect(unescaped).toBeDefined();
+      expect(unescaped!.data).toBeDefined();
+      const data = unescaped!.data as { fix: unknown[]; fixDescription: string };
+      expect(data.fixDescription).toBe('Replace > with &gt;');
+    });
+  });
+
   describe('consecutive same-name sections', () => {
     it('detects consecutive same-name sections with Warning severity', () => {
       const tree = parseText('{{#x}}a{{/x}}{{#x}}b{{/x}}');

@@ -245,6 +245,63 @@ function collectAttributes(node: BalanceNode, conditions: Condition[], out: Attr
   }
 }
 
+// 6. Unescaped HTML entities in text content
+export function checkUnescapedEntities(rootNode: BalanceNode): FixableError[] {
+  const errors: FixableError[] = [];
+
+  function visit(node: BalanceNode) {
+    if (node.type === 'text') {
+      // Bare & (from _text_ampersand rule — node text is exactly "&")
+      if (node.text === '&') {
+        errors.push({
+          node,
+          message: 'Unescaped "&" in text content — use &amp; instead',
+          severity: 'warning',
+          fix: [{
+            startIndex: node.startIndex,
+            endIndex: node.endIndex,
+            newText: '&amp;',
+          }],
+          fixDescription: 'Replace & with &amp;',
+        });
+        return;
+      }
+
+      // > characters in text (from the text rule which allows >)
+      if (node.text.includes('>')) {
+        const fixes: TextReplacement[] = [];
+        let searchFrom = 0;
+        const text = node.text;
+        while (true) {
+          const idx = text.indexOf('>', searchFrom);
+          if (idx === -1) break;
+          fixes.push({
+            startIndex: node.startIndex + idx,
+            endIndex: node.startIndex + idx + 1,
+            newText: '&gt;',
+          });
+          searchFrom = idx + 1;
+        }
+        errors.push({
+          node,
+          message: 'Unescaped ">" in text content — use &gt; instead',
+          severity: 'warning',
+          fix: fixes,
+          fixDescription: 'Replace > with &gt;',
+        });
+        return;
+      }
+    }
+
+    for (const child of node.children) {
+      visit(child);
+    }
+  }
+
+  visit(rootNode);
+  return errors;
+}
+
 export function checkDuplicateAttributes(rootNode: BalanceNode): FixableError[] {
   const errors: FixableError[] = [];
 

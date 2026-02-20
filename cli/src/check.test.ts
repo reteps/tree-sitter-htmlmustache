@@ -628,6 +628,64 @@ describe('duplicate attributes', () => {
   });
 });
 
+describe('unescaped entities', () => {
+  it('detects > in text content', () => {
+    const tree = parse('<p>a > b</p>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Unescaped ">"'))).toBe(true);
+  });
+
+  it('detects bare & in text content', () => {
+    const tree = parse('<p>foo & bar</p>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Unescaped "&"'))).toBe(true);
+  });
+
+  it('does not flag valid entities', () => {
+    const tree = parse('<p>&gt; &amp; &nbsp;</p>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Unescaped'))).toBe(false);
+  });
+
+  it('does not flag > or & in attribute values', () => {
+    const tree = parse('<a title="a > b & c">link</a>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Unescaped'))).toBe(false);
+  });
+
+  it('severity is warning', () => {
+    const tree = parse('<p>a > b</p>');
+    const errors = collectErrors(tree, 'test.mustache');
+    const unescaped = errors.find(e => e.message.includes('Unescaped'));
+    expect(unescaped).toBeDefined();
+    expect(unescaped!.severity).toBe('warning');
+  });
+
+  it('fix replaces > with &gt;', () => {
+    const source = '<p>a > b</p>';
+    const tree = parse(source);
+    const errors = collectErrors(tree, 'test.mustache');
+    const result = applyFixes(source, errors);
+    expect(result).toBe('<p>a &gt; b</p>');
+  });
+
+  it('fix replaces & with &amp;', () => {
+    const source = '<p>foo & bar</p>';
+    const tree = parse(source);
+    const errors = collectErrors(tree, 'test.mustache');
+    const result = applyFixes(source, errors);
+    expect(result).toBe('<p>foo &amp; bar</p>');
+  });
+
+  it('fix replaces multiple > in same text node', () => {
+    const source = '<p>a > b > c</p>';
+    const tree = parse(source);
+    const errors = collectErrors(tree, 'test.mustache');
+    const result = applyFixes(source, errors);
+    expect(result).toBe('<p>a &gt; b &gt; c</p>');
+  });
+});
+
 describe('applyFixes', () => {
   it('applies unquoted attribute fix', () => {
     const source = '<div class={{foo}}></div>';
