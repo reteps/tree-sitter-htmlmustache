@@ -105,6 +105,33 @@ describe('Document Formatting (Integration)', () => {
       const result = format('<div></div><p></p>');
       expect(result).toBe('<div>\n</div>\n<p>\n</p>\n');
     });
+
+    it('keeps inline element on same line as adjacent mustache interpolation', () => {
+      const result = format(
+        '<span class="badge">\n  <i class="far fa-circle" aria-hidden="true"></i>\n  {{partial}}%\n</span>'
+      );
+      expect(result).toBe(
+        '<span class="badge">\n  <i class="far fa-circle" aria-hidden="true"></i> {{partial}}%\n</span>\n'
+      );
+    });
+
+    it('keeps void element on same line as adjacent mustache triple', () => {
+      const result = format(
+        '<span>\n  <i class="icon"></i>\n  {{{value}}}\n</span>'
+      );
+      expect(result).toBe(
+        '<span>\n  <i class="icon"></i> {{{value}}}\n</span>\n'
+      );
+    });
+
+    it('self-closing tag aligns /> with opening bracket when broken', () => {
+      const result = format(
+        '<input name="test" type="text" class="form-control" placeholder="Enter a value" />'
+      );
+      expect(result).toBe(
+        '<input\n  name="test"\n  type="text"\n  class="form-control"\n  placeholder="Enter a value"\n/>\n'
+      );
+    });
   });
 
   describe('Mustache sections', () => {

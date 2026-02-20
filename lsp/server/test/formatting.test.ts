@@ -887,6 +887,21 @@ describe('Format Ignore', () => {
     expect(result).toBe('<!-- htmlmustache-ignore -->\n{{#items}}<li>{{name}}</li>{{/items}}\n');
   });
 
+  it('ignore-start/end is idempotent inside indented context', () => {
+    const input = '<div>\n  </div>\n{{! htmlmustache-ignore-start }}\n        </div>\n    </div>\n</div>\n{{! htmlmustache-ignore-end }}';
+    const result1 = format(input);
+    const result2 = format(result1);
+    expect(result2).toBe(result1);
+  });
+
+  it('preserves raw text indentation in ignore region inside block', () => {
+    const input = '<div>\n{{! htmlmustache-ignore-start }}\n    <span>raw</span>\n{{! htmlmustache-ignore-end }}\n</div>';
+    const result = format(input);
+    expect(result).toContain('    <span>raw</span>');
+    const result2 = format(result);
+    expect(result2).toBe(result);
+  });
+
   it('preserves blank lines around ignored regions', () => {
     const input = '<p>before</p>\n\n<!-- htmlmustache-ignore -->\n<div   class="a"  >content</div>\n\n<p>after</p>';
     const result = format(input);

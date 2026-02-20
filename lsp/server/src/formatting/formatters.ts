@@ -614,13 +614,16 @@ export function formatStartTag(node: SyntaxNode, context?: FormatterContext): Do
     attrParts.push(attrs[i]);
   }
 
+  // In break mode, self-closing /> has no leading space (aligns with <tagName)
+  const breakClosingBracket = isSelfClosing ? '/>' : '>';
+
   // Wrap tag in group: flat puts attrs on one line, break wraps them
   return group(
     concat([
       text('<'),
       text(tagNameText),
       indent(concat([line, concat(attrParts)])),
-      ifBreak(concat([hardline, text(closingBracket)]), text(closingBracket)),
+      ifBreak(concat([hardline, text(breakClosingBracket)]), text(closingBracket)),
     ])
   );
 }
@@ -746,7 +749,7 @@ export function formatBlockChildren(
   nodes: SyntaxNode[],
   context: FormatterContext
 ): Doc {
-  const lines: { doc: Doc; blankLineBefore: boolean }[] = [];
+  const lines: { doc: Doc; blankLineBefore: boolean; rawLine?: boolean }[] = [];
   let currentLine: Doc[] = [];
   let lastNodeEnd = -1;
   let pendingBlankLine = false;
@@ -786,11 +789,11 @@ export function formatBlockChildren(
       const rawText = context.document.getText().slice(ignoreRegionStartIndex, node.startIndex)
         .replace(/^\n/, '').replace(/\n$/, '');
       if (rawText.length > 0) {
-        lines.push({ doc: text(rawText), blankLineBefore: false });
+        lines.push({ doc: text(rawText), blankLineBefore: false, rawLine: true });
       }
-      // Emit the ignore-end comment itself
+      // Emit the ignore-end comment itself (rawLine to avoid adding indent after raw text)
       const commentText = node.type === 'mustache_comment' ? mustacheText(node.text, context) : node.text;
-      lines.push({ doc: text(commentText), blankLineBefore: false });
+      lines.push({ doc: text(commentText), blankLineBefore: false, rawLine: true });
       inIgnoreRegion = false;
       ignoreRegionStartIndex = -1;
       lastNodeEnd = node.endIndex;
@@ -990,7 +993,13 @@ export function formatBlockChildren(
       } else {
         // For text nodes, spread word/line parts directly into currentLine
         if (node.type === 'text' && typeof formatted === 'string') {
-          currentLine.push(...textWords(formatted));
+          const words = textWords(formatted);
+          if (words.length > 0) {
+            currentLine.push(...words);
+          } else if (node.text.trim() === '' && currentLine.length > 0) {
+            // Whitespace-only text between inline content: preserve as line separator
+            currentLine.push(line);
+          }
         } else {
           currentLine.push(formatted);
         }
@@ -1006,7 +1015,7 @@ export function formatBlockChildren(
     const rawText = context.document.getText().slice(ignoreRegionStartIndex, lastNode.endIndex)
       .replace(/^\n/, '');
     if (rawText.length > 0) {
-      lines.push({ doc: text(rawText), blankLineBefore: false });
+      lines.push({ doc: text(rawText), blankLineBefore: false, rawLine: true });
     }
   }
 
@@ -1030,7 +1039,12 @@ export function formatBlockChildren(
         // Emit a blank line: literal \n (no indent) + hardline (with indent)
         parts.push('\n');
       }
-      parts.push(hardline);
+      if (lines[i].rawLine) {
+        // Raw lines (ignored regions): literal \n to avoid adding indentation
+        parts.push('\n');
+      } else {
+        parts.push(hardline);
+      }
     }
     parts.push(lines[i].doc);
   }

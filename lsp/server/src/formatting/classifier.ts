@@ -426,6 +426,19 @@ function hasImplicitEndTagsRecursive(node: SyntaxNode): boolean {
 }
 
 /**
+ * Check if a node is inline content that participates in text flow.
+ * Mustache interpolation, triple, and partial nodes behave like text.
+ */
+function isInlineContentNode(node: SyntaxNode): boolean {
+  if (node.type === 'text') return node.text.trim().length > 0;
+  return (
+    node.type === 'mustache_interpolation' ||
+    node.type === 'mustache_triple' ||
+    node.type === 'mustache_partial'
+  );
+}
+
+/**
  * Check if a node is part of a text flow (adjacent to non-whitespace text).
  * Nodes that are part of text flow should stay inline.
  */
@@ -454,6 +467,31 @@ export function isInTextFlow(
 }
 
 /**
+ * Check if there's inline content (mustache interpolation, non-empty text, etc.)
+ * adjacent to the node at `index`, looking past whitespace-only text nodes.
+ */
+function hasAdjacentInlineContent(
+  index: number,
+  nodes: SyntaxNode[]
+): boolean {
+  // Look backward past whitespace-only text
+  for (let i = index - 1; i >= 0; i--) {
+    const n = nodes[i];
+    if (n.type === 'text' && n.text.trim().length === 0) continue;
+    if (isInlineContentNode(n)) return true;
+    break;
+  }
+  // Look forward past whitespace-only text
+  for (let i = index + 1; i < nodes.length; i++) {
+    const n = nodes[i];
+    if (n.type === 'text' && n.text.trim().length === 0) continue;
+    if (isInlineContentNode(n)) return true;
+    break;
+  }
+  return false;
+}
+
+/**
  * Check if an HTML element should stay inline.
  * Elements stay inline if they're part of a text flow or adjacent to other inline elements.
  */
@@ -468,6 +506,12 @@ export function shouldHtmlElementStayInline(
 
   // If the element is part of a text flow, keep it inline
   if (isInTextFlow(node, index, nodes)) {
+    return true;
+  }
+
+  // Check for adjacent inline content (mustache interpolation, text, etc.)
+  // past whitespace-only text nodes — e.g., <i>icon</i>\n    {{partial}}%
+  if (hasAdjacentInlineContent(index, nodes)) {
     return true;
   }
 
