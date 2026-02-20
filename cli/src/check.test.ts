@@ -3,7 +3,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { collectErrors, formatError, formatSummary, resolveFiles, applyFixes } from './check';
-import type { CheckError } from './check';
 import { initializeParser, parseDocument } from './wasm';
 
 beforeAll(async () => {

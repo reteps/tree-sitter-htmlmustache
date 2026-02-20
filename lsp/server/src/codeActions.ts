@@ -2,7 +2,6 @@ import {
   CodeAction,
   CodeActionKind,
   CodeActionParams,
-  Diagnostic,
   TextEdit,
 } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';

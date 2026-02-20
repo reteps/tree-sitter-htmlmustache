@@ -35,6 +35,7 @@ import {
 import { normalizeText, getVisibleChildren, normalizeMustacheWhitespace, normalizeMustacheWhitespaceAll, getIgnoreDirective } from './utils';
 import type { CustomCodeTagConfig } from '../customCodeTags';
 import { getAttributeValue } from '../customCodeTags';
+import { isRawContentElement } from '../nodeHelpers';
 
 export interface FormatterContext {
   document: TextDocument;
@@ -191,9 +192,10 @@ export function formatText(node: SyntaxNode): Doc {
  * Format an HTML element.
  */
 export function formatHtmlElement(node: SyntaxNode, context: FormatterContext): Doc {
-  const display = getCSSDisplay(node);
+  const tags = context.customCodeTags;
+  const display = getCSSDisplay(node, tags);
   const isBlock = isWhitespaceInsensitive(display);
-  const preserveContent = shouldPreserveContent(node);
+  const preserveContent = shouldPreserveContent(node, tags);
 
   // Self-closing tag
   const selfClosing =
@@ -237,10 +239,8 @@ export function formatHtmlElement(node: SyntaxNode, context: FormatterContext): 
   const hasHtmlElementChildren = contentNodes.some(
     (child) =>
       child.type === 'html_element' ||
-      child.type === 'html_script_element' ||
-      child.type === 'html_style_element' ||
-      child.type === 'html_raw_element' ||
-      isBlockLevel(child)
+      isRawContentElement(child) ||
+      isBlockLevel(child, tags)
   );
 
   // Handle content
@@ -321,16 +321,11 @@ export function formatHtmlElement(node: SyntaxNode, context: FormatterContext): 
       // by formatBlockChildren. Nodes in text flow (e.g. mustache sections
       // adjacent to text) are inline regardless of their content.
       const hasBlockChildren = contentNodes.some((child, i) => {
-        if (!shouldTreatAsBlock(child, i, contentNodes)) {
+        if (!shouldTreatAsBlock(child, i, contentNodes, tags)) {
           return false;
         }
-        const childDisplay = getCSSDisplay(child);
-        return (
-          isWhitespaceInsensitive(childDisplay) ||
-          child.type === 'html_script_element' ||
-          child.type === 'html_style_element' ||
-          child.type === 'html_raw_element'
-        );
+        const childDisplay = getCSSDisplay(child, tags);
+        return isWhitespaceInsensitive(childDisplay) || isRawContentElement(child);
       });
 
       if (isBlock && !hasBlockChildren) {
@@ -537,16 +532,11 @@ export function formatMustacheSection(
     } else {
       // Check if content has CSS-block children (accounting for text flow)
       const hasBlockChildren = contentNodes.some((child, i) => {
-        if (!shouldTreatAsBlock(child, i, contentNodes)) {
+        if (!shouldTreatAsBlock(child, i, contentNodes, context.customCodeTags)) {
           return false;
         }
-        const childDisplay = getCSSDisplay(child);
-        return (
-          isWhitespaceInsensitive(childDisplay) ||
-          child.type === 'html_script_element' ||
-          child.type === 'html_style_element' ||
-          child.type === 'html_raw_element'
-        );
+        const childDisplay = getCSSDisplay(child, context.customCodeTags);
+        return isWhitespaceInsensitive(childDisplay) || isRawContentElement(child);
       });
 
       if (!hasBlockChildren) {
@@ -854,12 +844,12 @@ export function formatBlockChildren(
 
     // ignore-end without ignore-start: treat as normal comment (fall through)
 
-    const treatAsBlock = shouldTreatAsBlock(node, i, nodes);
+    const treatAsBlock = shouldTreatAsBlock(node, i, nodes, context.customCodeTags);
 
     // Check for whitespace between nodes in original document (inline gap handling)
     if (lastNodeEnd >= 0 && node.startIndex > lastNodeEnd) {
       const prevNode = nodes[i - 1];
-      const prevTreatAsBlock = shouldTreatAsBlock(prevNode, i - 1, nodes);
+      const prevTreatAsBlock = shouldTreatAsBlock(prevNode, i - 1, nodes, context.customCodeTags);
 
       if (!prevTreatAsBlock && !treatAsBlock) {
         const gap = context.document.getText().slice(lastNodeEnd, node.startIndex);

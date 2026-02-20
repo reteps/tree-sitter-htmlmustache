@@ -2,6 +2,7 @@ import { Node as SyntaxNode } from 'web-tree-sitter';
 import type { Tree } from './parser';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { DocumentSymbol, SymbolKind, Range } from 'vscode-languageserver/node';
+import { getTagName, getSectionName, isMustacheSection, isRawContentElement } from './nodeHelpers';
 
 /**
  * Extract document symbols (outline) from the syntax tree.
@@ -55,7 +56,7 @@ function nodeToSymbol(
 
   // HTML elements
   if (type === 'html_element') {
-    const tagName = findTagName(node);
+    const tagName = getTagName(node);
     if (tagName) {
       return {
         name: `<${tagName}>`,
@@ -68,7 +69,7 @@ function nodeToSymbol(
 
   // Void elements (self-closing)
   if (type === 'html_void_element') {
-    const tagName = findTagName(node);
+    const tagName = getTagName(node);
     if (tagName) {
       return {
         name: `<${tagName}>`,
@@ -80,8 +81,8 @@ function nodeToSymbol(
   }
 
   // Mustache sections
-  if (type === 'mustache_section' || type === 'mustache_inverted_section') {
-    const sectionName = findMustacheSectionName(node);
+  if (isMustacheSection(node)) {
+    const sectionName = getSectionName(node);
     if (sectionName) {
       const prefix = type === 'mustache_inverted_section' ? '{{^' : '{{#';
       return {
@@ -93,74 +94,18 @@ function nodeToSymbol(
     }
   }
 
-  // Script elements
-  if (type === 'html_script_element') {
+  // Script, style, and raw elements
+  if (isRawContentElement(node)) {
+    const tagName = getTagName(node);
+    const displayName = tagName ? `<${tagName}>` : type === 'html_script_element' ? '<script>' : type === 'html_style_element' ? '<style>' : '<raw>';
     return {
-      name: '<script>',
+      name: displayName,
       kind: SymbolKind.Module,
       range: toRange(node),
       selectionRange: toRange(node.child(0) ?? node),
     };
   }
 
-  // Style elements
-  if (type === 'html_style_element') {
-    return {
-      name: '<style>',
-      kind: SymbolKind.Module,
-      range: toRange(node),
-      selectionRange: toRange(node.child(0) ?? node),
-    };
-  }
-
-  // Raw elements (custom raw tags like MARKDOWN)
-  if (type === 'html_raw_element') {
-    const tagName = findTagName(node);
-    return {
-      name: `<${tagName ?? 'raw'}>`,
-      kind: SymbolKind.Module,
-      range: toRange(node),
-      selectionRange: toRange(node.child(0) ?? node),
-    };
-  }
-
-  return null;
-}
-
-function findTagName(node: SyntaxNode): string | null {
-  // Look for html_tag_name in start_tag or the element itself
-  const startTag = node.childForFieldName('start_tag') ?? node.child(0);
-  if (startTag) {
-    for (let i = 0; i < startTag.childCount; i++) {
-      const child = startTag.child(i);
-      if (child?.type === 'html_tag_name') {
-        return child.text;
-      }
-    }
-  }
-
-  // Direct search
-  for (let i = 0; i < node.childCount; i++) {
-    const child = node.child(i);
-    if (child?.type === 'html_tag_name') {
-      return child.text;
-    }
-  }
-
-  return null;
-}
-
-function findMustacheSectionName(node: SyntaxNode): string | null {
-  // Look for mustache_tag_name in section_begin
-  const begin = node.child(0);
-  if (begin) {
-    for (let i = 0; i < begin.childCount; i++) {
-      const child = begin.child(i);
-      if (child?.type === 'mustache_tag_name') {
-        return child.text;
-      }
-    }
-  }
   return null;
 }
 

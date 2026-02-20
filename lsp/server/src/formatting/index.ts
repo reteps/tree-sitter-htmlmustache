@@ -42,7 +42,7 @@ import { formatDocument as formatDocumentToDoc, FormatterContext } from './forma
 import { mergeOptions, createIndentUnit } from './editorconfig';
 import type { HtmlMustacheConfig } from '../configFile';
 import { findContainingNode, calculateIndentLevel } from './utils';
-import { isBlockLevel, getContentNodes, hasImplicitEndTags, setCustomCodeTags } from './classifier';
+import { isBlockLevel, getContentNodes, hasImplicitEndTags } from './classifier';
 import type { CustomCodeTagConfig } from '../customCodeTags';
 
 export interface FormatDocumentParams {
@@ -67,19 +67,16 @@ export function formatDocument(
   const mergedOptions = mergeOptions(options, document.uri, configFile);
   const indentUnit = createIndentUnit(mergedOptions);
 
-  if (customCodeTags) {
-    setCustomCodeTags(customCodeTags);
-  }
-
   // Bail out if the tree has parse errors to avoid mangling content
   if (tree.rootNode.hasError) {
     return [];
   }
 
   const configMap = buildConfigMap(customCodeTagConfigs);
+  const customCodeTagSet = customCodeTags ? new Set(customCodeTags.map(t => t.toLowerCase())) : undefined;
   const context: FormatterContext = {
     document,
-    customCodeTags: customCodeTags ? new Set(customCodeTags.map(t => t.toLowerCase())) : undefined,
+    customCodeTags: customCodeTagSet,
     customCodeTagConfigs: configMap,
     embeddedFormatted,
     mustacheSpaces,
@@ -110,14 +107,12 @@ export function formatDocumentRange(
   const mergedOptions = mergeOptions(options, document.uri, configFile);
   const indentUnit = createIndentUnit(mergedOptions);
 
-  if (customCodeTags) {
-    setCustomCodeTags(customCodeTags);
-  }
-
   // Bail out if the tree has parse errors to avoid mangling content
   if (tree.rootNode.hasError) {
     return [];
   }
+
+  const customCodeTagSet = customCodeTags ? new Set(customCodeTags.map(t => t.toLowerCase())) : undefined;
 
   // Find nodes that overlap with the range
   const startOffset = document.offsetAt(range.start);
@@ -132,7 +127,7 @@ export function formatDocumentRange(
   // Expand to include complete block-level elements
   while (
     targetNode.parent &&
-    !isBlockLevel(targetNode) &&
+    !isBlockLevel(targetNode, customCodeTagSet) &&
     targetNode.type !== 'document'
   ) {
     targetNode = targetNode.parent;
@@ -149,7 +144,7 @@ export function formatDocumentRange(
   const configMap = buildConfigMap(customCodeTagConfigs);
   const context: FormatterContext = {
     document,
-    customCodeTags: customCodeTags ? new Set(customCodeTags.map(t => t.toLowerCase())) : undefined,
+    customCodeTags: customCodeTagSet,
     customCodeTagConfigs: configMap,
     embeddedFormatted,
     mustacheSpaces,

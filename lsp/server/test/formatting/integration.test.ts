@@ -8,7 +8,6 @@ import { FormattingOptions } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { parseText, createMockDocument } from '../setup';
 import { formatDocument, formatDocumentRange } from '../../src/formatting';
-import { setCustomCodeTags } from '../../src/formatting/classifier';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -366,10 +365,6 @@ describe('Document Formatting (Integration)', () => {
 });
 
 describe('Custom Code Tags (Integration)', () => {
-  afterAll(() => {
-    setCustomCodeTags([]);
-  });
-
   function formatWithCodeTags(content: string, tags: string[]): string {
     const tree = parseText(content);
     const document = createMockDocument(content);

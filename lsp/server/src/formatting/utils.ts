@@ -4,28 +4,8 @@
 
 import type { Node as SyntaxNode } from 'web-tree-sitter';
 
-/**
- * Get the tag name from an HTML element node.
- */
-export function getTagName(node: SyntaxNode): string | null {
-  // Look for html_start_tag or html_self_closing_tag child
-  for (let i = 0; i < node.childCount; i++) {
-    const child = node.child(i);
-    if (!child) continue;
-
-    if (child.type === 'html_start_tag' || child.type === 'html_self_closing_tag') {
-      // Find the html_tag_name within
-      for (let j = 0; j < child.childCount; j++) {
-        const tagChild = child.child(j);
-        if (tagChild && tagChild.type === 'html_tag_name') {
-          return tagChild.text;
-        }
-      }
-    }
-  }
-
-  return null;
-}
+// Re-export getTagName from the canonical location
+export { getTagName } from '../nodeHelpers';
 
 /**
  * Normalize text content - collapse horizontal whitespace while preserving line breaks.

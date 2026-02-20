@@ -7,8 +7,7 @@ import type { Tree } from './wasm';
 import { initializeParser, parseDocument } from './wasm';
 import { findConfigFile, parseJsonc, validateConfig } from '../../lsp/server/src/configFile';
 import type { HtmlMustacheConfig } from '../../lsp/server/src/configFile';
-import { checkHtmlBalance, checkUnclosedTags } from '../../lsp/server/src/htmlBalanceChecker';
-import { checkNestedSameNameSections, checkUnquotedMustacheAttributes, checkConsecutiveSameNameSections, checkDuplicateAttributes } from '../../lsp/server/src/mustacheChecks';
+import { collectErrors as collectTreeErrors } from '../../lsp/server/src/collectErrors';
 import type { TextReplacement } from '../../lsp/server/src/mustacheChecks';
 
 // ── Types ──
@@ -33,128 +32,20 @@ export interface CheckResult {
 
 // ── Error collection ──
 
-interface SyntaxNode {
-  type: string;
-  isMissing: boolean;
-  text: string;
-  startPosition: { row: number; column: number };
-  endPosition: { row: number; column: number };
-  startIndex: number;
-  endIndex: number;
-  children: SyntaxNode[];
-}
-
-interface TreeCursor {
-  currentNode: SyntaxNode;
-  nodeType: string;
-  nodeIsMissing: boolean;
-  gotoFirstChild(): boolean;
-  gotoNextSibling(): boolean;
-  gotoParent(): boolean;
-}
-
-function errorMessageForNode(nodeType: string, node: SyntaxNode): string {
-  if (nodeType === 'mustache_erroneous_section_end' || nodeType === 'mustache_erroneous_inverted_section_end') {
-    const tagNameNode = node.children.find((c: SyntaxNode) => c.type === 'mustache_erroneous_tag_name');
-    return `Mismatched mustache section: {{/${tagNameNode?.text || '?'}}}`;
-  }
-  if (nodeType === 'ERROR') {
-    return 'Syntax error';
-  }
-  // isMissing node
-  return `Missing ${nodeType}`;
-}
-
-const ERROR_NODE_TYPES = new Set([
-  'ERROR',
-  'mustache_erroneous_section_end',
-  'mustache_erroneous_inverted_section_end',
-]);
-
 export function collectErrors(tree: Tree, file: string): CheckError[] {
-  const errors: CheckError[] = [];
-  const cursor = tree.walk() as unknown as TreeCursor;
-
-  function visit() {
-    const node = cursor.currentNode;
-    const nodeType = cursor.nodeType;
-
-    if (ERROR_NODE_TYPES.has(nodeType) || cursor.nodeIsMissing) {
-      errors.push({
-        file,
-        line: node.startPosition.row + 1,
-        column: node.startPosition.column + 1,
-        endLine: node.endPosition.row + 1,
-        endColumn: node.endPosition.column + 1,
-        message: errorMessageForNode(nodeType, node),
-        nodeText: node.text,
-      });
-
-      // Don't recurse into ERROR nodes — the children are not meaningful
-      if (nodeType === 'ERROR') return;
-    }
-
-    if (cursor.gotoFirstChild()) {
-      do { visit(); } while (cursor.gotoNextSibling());
-      cursor.gotoParent();
-    }
-  }
-
-  visit();
-
-  // Run balance checker for HTML tag mismatch detection across mustache paths
-  const rootNode = tree.rootNode as unknown as SyntaxNode;
-  const balanceErrors = checkHtmlBalance(rootNode);
-  for (const error of balanceErrors) {
-    errors.push({
-      file,
-      line: error.node.startPosition.row + 1,
-      column: error.node.startPosition.column + 1,
-      endLine: error.node.endPosition.row + 1,
-      endColumn: error.node.endPosition.column + 1,
-      message: error.message,
-      nodeText: error.node.text,
-    });
-  }
-
-  // Check for unclosed non-void HTML tags
-  const unclosedErrors = checkUnclosedTags(rootNode);
-  for (const error of unclosedErrors) {
-    errors.push({
-      file,
-      line: error.node.startPosition.row + 1,
-      column: error.node.startPosition.column + 1,
-      endLine: error.node.endPosition.row + 1,
-      endColumn: error.node.endPosition.column + 1,
-      message: error.message,
-      nodeText: error.node.text,
-    });
-  }
-
-  // Mustache-specific lint checks
-  const sourceText = rootNode.text;
-  const mustacheChecks = [
-    ...checkNestedSameNameSections(rootNode),
-    ...checkUnquotedMustacheAttributes(rootNode),
-    ...checkConsecutiveSameNameSections(rootNode, sourceText),
-    ...checkDuplicateAttributes(rootNode),
-  ];
-  for (const error of mustacheChecks) {
-    errors.push({
-      file,
-      line: error.node.startPosition.row + 1,
-      column: error.node.startPosition.column + 1,
-      endLine: error.node.endPosition.row + 1,
-      endColumn: error.node.endPosition.column + 1,
-      message: error.message,
-      nodeText: error.node.text,
-      severity: error.severity,
-      fix: error.fix,
-      fixDescription: error.fixDescription,
-    });
-  }
-
-  return errors;
+  const errors = collectTreeErrors(tree as any);
+  return errors.map(error => ({
+    file,
+    line: error.node.startPosition.row + 1,
+    column: error.node.startPosition.column + 1,
+    endLine: error.node.endPosition.row + 1,
+    endColumn: error.node.endPosition.column + 1,
+    message: error.message,
+    nodeText: error.node.text,
+    severity: error.severity,
+    fix: error.fix,
+    fixDescription: error.fixDescription,
+  }));
 }
 
 // ── Formatting ──

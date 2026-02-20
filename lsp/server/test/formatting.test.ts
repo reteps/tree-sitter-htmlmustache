@@ -3,7 +3,6 @@ import { FormattingOptions } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { parseText, createMockDocument } from './setup';
 import { formatDocument, formatDocumentRange } from '../src/formatting/index';
-import { setCustomCodeTags } from '../src/formatting/classifier';
 import type { CustomCodeTagConfig } from '../src/customCodeTags';
 import type { HtmlMustacheConfig } from '../src/configFile';
 import * as fs from 'node:fs';
@@ -687,17 +686,12 @@ describe('Custom Code Tag Indentation', () => {
     options: FormattingOptions = defaultOpts
   ): string {
     const tagNames = configs.map(c => c.name);
-    setCustomCodeTags(tagNames);
     const tree = parseText(content);
     const document = createMockDocument(content);
     const edits = formatDocument(tree, document, options, { customCodeTags: tagNames, customCodeTagConfigs: configs });
     expect(edits.length).toBe(1);
     return edits[0].newText;
   }
-
-  afterAll(() => {
-    setCustomCodeTags([]);
-  });
 
   describe('indent: "never"', () => {
     it('preserves content as-is with no indent config', () => {

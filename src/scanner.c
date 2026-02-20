@@ -83,7 +83,7 @@ static unsigned serialize(Scanner *scanner, char *buffer) {
     }
 
     memcpy(&buffer[0], &serialized_tag_count, sizeof(serialized_tag_count));
-    // printf("[S] serialized_tag_count: %d\n", serialized_tag_count);
+
     // Mustache tags
     uint16_t m_tag_count =
         scanner->mustache_tags.size > UINT16_MAX ? UINT16_MAX : scanner->mustache_tags.size;
@@ -93,7 +93,6 @@ static unsigned serialize(Scanner *scanner, char *buffer) {
     size += sizeof(m_serialized_tag_count);
     memcpy(&buffer[size], &m_tag_count, sizeof(m_tag_count));
     size += sizeof(m_tag_count);
-    // printf("[S] m_tag_count: %d\n", m_tag_count);
 
     for (; m_serialized_tag_count < m_tag_count; m_serialized_tag_count++) {
         MustacheTag tag = scanner->mustache_tags.contents[m_serialized_tag_count];
@@ -113,12 +112,10 @@ static unsigned serialize(Scanner *scanner, char *buffer) {
     }
 
     memcpy(&buffer[mustache_start_offset], &m_serialized_tag_count, sizeof(m_serialized_tag_count));
-    // printf("[S] m_serialized_tag_count: %d\n", m_serialized_tag_count);
     return size;
 }
 
 static void deserialize(Scanner *scanner, const char *buffer, unsigned length) {
-    // printf("deserialize\n");
     for (unsigned i = 0; i < scanner->tags.size; i++) {
         tag_free(&scanner->tags.contents[i]);
     }
@@ -195,22 +192,12 @@ static void deserialize(Scanner *scanner, const char *buffer, unsigned length) {
     }
 }
 
-static void print_tag_name(String *tag_name) {
-    // printf("tag_size: %d\n", tag->tag_name.size);
-    for (uint32_t i = 0; i < tag_name->size; i++) {
-        printf("%c", tag_name->contents[i]);
-    }
-}
-
 static String scan_html_tag_name(TSLexer *lexer) {
     String tag_name = array_new();
     while (iswalnum(lexer->lookahead) || lexer->lookahead == '-' || lexer->lookahead == ':') {
         array_push(&tag_name, towupper(lexer->lookahead));
         advance(lexer);
     }
-    // printf("tag_name: ");
-    // print_tag_name(&tag_name);
-    // printf("\n");
     return tag_name;
 }
 
@@ -431,8 +418,6 @@ static String scan_mustache_tag_name(Scanner *scanner, TSLexer *lexer) {
     array_push(&tag_name, lexer->lookahead);
     advance(lexer);
   }
-//   print_tag_name(&tag_name);
-//   printf("\n");
   return tag_name;
 }
 
@@ -445,17 +430,7 @@ static bool scan_mustache_start_tag_name(Scanner *scanner, TSLexer *lexer) {
     MustacheTag tag = mustache_tag_new();
     tag.tag_name = tag_name;
     tag.html_tag_stack_size = scanner->tags.size;
-    // printf("pushing tag: ");
-    // print_tag_name(&tag.tag_name);
-    // printf("\n");
     array_push(&scanner->mustache_tags, tag);
-    // printf("--------------------------------\n");
-    // for (unsigned i = 0; i < scanner->mustache_tags.size; i++) {
-    //   printf("\tSTACK (START), tag_name: ");
-    //   print_tag_name(&scanner->mustache_tags.contents[i]);
-    //   printf("\n");
-    // }
-    // printf("--------------------------------\n");
     lexer->result_symbol = MUSTACHE_START_TAG_NAME;
     return true;
 }
@@ -469,23 +444,11 @@ static bool scan_mustache_end_tag_name(Scanner *scanner, TSLexer *lexer) {
   }
 
 
-  // Print whole stack
-//   printf("--------------------------------\n");
-//   printf("num tags: %d\n", scanner->mustache_tags.size);
-//   for (unsigned i = 0; i < scanner->mustache_tags.size; i++) {
-//     printf("\tSTACK (END), tag_name: ");
-//     print_tag_name(&scanner->mustache_tags.contents[i].tag_name);
-//     printf("\n");
-//   }
-//   printf("--------------------------------\n");
   MustacheTag tag = mustache_tag_new();
   tag.tag_name = tag_name;
   if (scanner->mustache_tags.size > 0 && mustache_tag_eq(array_back(&scanner->mustache_tags), &tag)) {
     MustacheTag popped_tag = array_pop(&scanner->mustache_tags);
     mustache_tag_free(&popped_tag);
-    // printf("popped tag (correct): ");
-    // print_tag_name(&popped_tag.tag_name);
-    // printf("\n");
     lexer->result_symbol = MUSTACHE_END_TAG_NAME;
   } else {
     if (scanner->mustache_tags.size > 0) {
@@ -501,7 +464,6 @@ static bool scan_mustache_end_tag_name(Scanner *scanner, TSLexer *lexer) {
 
 static bool scan_mustache_end_tag_html_implicit_end_tag(Scanner *scanner, TSLexer *lexer) {
     lexer->mark_end(lexer);
-    // printf("next char: %c\n", lexer->lookahead);
     if (lexer->lookahead != '{') {
         return false;
     }
@@ -547,7 +509,6 @@ static bool scan(Scanner *scanner, TSLexer *lexer, const bool *valid_symbols) {
 
 
     if (valid_symbols[MUSTACHE_START_TAG_NAME]) {
-        // printf("MUSTACHE_START_TAG_NAME\n");
         return scan_mustache_start_tag_name(scanner, lexer);
     }
 

@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { parseText } from '../setup';
 import {
   isBlockLevel,
@@ -10,7 +10,6 @@ import {
   shouldHtmlElementStayInline,
   shouldTreatAsBlock,
   getCSSDisplay,
-  setCustomCodeTags,
   INLINE_ELEMENTS,
   PRESERVE_CONTENT_ELEMENTS,
 } from '../../src/formatting/classifier';
@@ -225,45 +224,41 @@ describe('Classifier', () => {
   });
 
   describe('custom code tags', () => {
-    afterEach(() => {
-      setCustomCodeTags([]);
-    });
-
     it('getCSSDisplay returns block for custom code tags', () => {
-      setCustomCodeTags(['pl-code']);
+      const tags = new Set(['pl-code']);
       const tree = parseText('<pl-code>content</pl-code>');
       const node = tree.rootNode.child(0)!;
-      expect(getCSSDisplay(node)).toBe('block');
+      expect(getCSSDisplay(node, tags)).toBe('block');
     });
 
     it('shouldPreserveContent returns true for custom code tags', () => {
-      setCustomCodeTags(['pl-code']);
+      const tags = new Set(['pl-code']);
       const tree = parseText('<pl-code>content</pl-code>');
       const node = tree.rootNode.child(0)!;
-      expect(shouldPreserveContent(node)).toBe(true);
+      expect(shouldPreserveContent(node, tags)).toBe(true);
     });
 
     it('isBlockLevel returns true for custom code tags', () => {
-      setCustomCodeTags(['pl-code']);
+      const tags = new Set(['pl-code']);
       const tree = parseText('<pl-code>content</pl-code>');
       const node = tree.rootNode.child(0)!;
-      expect(isBlockLevel(node)).toBe(true);
+      expect(isBlockLevel(node, tags)).toBe(true);
     });
 
     it('handles case-insensitive tag names', () => {
-      setCustomCodeTags(['PL-CODE']);
+      const tags = new Set(['pl-code']);
       const tree = parseText('<pl-code>content</pl-code>');
       const node = tree.rootNode.child(0)!;
-      expect(getCSSDisplay(node)).toBe('block');
-      expect(shouldPreserveContent(node)).toBe(true);
+      expect(getCSSDisplay(node, tags)).toBe('block');
+      expect(shouldPreserveContent(node, tags)).toBe(true);
     });
 
     it('does not affect non-custom tags', () => {
-      setCustomCodeTags(['pl-code']);
+      const tags = new Set(['pl-code']);
       const tree = parseText('<span>content</span>');
       const node = tree.rootNode.child(0)!;
-      expect(getCSSDisplay(node)).toBe('inline');
-      expect(shouldPreserveContent(node)).toBe(false);
+      expect(getCSSDisplay(node, tags)).toBe('inline');
+      expect(shouldPreserveContent(node, tags)).toBe(false);
     });
   });
 

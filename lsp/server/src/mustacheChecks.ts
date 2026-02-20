@@ -1,5 +1,6 @@
 import type { BalanceNode, BalanceError } from './htmlBalanceChecker';
 import { getSectionName } from './htmlBalanceChecker';
+import { isMustacheSection } from './nodeHelpers';
 
 export interface TextReplacement {
   startIndex: number;
@@ -18,7 +19,7 @@ export function checkNestedSameNameSections(rootNode: BalanceNode): FixableError
   const errors: FixableError[] = [];
 
   function visit(node: BalanceNode, ancestors: Set<string>) {
-    if (node.type === 'mustache_section' || node.type === 'mustache_inverted_section') {
+    if (isMustacheSection(node)) {
       const name = getSectionName(node);
       if (name) {
         if (ancestors.has(name)) {
@@ -90,10 +91,7 @@ export function checkConsecutiveSameNameSections(rootNode: BalanceNode, sourceTe
       const next = children[i + 1];
 
       // Both must be the same section type
-      if (
-        (current.type !== 'mustache_section' && current.type !== 'mustache_inverted_section') ||
-        current.type !== next.type
-      ) {
+      if (!isMustacheSection(current) || current.type !== next.type) {
         continue;
       }
 
@@ -195,9 +193,7 @@ function collectAttributes(node: BalanceNode, conditions: Condition[], out: Attr
       }
     } else if (child.type === 'mustache_attribute') {
       // Descend into the mustache section/inverted section inside
-      const section = child.children.find(
-        c => c.type === 'mustache_section' || c.type === 'mustache_inverted_section',
-      );
+      const section = child.children.find(c => isMustacheSection(c));
       if (section) {
         const name = getSectionName(section);
         if (name) {

@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
-import { Parser, Language, Query, Tree, Edit } from 'web-tree-sitter';
+import { Parser, Language, Query, Tree } from 'web-tree-sitter';
 
 let parser: Parser | null = null;
 let language: Language | null = null;
@@ -13,7 +13,7 @@ export function setLogger(logger: (message: string) => void): void {
 }
 
 // Re-export types for other modules
-export type { Tree, Query, Edit };
+export type { Tree, Query };
 
 /**
  * Initialize the tree-sitter parser with the htmlmustache grammar.
@@ -106,46 +106,3 @@ export function createQuery(queryString: string): Query | null {
   return new Query(language, queryString);
 }
 
-/**
- * Incrementally update a parse tree with edits.
- * This is more efficient than reparsing the entire document.
- */
-export function updateTree(
-  oldTree: Tree,
-  text: string,
-  edits: Edit[]
-): Tree | null {
-  if (!parser) {
-    console.error('Parser not initialized. Call initializeParser() first.');
-    return null;
-  }
-
-  // Apply edits to the old tree
-  for (const edit of edits) {
-    oldTree.edit(edit);
-  }
-
-  // Reparse with the edited tree for incremental parsing
-  return parser.parse(text, oldTree);
-}
-
-/**
- * Convert LSP position changes to tree-sitter edits.
- */
-export function toTreeSitterEdit(
-  startIndex: number,
-  oldEndIndex: number,
-  newEndIndex: number,
-  startPosition: { line: number; character: number },
-  oldEndPosition: { line: number; character: number },
-  newEndPosition: { line: number; character: number }
-): Edit {
-  return new Edit({
-    startIndex,
-    oldEndIndex,
-    newEndIndex,
-    startPosition: { row: startPosition.line, column: startPosition.character },
-    oldEndPosition: { row: oldEndPosition.line, column: oldEndPosition.character },
-    newEndPosition: { row: newEndPosition.line, column: newEndPosition.character },
-  });
-}

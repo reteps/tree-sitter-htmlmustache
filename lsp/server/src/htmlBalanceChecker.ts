@@ -1,3 +1,9 @@
+import {
+  getTagName,
+  getSectionName,
+  getErroneousEndTagName,
+} from './nodeHelpers';
+
 // Minimal syntax node interface for balance checking.
 // Compatible with web-tree-sitter's SyntaxNode.
 export interface BalanceNode {
@@ -34,25 +40,15 @@ type PathItem = TagEvent | ConditionalFork;
 
 // --- Phase 1: Extract tag events from parse tree ---
 
-function getTagName(element: BalanceNode): string | null {
-  const startTag = element.children.find(c => c.type === 'html_start_tag');
-  if (!startTag) return null;
-  const tagNameNode = startTag.children.find(c => c.type === 'html_tag_name');
-  return tagNameNode?.text?.toLowerCase() ?? null;
+// Re-export for consumers that import from this module
+export { getSectionName } from './nodeHelpers';
+
+function getTagNameLower(element: BalanceNode): string | null {
+  return getTagName(element)?.toLowerCase() ?? null;
 }
 
-function getErroneousEndTagName(node: BalanceNode): string | null {
-  const nameNode = node.children.find(c => c.type === 'html_erroneous_end_tag_name');
-  return nameNode?.text?.toLowerCase() ?? null;
-}
-
-export function getSectionName(node: BalanceNode): string | null {
-  const beginNode = node.children.find(
-    c => c.type === 'mustache_section_begin' || c.type === 'mustache_inverted_section_begin',
-  );
-  if (!beginNode) return null;
-  const tagNameNode = beginNode.children.find(c => c.type === 'mustache_tag_name');
-  return tagNameNode?.text ?? null;
+function getErroneousEndTagNameLower(node: BalanceNode): string | null {
+  return getErroneousEndTagName(node)?.toLowerCase() ?? null;
 }
 
 function hasForcedEndTag(element: BalanceNode): boolean {
@@ -77,7 +73,7 @@ function extractFromNode(node: BalanceNode): PathItem[] {
     );
 
     if (hasForcedEndTag(node)) {
-      const tagName = getTagName(node);
+      const tagName = getTagNameLower(node);
       const items: PathItem[] = [];
       if (tagName) {
         const startTag = node.children.find(c => c.type === 'html_start_tag');
@@ -96,7 +92,7 @@ function extractFromNode(node: BalanceNode): PathItem[] {
   }
 
   if (node.type === 'html_erroneous_end_tag') {
-    const tagName = getErroneousEndTagName(node);
+    const tagName = getErroneousEndTagNameLower(node);
     if (tagName) {
       return [{ type: 'close', tagName, node }];
     }
@@ -313,7 +309,7 @@ export function checkUnclosedTags(rootNode: BalanceNode): BalanceError[] {
       const hasForcedEnd = node.children.some(c => c.type === 'html_forced_end_tag');
 
       if (!hasEndTag && !hasForcedEnd) {
-        const tagName = getTagName(node);
+        const tagName = getTagNameLower(node);
         if (tagName && !VOID_ELEMENTS.has(tagName) && !OPTIONAL_END_TAG_ELEMENTS.has(tagName)) {
           const startTag = node.children.find(c => c.type === 'html_start_tag');
           errors.push({

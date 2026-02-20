@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { CodeActionKind, DiagnosticSeverity } from 'vscode-languageserver';
+import { CodeActionKind } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { parseText, createMockDocument } from './setup';
 import { getDiagnostics } from '../src/diagnostics';
