@@ -145,3 +145,119 @@ export function checkConsecutiveSameNameSections(rootNode: BalanceNode, sourceTe
   visit(rootNode);
   return errors;
 }
+
+// 4. Duplicate attributes (including across mustache conditionals)
+interface Condition {
+  name: string;
+  inverted: boolean;
+}
+
+interface AttributeOccurrence {
+  nameNode: BalanceNode;
+  conditions: Condition[];
+}
+
+function areMutuallyExclusive(a: Condition[], b: Condition[]): boolean {
+  // Two condition chains are mutually exclusive if some variable X
+  // appears as truthy in one and falsy in the other
+  for (const ac of a) {
+    for (const bc of b) {
+      if (ac.name === bc.name && ac.inverted !== bc.inverted) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+function formatConditionClause(a: Condition[], b: Condition[]): string {
+  // Combine conditions from both occurrences, deduplicating
+  const seen = new Map<string, boolean>(); // name -> inverted
+  for (const c of [...a, ...b]) {
+    if (!seen.has(c.name)) {
+      seen.set(c.name, c.inverted);
+    }
+  }
+  if (seen.size === 0) return '';
+  const parts: string[] = [];
+  for (const [name, inverted] of seen) {
+    parts.push(`${name} is ${inverted ? 'falsy' : 'truthy'}`);
+  }
+  return ` (when ${parts.join(', ')})`;
+}
+
+function collectAttributes(node: BalanceNode, conditions: Condition[], out: AttributeOccurrence[]) {
+  for (const child of node.children) {
+    if (child.type === 'html_attribute') {
+      const nameNode = child.children.find(c => c.type === 'html_attribute_name');
+      if (nameNode) {
+        out.push({ nameNode, conditions: [...conditions] });
+      }
+    } else if (child.type === 'mustache_attribute') {
+      // Descend into the mustache section/inverted section inside
+      const section = child.children.find(
+        c => c.type === 'mustache_section' || c.type === 'mustache_inverted_section',
+      );
+      if (section) {
+        const name = getSectionName(section);
+        if (name) {
+          const inverted = section.type === 'mustache_inverted_section';
+          collectAttributes(section, [...conditions, { name, inverted }], out);
+        }
+      }
+    }
+    // Skip mustache_interpolation / mustache_triple — dynamic, names unknown
+  }
+}
+
+export function checkDuplicateAttributes(rootNode: BalanceNode): FixableError[] {
+  const errors: FixableError[] = [];
+
+  function visit(node: BalanceNode) {
+    if (node.type === 'html_start_tag' || node.type === 'html_self_closing_tag') {
+      const occurrences: AttributeOccurrence[] = [];
+      collectAttributes(node, [], occurrences);
+
+      // Group by attribute name (case-insensitive)
+      const groups = new Map<string, AttributeOccurrence[]>();
+      for (const occ of occurrences) {
+        const key = occ.nameNode.text.toLowerCase();
+        let group = groups.get(key);
+        if (!group) {
+          group = [];
+          groups.set(key, group);
+        }
+        group.push(occ);
+      }
+
+      for (const [, group] of groups) {
+        if (group.length < 2) continue;
+        // Check each pair — report the later one if any non-exclusive pair exists
+        for (let i = 1; i < group.length; i++) {
+          let conflictIdx = -1;
+          for (let j = 0; j < i; j++) {
+            if (!areMutuallyExclusive(group[i].conditions, group[j].conditions)) {
+              conflictIdx = j;
+              break;
+            }
+          }
+          if (conflictIdx >= 0) {
+            const clause = formatConditionClause(group[conflictIdx].conditions, group[i].conditions);
+            errors.push({
+              node: group[i].nameNode,
+              message: `Duplicate attribute "${group[i].nameNode.text}"${clause}`,
+            });
+          }
+        }
+      }
+      return; // Don't recurse into tag children (already processed)
+    }
+
+    for (const child of node.children) {
+      visit(child);
+    }
+  }
+
+  visit(rootNode);
+  return errors;
+}

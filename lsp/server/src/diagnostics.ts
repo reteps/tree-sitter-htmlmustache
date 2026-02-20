@@ -5,6 +5,7 @@ import {
   checkNestedSameNameSections,
   checkUnquotedMustacheAttributes,
   checkConsecutiveSameNameSections,
+  checkDuplicateAttributes,
 } from './mustacheChecks';
 import type { FixableError } from './mustacheChecks';
 
@@ -85,6 +86,7 @@ export function getDiagnostics(tree: Tree): Diagnostic[] {
     ...checkNestedSameNameSections(tree.rootNode),
     ...checkUnquotedMustacheAttributes(tree.rootNode),
     ...checkConsecutiveSameNameSections(tree.rootNode, sourceText),
+    ...checkDuplicateAttributes(tree.rootNode),
   ];
   for (const error of mustacheChecks) {
     diagnostics.push({

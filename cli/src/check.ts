@@ -8,7 +8,7 @@ import { initializeParser, parseDocument } from './wasm';
 import { findConfigFile, parseJsonc, validateConfig } from '../../lsp/server/src/configFile';
 import type { HtmlMustacheConfig } from '../../lsp/server/src/configFile';
 import { checkHtmlBalance, checkUnclosedTags } from '../../lsp/server/src/htmlBalanceChecker';
-import { checkNestedSameNameSections, checkUnquotedMustacheAttributes, checkConsecutiveSameNameSections } from '../../lsp/server/src/mustacheChecks';
+import { checkNestedSameNameSections, checkUnquotedMustacheAttributes, checkConsecutiveSameNameSections, checkDuplicateAttributes } from '../../lsp/server/src/mustacheChecks';
 import type { TextReplacement } from '../../lsp/server/src/mustacheChecks';
 
 // ── Types ──
@@ -137,6 +137,7 @@ export function collectErrors(tree: Tree, file: string): CheckError[] {
     ...checkNestedSameNameSections(rootNode),
     ...checkUnquotedMustacheAttributes(rootNode),
     ...checkConsecutiveSameNameSections(rootNode, sourceText),
+    ...checkDuplicateAttributes(rootNode),
   ];
   for (const error of mustacheChecks) {
     errors.push({

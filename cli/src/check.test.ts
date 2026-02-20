@@ -520,6 +520,62 @@ describe('consecutive same-name sections', () => {
   });
 });
 
+describe('duplicate attributes', () => {
+  it('detects plain duplicate attributes', () => {
+    const tree = parse('<div a="1" a="2"></div>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message === 'Duplicate attribute "a"')).toBe(true);
+  });
+
+  it('detects unconditional + conditional duplicate', () => {
+    const tree = parse('<div a="1" {{#foo}}a="2"{{/foo}}></div>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message === 'Duplicate attribute "a" (when foo is truthy)')).toBe(true);
+  });
+
+  it('detects duplicate across independent sections', () => {
+    const tree = parse('<div {{#foo}}a="1"{{/foo}} {{#bar}}a="2"{{/bar}}></div>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message === 'Duplicate attribute "a" (when foo is truthy, bar is truthy)')).toBe(true);
+  });
+
+  it('detects boolean attribute duplicate', () => {
+    const tree = parse('<input disabled {{#x}}disabled{{/x}}>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message === 'Duplicate attribute "disabled" (when x is truthy)')).toBe(true);
+  });
+
+  it('detects case-insensitive duplicates', () => {
+    const tree = parse('<div Class="a" class="b"></div>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message === 'Duplicate attribute "class"')).toBe(true);
+  });
+
+  it('allows mutually exclusive pair', () => {
+    const tree = parse('<div {{#x}}a="1"{{/x}} {{^x}}a="2"{{/x}}></div>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Duplicate attribute'))).toBe(false);
+  });
+
+  it('allows deeply nested exclusive on same variable', () => {
+    const tree = parse('<div {{#a}}{{#b}}x="1"{{/b}}{{/a}} {{^a}}x="2"{{/a}}></div>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Duplicate attribute'))).toBe(false);
+  });
+
+  it('does not flag bare interpolation', () => {
+    const tree = parse('<div {{attrs}} class="x"></div>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Duplicate attribute'))).toBe(false);
+  });
+
+  it('does not flag different attribute names', () => {
+    const tree = parse('<div a="1" b="2"></div>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Duplicate attribute'))).toBe(false);
+  });
+});
+
 describe('applyFixes', () => {
   it('applies unquoted attribute fix', () => {
     const source = '<div class={{foo}}></div>';

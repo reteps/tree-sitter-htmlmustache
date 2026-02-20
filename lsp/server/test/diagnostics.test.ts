@@ -196,6 +196,80 @@ describe('Diagnostics', () => {
     });
   });
 
+  describe('duplicate attributes', () => {
+    it('detects plain duplicate attributes', () => {
+      const tree = parseText('<div a="1" a="2"></div>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message === 'Duplicate attribute "a"')).toBe(true);
+    });
+
+    it('detects unconditional + conditional duplicate', () => {
+      const tree = parseText('<div a="1" {{#foo}}a="2"{{/foo}}></div>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message === 'Duplicate attribute "a" (when foo is truthy)')).toBe(true);
+    });
+
+    it('detects duplicate across independent sections', () => {
+      const tree = parseText('<div {{#foo}}a="1"{{/foo}} {{#bar}}a="2"{{/bar}}></div>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message === 'Duplicate attribute "a" (when foo is truthy, bar is truthy)')).toBe(true);
+    });
+
+    it('detects boolean attribute duplicate', () => {
+      const tree = parseText('<input disabled {{#x}}disabled{{/x}}>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message === 'Duplicate attribute "disabled" (when x is truthy)')).toBe(true);
+    });
+
+    it('detects case-insensitive duplicates', () => {
+      const tree = parseText('<div Class="a" class="b"></div>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message === 'Duplicate attribute "class"')).toBe(true);
+    });
+
+    it('allows mutually exclusive pair', () => {
+      const tree = parseText('<div {{#x}}a="1"{{/x}} {{^x}}a="2"{{/x}}></div>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message.includes('Duplicate attribute'))).toBe(false);
+    });
+
+    it('allows deeply nested exclusive on same variable', () => {
+      const tree = parseText('<div {{#a}}{{#b}}x="1"{{/b}}{{/a}} {{^a}}x="2"{{/a}}></div>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message.includes('Duplicate attribute'))).toBe(false);
+    });
+
+    it('does not flag bare interpolation', () => {
+      const tree = parseText('<div {{attrs}} class="x"></div>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message.includes('Duplicate attribute'))).toBe(false);
+    });
+
+    it('does not flag different attribute names', () => {
+      const tree = parseText('<div a="1" b="2"></div>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message.includes('Duplicate attribute'))).toBe(false);
+    });
+
+    it('reports as error severity', () => {
+      const tree = parseText('<div a="1" a="2"></div>');
+      const diagnostics = getDiagnostics(tree);
+
+      const dup = diagnostics.find(d => d.message.includes('Duplicate attribute'));
+      expect(dup).toBeDefined();
+      expect(dup!.severity).toBe(DiagnosticSeverity.Error);
+    });
+  });
+
   describe('consecutive same-name sections', () => {
     it('detects consecutive same-name sections with Warning severity', () => {
       const tree = parseText('{{#x}}a{{/x}}{{#x}}b{{/x}}');
