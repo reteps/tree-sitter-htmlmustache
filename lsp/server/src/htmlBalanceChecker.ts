@@ -262,6 +262,54 @@ function validateBalance(events: TagEvent[], condition: string): BalanceError[] 
   return errors;
 }
 
+// --- Unclosed tag detection ---
+
+const VOID_ELEMENTS = new Set([
+  'area', 'base', 'basefont', 'bgsound', 'br', 'col', 'command',
+  'embed', 'frame', 'hr', 'image', 'img', 'input', 'isindex',
+  'keygen', 'link', 'menuitem', 'meta', 'nextid', 'param',
+  'source', 'track', 'wbr',
+]);
+
+const OPTIONAL_END_TAG_ELEMENTS = new Set([
+  'li', 'dt', 'dd', 'p', 'colgroup',
+  'rb', 'rt', 'rp', 'rtc',
+  'optgroup', 'option',
+  'tr', 'td', 'th',
+  'thead', 'tbody', 'tfoot',
+  'caption',
+  'html', 'head', 'body',
+]);
+
+export function checkUnclosedTags(rootNode: BalanceNode): BalanceError[] {
+  const errors: BalanceError[] = [];
+
+  function visit(node: BalanceNode) {
+    if (node.type === 'html_element') {
+      const hasEndTag = node.children.some(c => c.type === 'html_end_tag');
+      const hasForcedEnd = node.children.some(c => c.type === 'html_forced_end_tag');
+
+      if (!hasEndTag && !hasForcedEnd) {
+        const tagName = getTagName(node);
+        if (tagName && !VOID_ELEMENTS.has(tagName) && !OPTIONAL_END_TAG_ELEMENTS.has(tagName)) {
+          const startTag = node.children.find(c => c.type === 'html_start_tag');
+          errors.push({
+            node: startTag ?? node,
+            message: `Unclosed HTML tag: <${tagName}>`,
+          });
+        }
+      }
+    }
+
+    for (const child of node.children) {
+      visit(child);
+    }
+  }
+
+  visit(rootNode);
+  return errors;
+}
+
 const MAX_SECTION_NAMES = 15;
 
 export function checkHtmlBalance(rootNode: BalanceNode): BalanceError[] {

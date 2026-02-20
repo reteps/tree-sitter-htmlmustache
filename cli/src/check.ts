@@ -7,7 +7,7 @@ import type { Tree } from './wasm';
 import { initializeParser, parseDocument } from './wasm';
 import { findConfigFile, parseJsonc, validateConfig } from '../../lsp/server/src/configFile';
 import type { HtmlMustacheConfig } from '../../lsp/server/src/configFile';
-import { checkHtmlBalance } from '../../lsp/server/src/htmlBalanceChecker';
+import { checkHtmlBalance, checkUnclosedTags } from '../../lsp/server/src/htmlBalanceChecker';
 
 // ── Types ──
 
@@ -99,6 +99,20 @@ export function collectErrors(tree: Tree, file: string): CheckError[] {
   const rootNode = tree.rootNode as unknown as SyntaxNode;
   const balanceErrors = checkHtmlBalance(rootNode);
   for (const error of balanceErrors) {
+    errors.push({
+      file,
+      line: error.node.startPosition.row + 1,
+      column: error.node.startPosition.column + 1,
+      endLine: error.node.endPosition.row + 1,
+      endColumn: error.node.endPosition.column + 1,
+      message: error.message,
+      nodeText: error.node.text,
+    });
+  }
+
+  // Check for unclosed non-void HTML tags
+  const unclosedErrors = checkUnclosedTags(rootNode);
+  for (const error of unclosedErrors) {
     errors.push({
       file,
       line: error.node.startPosition.row + 1,

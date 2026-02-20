@@ -1,6 +1,6 @@
 import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
 import { Tree } from './parser';
-import { checkHtmlBalance } from './htmlBalanceChecker';
+import { checkHtmlBalance, checkUnclosedTags } from './htmlBalanceChecker';
 
 export function getDiagnostics(tree: Tree): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
@@ -48,6 +48,20 @@ export function getDiagnostics(tree: Tree): Diagnostic[] {
   // Run balance checker for HTML tag mismatch detection across mustache paths
   const balanceErrors = checkHtmlBalance(tree.rootNode);
   for (const error of balanceErrors) {
+    diagnostics.push({
+      severity: DiagnosticSeverity.Error,
+      range: {
+        start: { line: error.node.startPosition.row, character: error.node.startPosition.column },
+        end: { line: error.node.endPosition.row, character: error.node.endPosition.column },
+      },
+      message: error.message,
+      source: 'htmlmustache',
+    });
+  }
+
+  // Check for unclosed non-void HTML tags
+  const unclosedErrors = checkUnclosedTags(tree.rootNode);
+  for (const error of unclosedErrors) {
     diagnostics.push({
       severity: DiagnosticSeverity.Error,
       range: {

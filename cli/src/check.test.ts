@@ -172,6 +172,50 @@ describe('HTML balance checker', () => {
   });
 });
 
+describe('Unclosed tag detection', () => {
+  it('detects unclosed canvas tag', () => {
+    const tree = parse('<div><canvas></div>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message === 'Unclosed HTML tag: <canvas>')).toBe(true);
+  });
+
+  it('allows properly closed canvas tag', () => {
+    const tree = parse('<div><canvas></canvas></div>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors).toEqual([]);
+  });
+
+  it('allows void elements without close tags', () => {
+    const tree = parse('<div><br><hr><img src="x"><input type="text"></div>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors).toEqual([]);
+  });
+
+  it('allows optional end tag elements', () => {
+    const tree = parse('<ul><li>one<li>two</ul>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors).toEqual([]);
+  });
+
+  it('allows p implicitly closed by block element', () => {
+    const tree = parse('<p>text<div>block</div>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors).toEqual([]);
+  });
+
+  it('detects unclosed span inside div', () => {
+    const tree = parse('<div><span>text</div>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message === 'Unclosed HTML tag: <span>')).toBe(true);
+  });
+
+  it('detects unclosed div at end of document', () => {
+    const tree = parse('<div>content');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message === 'Unclosed HTML tag: <div>')).toBe(true);
+  });
+});
+
 describe('formatError', () => {
   it('includes file location and error message', () => {
     const error = {

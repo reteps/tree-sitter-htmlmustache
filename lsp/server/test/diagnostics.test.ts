@@ -120,4 +120,41 @@ describe('Diagnostics', () => {
       expect(diagnostics.length).toBeGreaterThan(0);
     });
   });
+
+  describe('unclosed tag detection', () => {
+    it('detects unclosed canvas tag', () => {
+      const tree = parseText('<div><canvas></div>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message === 'Unclosed HTML tag: <canvas>')).toBe(true);
+    });
+
+    it('allows properly closed canvas tag', () => {
+      const tree = parseText('<div><canvas></canvas></div>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.length).toBe(0);
+    });
+
+    it('allows void elements without close tags', () => {
+      const tree = parseText('<div><br><hr><img src="x"></div>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.length).toBe(0);
+    });
+
+    it('allows optional end tag elements like li', () => {
+      const tree = parseText('<ul><li>one<li>two</ul>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.length).toBe(0);
+    });
+
+    it('detects unclosed span', () => {
+      const tree = parseText('<div><span>text</div>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message === 'Unclosed HTML tag: <span>')).toBe(true);
+    });
+  });
 });
