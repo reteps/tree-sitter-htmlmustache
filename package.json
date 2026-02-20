@@ -46,9 +46,15 @@
     "tree-sitter": "^0.25.0"
   },
   "peerDependenciesMeta": {
-    "node-addon-api": { "optional": true },
-    "node-gyp-build": { "optional": true },
-    "tree-sitter": { "optional": true }
+    "node-addon-api": {
+      "optional": true
+    },
+    "node-gyp-build": {
+      "optional": true
+    },
+    "tree-sitter": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",

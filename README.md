@@ -145,14 +145,17 @@ Place a comment immediately before the element to preserve its original formatti
 
 ```html
 <!-- htmlmustache-ignore -->
-<div   class="a"   id="b"  >
-  manually   formatted
-</div>
+<div class="a" id="b">manually formatted</div>
 ```
 
 ```html
 {{! htmlmustache-ignore }}
-<table><tr><td>compact</td><td>table</td></tr></table>
+<table>
+  <tr>
+    <td>compact</td>
+    <td>table</td>
+  </tr>
+</table>
 ```
 
 Only the immediately following sibling node is ignored. Subsequent nodes are formatted normally.
@@ -163,15 +166,15 @@ Wrap a region in start/end comments to preserve everything between them:
 
 ```html
 <!-- htmlmustache-ignore-start -->
-<div   class="a"  >content</div>
-<p>  kept   as-is  </p>
+<div class="a">content</div>
+<p>kept as-is</p>
 <!-- htmlmustache-ignore-end -->
 ```
 
 ```html
-{{! htmlmustache-ignore-start }}
-{{#items}}<li>{{name}}</li>{{/items}}
-{{! htmlmustache-ignore-end }}
+{{! htmlmustache-ignore-start }} {{#items}}
+<li>{{name}}</li>
+{{/items}} {{! htmlmustache-ignore-end }}
 ```
 
 If `ignore-start` has no matching `ignore-end`, all remaining siblings in the current scope are preserved as raw text.
