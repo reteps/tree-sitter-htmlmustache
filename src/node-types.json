@@ -326,6 +326,10 @@
         {
           "type": "mustache_section",
           "named": true
+        },
+        {
+          "type": "mustache_triple",
+          "named": true
         }
       ]
     }

@@ -281,12 +281,12 @@ module.exports = grammar({
     _attribute_value_no_double_quote: ($) =>
       choice(
         $._mustache_node,
-        alias($._html_attribute_value_no_single_quote, $.text),
+        alias($._html_attribute_value_no_double_quote, $.text),
       ),
     _attribute_value_no_single_quote: ($) =>
       choice(
         $._mustache_node,
-        alias($._html_attribute_value_no_double_quote, $.text),
+        alias($._html_attribute_value_no_single_quote, $.text),
       ),
     _mustache_section_no_single_quote: ($) =>
       seq(
@@ -370,6 +370,7 @@ module.exports = grammar({
       ),
     _mustache_node_no_single_quote: ($) =>
       choice(
+        $.mustache_triple,
         $.mustache_interpolation,
         alias($._mustache_comment_no_single_quote, $.mustache_comment),
         alias($._mustache_partial_no_single_quote, $.mustache_partial),
@@ -381,6 +382,7 @@ module.exports = grammar({
       ),
     _mustache_node_no_double_quote: ($) =>
       choice(
+        $.mustache_triple,
         $.mustache_interpolation,
         alias($._mustache_comment_no_double_quote, $.mustache_comment),
         alias($._mustache_partial_no_double_quote, $.mustache_partial),

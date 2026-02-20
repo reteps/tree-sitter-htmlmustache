@@ -942,7 +942,7 @@
           "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
-            "name": "_html_attribute_value_no_single_quote"
+            "name": "_html_attribute_value_no_double_quote"
           },
           "named": true,
           "value": "text"
@@ -960,7 +960,7 @@
           "type": "ALIAS",
           "content": {
             "type": "SYMBOL",
-            "name": "_html_attribute_value_no_double_quote"
+            "name": "_html_attribute_value_no_single_quote"
           },
           "named": true,
           "value": "text"
@@ -1160,6 +1160,10 @@
       "members": [
         {
           "type": "SYMBOL",
+          "name": "mustache_triple"
+        },
+        {
+          "type": "SYMBOL",
           "name": "mustache_interpolation"
         },
         {
@@ -1203,6 +1207,10 @@
     "_mustache_node_no_double_quote": {
       "type": "CHOICE",
       "members": [
+        {
+          "type": "SYMBOL",
+          "name": "mustache_triple"
+        },
         {
           "type": "SYMBOL",
           "name": "mustache_interpolation"

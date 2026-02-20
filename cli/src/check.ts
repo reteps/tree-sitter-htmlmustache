@@ -72,32 +72,39 @@ export function collectErrors(tree: Tree, file: string): CheckError[] {
   const errors: CheckError[] = [];
   const cursor = tree.walk() as unknown as TreeCursor;
 
-  function visit() {
+  function visit(insideMustacheSection: boolean) {
     const node = cursor.currentNode;
     const nodeType = cursor.nodeType;
 
     if (ERROR_NODE_TYPES.has(nodeType) || cursor.nodeIsMissing) {
-      errors.push({
-        file,
-        line: node.startPosition.row + 1,
-        column: node.startPosition.column + 1,
-        endLine: node.endPosition.row + 1,
-        endColumn: node.endPosition.column + 1,
-        message: errorMessageForNode(nodeType, node),
-        nodeText: node.text,
-      });
+      // Skip html_erroneous_end_tag inside mustache sections — these are
+      // valid conditional closing tags like {{#inline}}</span>{{/inline}}
+      const skip = insideMustacheSection && nodeType === 'html_erroneous_end_tag';
+
+      if (!skip) {
+        errors.push({
+          file,
+          line: node.startPosition.row + 1,
+          column: node.startPosition.column + 1,
+          endLine: node.endPosition.row + 1,
+          endColumn: node.endPosition.column + 1,
+          message: errorMessageForNode(nodeType, node),
+          nodeText: node.text,
+        });
+      }
 
       // Don't recurse into ERROR nodes — the children are not meaningful
       if (nodeType === 'ERROR') return;
     }
 
+    const enteringMustacheSection = nodeType === 'mustache_section' || nodeType === 'mustache_inverted_section';
     if (cursor.gotoFirstChild()) {
-      do { visit(); } while (cursor.gotoNextSibling());
+      do { visit(insideMustacheSection || enteringMustacheSection); } while (cursor.gotoNextSibling());
       cursor.gotoParent();
     }
   }
 
-  visit();
+  visit(false);
   return errors;
 }
 

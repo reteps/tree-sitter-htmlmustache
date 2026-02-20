@@ -1,4 +1,36 @@
 ===
+Single-quoted attribute with double quotes inside mustache section
+===
+<button data-bs-content='<math-field id="popover-{{uuid}}" {{#allow_trig}}allow-trig="allow-trig"{{/allow_trig}} class="read-only">{{answer}}</math-field>'>click</button>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (html_attribute_value)
+          (mustache_interpolation
+            (mustache_identifier))
+          (html_attribute_value)
+          (mustache_section
+            (mustache_section_begin
+              (mustache_tag_name))
+            (_mustache_section_content
+              (text))
+            (mustache_section_end
+              (mustache_tag_name)))
+          (html_attribute_value)
+          (mustache_interpolation
+            (mustache_identifier))
+          (html_attribute_value))))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
 Empty mustache section
 ===
 {{#empty}}{{/empty}}
@@ -3260,6 +3292,44 @@ Greater-than and braces in text content
     (text)
     (text)
     (text)
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Triple mustache in double-quoted attribute value
+===
+<button opts="{{{ options }}}">click</button>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_triple
+            (mustache_identifier)))))
+    (text)
+    (html_end_tag
+      (html_tag_name))))
+
+===
+Triple mustache in single-quoted attribute value
+===
+<button opts='{{{ options }}}'>click</button>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (mustache_triple
+            (mustache_identifier)))))
     (text)
     (html_end_tag
       (html_tag_name))))

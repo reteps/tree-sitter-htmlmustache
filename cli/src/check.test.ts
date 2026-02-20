@@ -48,6 +48,25 @@ describe('collectErrors', () => {
     expect(errors.some(e => e.message === 'Mismatched HTML end tag: </span>')).toBe(true);
   });
 
+  it('allows erroneous end tags inside mustache sections (conditional closing tags)', () => {
+    const tree = parse('{{#inline}}</span>{{/inline}}');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors).toEqual([]);
+  });
+
+  it('allows erroneous end tags inside inverted mustache sections', () => {
+    const tree = parse('{{^inline}}</span>{{/inline}}');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors).toEqual([]);
+  });
+
+  it('still detects erroneous end tags outside mustache sections', () => {
+    const tree = parse('<div></span></div>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some(e => e.message === 'Mismatched HTML end tag: </span>')).toBe(true);
+  });
+
   it('detects missing nodes', () => {
     const tree = parse('<div');
     const errors = collectErrors(tree, 'test.mustache');
