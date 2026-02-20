@@ -519,6 +519,59 @@ describe('consecutive same-name sections', () => {
   });
 });
 
+describe('self-closing non-void tags', () => {
+  it('detects self-closing div', () => {
+    const tree = parse('<div/>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message === 'Self-closing non-void element: <div/>')).toBe(true);
+  });
+
+  it('detects self-closing span with attributes', () => {
+    const tree = parse('<span class="x" />');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message === 'Self-closing non-void element: <span/>')).toBe(true);
+  });
+
+  it('allows self-closing void elements', () => {
+    const tree = parse('<br/><hr/><img src="x"/><input type="text"/>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Self-closing non-void'))).toBe(false);
+  });
+
+  it('allows void elements without self-closing', () => {
+    const tree = parse('<br><hr><img src="x"><input type="text">');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Self-closing non-void'))).toBe(false);
+  });
+
+  it('provides fix that adds explicit close tag', () => {
+    const source = '<div/>';
+    const tree = parse(source);
+    const errors = collectErrors(tree, 'test.mustache');
+    const error = errors.find(e => e.message.includes('Self-closing non-void'));
+    expect(error).toBeDefined();
+    expect(error!.fix).toBeDefined();
+    expect(error!.fix!.length).toBe(1);
+    expect(error!.fixDescription).toBe('Replace self-closing syntax with explicit close tag');
+  });
+
+  it('fix produces correct output', () => {
+    const source = '<div/>';
+    const tree = parse(source);
+    const errors = collectErrors(tree, 'test.mustache');
+    const result = applyFixes(source, errors);
+    expect(result).toBe('<div></div>');
+  });
+
+  it('fix preserves attributes', () => {
+    const source = '<span class="x" />';
+    const tree = parse(source);
+    const errors = collectErrors(tree, 'test.mustache');
+    const result = applyFixes(source, errors);
+    expect(result).toBe('<span class="x"></span>');
+  });
+});
+
 describe('duplicate attributes', () => {
   it('detects plain duplicate attributes', () => {
     const tree = parse('<div a="1" a="2"></div>');

@@ -9,6 +9,7 @@ import {
   checkNestedSameNameSections,
   checkUnquotedMustacheAttributes,
   checkConsecutiveSameNameSections,
+  checkSelfClosingNonVoidTags,
   checkDuplicateAttributes,
 } from './mustacheChecks';
 import type { TextReplacement } from './mustacheChecks';
@@ -103,6 +104,7 @@ export function collectErrors(tree: WalkableTree): CheckError[] {
     ...checkNestedSameNameSections(tree.rootNode),
     ...checkUnquotedMustacheAttributes(tree.rootNode),
     ...checkConsecutiveSameNameSections(tree.rootNode, sourceText),
+    ...checkSelfClosingNonVoidTags(tree.rootNode),
     ...checkDuplicateAttributes(tree.rootNode),
   ];
   for (const error of mustacheChecks) {

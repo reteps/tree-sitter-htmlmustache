@@ -196,6 +196,43 @@ describe('Diagnostics', () => {
     });
   });
 
+  describe('self-closing non-void tags', () => {
+    it('detects self-closing div', () => {
+      const tree = parseText('<div/>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message === 'Self-closing non-void element: <div/>')).toBe(true);
+    });
+
+    it('allows self-closing void elements', () => {
+      const tree = parseText('<br/><img src="x"/>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message.includes('Self-closing non-void'))).toBe(false);
+    });
+
+    it('reports as error severity', () => {
+      const tree = parseText('<div/>');
+      const diagnostics = getDiagnostics(tree);
+
+      const err = diagnostics.find(d => d.message.includes('Self-closing non-void'));
+      expect(err).toBeDefined();
+      expect(err!.severity).toBe(DiagnosticSeverity.Error);
+    });
+
+    it('includes fix data in diagnostic', () => {
+      const tree = parseText('<div/>');
+      const diagnostics = getDiagnostics(tree);
+
+      const err = diagnostics.find(d => d.message.includes('Self-closing non-void'));
+      expect(err).toBeDefined();
+      expect(err!.data).toBeDefined();
+      const data = err!.data as { fix: unknown[]; fixDescription: string };
+      expect(data.fix).toHaveLength(1);
+      expect(data.fixDescription).toBe('Replace self-closing syntax with explicit close tag');
+    });
+  });
+
   describe('duplicate attributes', () => {
     it('detects plain duplicate attributes', () => {
       const tree = parseText('<div a="1" a="2"></div>');

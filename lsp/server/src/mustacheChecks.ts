@@ -144,7 +144,46 @@ export function checkConsecutiveSameNameSections(rootNode: BalanceNode, sourceTe
   return errors;
 }
 
-// 4. Duplicate attributes (including across mustache conditionals)
+// 4. Self-closing non-void tags
+const VOID_ELEMENTS = new Set([
+  'area', 'base', 'basefont', 'bgsound', 'br', 'col', 'command',
+  'embed', 'frame', 'hr', 'image', 'img', 'input', 'isindex',
+  'keygen', 'link', 'menuitem', 'meta', 'nextid', 'param',
+  'source', 'track', 'wbr',
+]);
+
+export function checkSelfClosingNonVoidTags(rootNode: BalanceNode): FixableError[] {
+  const errors: FixableError[] = [];
+
+  function visit(node: BalanceNode) {
+    if (node.type === 'html_self_closing_tag') {
+      const tagNameNode = node.children.find(c => c.type === 'html_tag_name');
+      const tagName = tagNameNode?.text.toLowerCase();
+      if (tagName && !VOID_ELEMENTS.has(tagName)) {
+        errors.push({
+          node,
+          message: `Self-closing non-void element: <${tagNameNode!.text}/>`,
+          fix: [{
+            startIndex: node.startIndex,
+            endIndex: node.endIndex,
+            newText: node.text.replace(/\s*\/>$/, '>') + `</${tagNameNode!.text}>`,
+          }],
+          fixDescription: 'Replace self-closing syntax with explicit close tag',
+        });
+      }
+      return;
+    }
+
+    for (const child of node.children) {
+      visit(child);
+    }
+  }
+
+  visit(rootNode);
+  return errors;
+}
+
+// 5. Duplicate attributes (including across mustache conditionals)
 interface Condition {
   name: string;
   inverted: boolean;
