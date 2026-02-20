@@ -76,4 +76,48 @@ describe('Diagnostics', () => {
       expect(diagnostics.length).toBe(0);
     });
   });
+
+  describe('HTML balance checker', () => {
+    it('reports mismatched HTML end tag outside sections', () => {
+      const tree = parseText('<div></span></div>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message === 'Mismatched HTML end tag: </span>')).toBe(true);
+    });
+
+    it('allows same-name section open/close pairs', () => {
+      const tree = parseText('{{#s}}<div>{{/s}} {{#s}}</div>{{/s}}');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.length).toBe(0);
+    });
+
+    it('detects inverted section open/close mismatch', () => {
+      const tree = parseText('{{#s}}<div>{{/s}} {{^s}}</div>{{/s}}');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.length).toBeGreaterThan(0);
+    });
+
+    it('allows if/else balanced patterns', () => {
+      const tree = parseText('{{#s}}<span>{{/s}}{{^s}}<div>{{/s}} {{#s}}</span>{{/s}}{{^s}}</div>{{/s}}');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.length).toBe(0);
+    });
+
+    it('detects if/else swapped close tags', () => {
+      const tree = parseText('{{#s}}<span>{{/s}}{{^s}}<div>{{/s}} {{#s}}</div>{{/s}}{{^s}}</span>{{/s}}');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.length).toBeGreaterThan(0);
+    });
+
+    it('detects orphan close tag in section', () => {
+      const tree = parseText('{{#s}}</span>{{/s}}');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.length).toBeGreaterThan(0);
+    });
+  });
 });

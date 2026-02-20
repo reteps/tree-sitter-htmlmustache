@@ -7,6 +7,7 @@ import type { Tree } from './wasm';
 import { initializeParser, parseDocument } from './wasm';
 import { findConfigFile, parseJsonc, validateConfig } from '../../lsp/server/src/configFile';
 import type { HtmlMustacheConfig } from '../../lsp/server/src/configFile';
+import { checkHtmlBalance } from '../../lsp/server/src/htmlBalanceChecker';
 
 // ── Types ──
 
@@ -50,10 +51,6 @@ function errorMessageForNode(nodeType: string, node: SyntaxNode): string {
     const tagNameNode = node.children.find((c: SyntaxNode) => c.type === 'mustache_erroneous_tag_name');
     return `Mismatched mustache section: {{/${tagNameNode?.text || '?'}}}`;
   }
-  if (nodeType === 'html_erroneous_end_tag') {
-    const tagNameNode = node.children.find((c: SyntaxNode) => c.type === 'html_erroneous_end_tag_name');
-    return `Mismatched HTML end tag: </${tagNameNode?.text || '?'}>`;
-  }
   if (nodeType === 'ERROR') {
     return 'Syntax error';
   }
@@ -65,46 +62,54 @@ const ERROR_NODE_TYPES = new Set([
   'ERROR',
   'mustache_erroneous_section_end',
   'mustache_erroneous_inverted_section_end',
-  'html_erroneous_end_tag',
 ]);
 
 export function collectErrors(tree: Tree, file: string): CheckError[] {
   const errors: CheckError[] = [];
   const cursor = tree.walk() as unknown as TreeCursor;
 
-  function visit(insideMustacheSection: boolean) {
+  function visit() {
     const node = cursor.currentNode;
     const nodeType = cursor.nodeType;
 
     if (ERROR_NODE_TYPES.has(nodeType) || cursor.nodeIsMissing) {
-      // Skip html_erroneous_end_tag inside mustache sections — these are
-      // valid conditional closing tags like {{#inline}}</span>{{/inline}}
-      const skip = insideMustacheSection && nodeType === 'html_erroneous_end_tag';
-
-      if (!skip) {
-        errors.push({
-          file,
-          line: node.startPosition.row + 1,
-          column: node.startPosition.column + 1,
-          endLine: node.endPosition.row + 1,
-          endColumn: node.endPosition.column + 1,
-          message: errorMessageForNode(nodeType, node),
-          nodeText: node.text,
-        });
-      }
+      errors.push({
+        file,
+        line: node.startPosition.row + 1,
+        column: node.startPosition.column + 1,
+        endLine: node.endPosition.row + 1,
+        endColumn: node.endPosition.column + 1,
+        message: errorMessageForNode(nodeType, node),
+        nodeText: node.text,
+      });
 
       // Don't recurse into ERROR nodes — the children are not meaningful
       if (nodeType === 'ERROR') return;
     }
 
-    const enteringMustacheSection = nodeType === 'mustache_section' || nodeType === 'mustache_inverted_section';
     if (cursor.gotoFirstChild()) {
-      do { visit(insideMustacheSection || enteringMustacheSection); } while (cursor.gotoNextSibling());
+      do { visit(); } while (cursor.gotoNextSibling());
       cursor.gotoParent();
     }
   }
 
-  visit(false);
+  visit();
+
+  // Run balance checker for HTML tag mismatch detection across mustache paths
+  const rootNode = tree.rootNode as unknown as SyntaxNode;
+  const balanceErrors = checkHtmlBalance(rootNode);
+  for (const error of balanceErrors) {
+    errors.push({
+      file,
+      line: error.node.startPosition.row + 1,
+      column: error.node.startPosition.column + 1,
+      endLine: error.node.endPosition.row + 1,
+      endColumn: error.node.endPosition.column + 1,
+      message: error.message,
+      nodeText: error.node.text,
+    });
+  }
+
   return errors;
 }
 

@@ -48,16 +48,16 @@ describe('collectErrors', () => {
     expect(errors.some(e => e.message === 'Mismatched HTML end tag: </span>')).toBe(true);
   });
 
-  it('allows erroneous end tags inside mustache sections (conditional closing tags)', () => {
+  it('detects orphan erroneous end tags inside mustache sections', () => {
     const tree = parse('{{#inline}}</span>{{/inline}}');
     const errors = collectErrors(tree, 'test.mustache');
-    expect(errors).toEqual([]);
+    expect(errors.length).toBeGreaterThan(0);
   });
 
-  it('allows erroneous end tags inside inverted mustache sections', () => {
+  it('detects orphan erroneous end tags inside inverted mustache sections', () => {
     const tree = parse('{{^inline}}</span>{{/inline}}');
     const errors = collectErrors(tree, 'test.mustache');
-    expect(errors).toEqual([]);
+    expect(errors.length).toBeGreaterThan(0);
   });
 
   it('still detects erroneous end tags outside mustache sections', () => {
@@ -89,6 +89,86 @@ describe('collectErrors', () => {
       expect(sectionError.line).toBe(3);
       expect(sectionError.file).toBe('test.mustache');
     }
+  });
+});
+
+describe('HTML balance checker', () => {
+  it('allows same-name section open/close pairs', () => {
+    const tree = parse('{{#s}}<div>{{/s}} {{#s}}</div>{{/s}}');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors).toEqual([]);
+  });
+
+  it('detects inverted section open/close mismatch with path info', () => {
+    const tree = parse('{{#s}}<div>{{/s}} {{^s}}</div>{{/s}}');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.length).toBeGreaterThan(0);
+    // Errors should include the failing condition
+    expect(errors.some(e => e.message.includes('when s is'))).toBe(true);
+  });
+
+  it('allows if/else balanced patterns', () => {
+    const tree = parse('{{#s}}<span>{{/s}}{{^s}}<div>{{/s}} {{#s}}</span>{{/s}}{{^s}}</div>{{/s}}');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors).toEqual([]);
+  });
+
+  it('detects if/else swapped close tags with path info', () => {
+    const tree = parse('{{#s}}<span>{{/s}}{{^s}}<div>{{/s}} {{#s}}</div>{{/s}}{{^s}}</span>{{/s}}');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some(e => e.message.includes('when s is'))).toBe(true);
+  });
+
+  it('detects standalone orphan close in section with path info', () => {
+    const tree = parse('{{#s}}</span>{{/s}}');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.length).toBeGreaterThan(0);
+    expect(errors.some(e => e.message.includes('when s is truthy'))).toBe(true);
+  });
+
+  it('reports no path info for unconditional mismatches', () => {
+    const tree = parse('<div></span></div>');
+    const errors = collectErrors(tree, 'test.mustache');
+    const mismatch = errors.find(e => e.message.includes('</span>'));
+    expect(mismatch).toBeDefined();
+    expect(mismatch!.message).toBe('Mismatched HTML end tag: </span>');
+    expect(mismatch!.message).not.toContain('when');
+  });
+
+  it('detects mismatch in nested conditional with else fallback', () => {
+    // if start: <div>, else: <span>
+    // if baz: (if start: </div>, else: </span>), else: </span>
+    //
+    // start=T baz=T → [OPEN(div), CLOSE(div)] balanced
+    // start=F baz=T → [OPEN(span), CLOSE(span)] balanced
+    // start=F baz=F → [OPEN(span), CLOSE(span)] balanced
+    // start=T baz=F → [OPEN(div), CLOSE(span)] MISMATCH
+    const source = [
+      '{{#start}}<div>{{/start}}',
+      '{{^start}}<span>{{/start}}',
+      '{{#baz}}',
+      '  {{#start}}</div>{{/start}}',
+      '  {{^start}}</span>{{/start}}',
+      '{{/baz}}',
+      '{{^baz}}',
+      '  </span>',
+      '{{/baz}}',
+    ].join('\n');
+    const tree = parse(source);
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.length).toBeGreaterThan(0);
+    const mismatch = errors.find(e => e.message.includes('Mismatched HTML end tag'));
+    expect(mismatch).toBeDefined();
+    expect(mismatch!.message).toContain('</span>');
+    expect(mismatch!.message).toContain('start is truthy');
+    expect(mismatch!.message).toContain('baz is falsy');
+  });
+
+  it('allows nested same-section with balanced inner tags', () => {
+    const tree = parse('{{#items}}<div>{{#items}}<span></span>{{/items}}</div>{{/items}}');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors).toEqual([]);
   });
 });
 

@@ -1,5 +1,6 @@
 import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
 import { Tree } from './parser';
+import { checkHtmlBalance } from './htmlBalanceChecker';
 
 export function getDiagnostics(tree: Tree): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
@@ -43,5 +44,20 @@ export function getDiagnostics(tree: Tree): Diagnostic[] {
   }
 
   visit();
+
+  // Run balance checker for HTML tag mismatch detection across mustache paths
+  const balanceErrors = checkHtmlBalance(tree.rootNode);
+  for (const error of balanceErrors) {
+    diagnostics.push({
+      severity: DiagnosticSeverity.Error,
+      range: {
+        start: { line: error.node.startPosition.row, character: error.node.startPosition.column },
+        end: { line: error.node.endPosition.row, character: error.node.endPosition.column },
+      },
+      message: error.message,
+      source: 'htmlmustache',
+    });
+  }
+
   return diagnostics;
 }
