@@ -5,6 +5,8 @@ export interface BalanceNode {
   text: string;
   startPosition: { row: number; column: number };
   endPosition: { row: number; column: number };
+  startIndex: number;
+  endIndex: number;
   children: BalanceNode[];
 }
 
@@ -44,7 +46,7 @@ function getErroneousEndTagName(node: BalanceNode): string | null {
   return nameNode?.text?.toLowerCase() ?? null;
 }
 
-function getSectionName(node: BalanceNode): string | null {
+export function getSectionName(node: BalanceNode): string | null {
   const beginNode = node.children.find(
     c => c.type === 'mustache_section_begin' || c.type === 'mustache_inverted_section_begin',
   );
@@ -190,11 +192,32 @@ function mergeAdjacentForks(items: PathItem[]): PathItem[] {
 
 // --- Phase 3: Enumerate paths and validate balance ---
 
+/**
+ * Check if a list of path items contains any TagEvents (opens/closes),
+ * either directly or inside nested forks.
+ */
+function hasTagEvents(items: PathItem[]): boolean {
+  for (const item of items) {
+    if (item.type !== 'fork') return true; // It's a TagEvent
+    if (hasTagEvents(item.truthy) || hasTagEvents(item.falsy)) return true;
+  }
+  return false;
+}
+
+/**
+ * Collect only section names that affect HTML tag balance.
+ * A fork only matters if at least one of its branches contains tag events.
+ * Forks with balanced HTML (like {{#correct}}<span>...</span>{{/correct}})
+ * produce empty branches after extraction and are skipped.
+ * This reduces 2^N enumeration to only the relevant variables.
+ */
 function collectSectionNames(items: PathItem[]): Set<string> {
   const names = new Set<string>();
   for (const item of items) {
     if (item.type === 'fork') {
-      names.add(item.sectionName);
+      if (hasTagEvents(item.truthy) || hasTagEvents(item.falsy)) {
+        names.add(item.sectionName);
+      }
       for (const name of collectSectionNames(item.truthy)) names.add(name);
       for (const name of collectSectionNames(item.falsy)) names.add(name);
     }

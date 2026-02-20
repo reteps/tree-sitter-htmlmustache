@@ -2,7 +2,8 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import { collectErrors, formatError, formatSummary, resolveFiles } from './check';
+import { collectErrors, formatError, formatSummary, resolveFiles, applyFixes } from './check';
+import type { CheckError } from './check';
 import { initializeParser, parseDocument } from './wasm';
 
 beforeAll(async () => {
@@ -93,10 +94,11 @@ describe('collectErrors', () => {
 });
 
 describe('HTML balance checker', () => {
-  it('allows same-name section open/close pairs', () => {
+  it('allows same-name section open/close pairs (only warning for consecutive)', () => {
     const tree = parse('{{#s}}<div>{{/s}} {{#s}}</div>{{/s}}');
     const errors = collectErrors(tree, 'test.mustache');
-    expect(errors).toEqual([]);
+    // The only error should be the consecutive section warning
+    expect(errors.every(e => e.severity === 'warning')).toBe(true);
   });
 
   it('detects inverted section open/close mismatch with path info', () => {
@@ -165,10 +167,37 @@ describe('HTML balance checker', () => {
     expect(mismatch!.message).toContain('baz is falsy');
   });
 
-  it('allows nested same-section with balanced inner tags', () => {
+  it('detects nested same-section even with balanced inner tags', () => {
     const tree = parse('{{#items}}<div>{{#items}}<span></span>{{/items}}</div>{{/items}}');
     const errors = collectErrors(tree, 'test.mustache');
-    expect(errors).toEqual([]);
+    expect(errors.some(e => e.message.includes('Nested duplicate section'))).toBe(true);
+  });
+
+  it('detects if/else open with same-type close (button/span bug)', () => {
+    // {{#s}} opens <button>, {{^s}} opens <span>
+    // but both closing tags are in {{#s}} — the second should be {{^s}}
+    const source = [
+      '{{#s}}<button><i></i>{{/s}}',
+      '{{^s}}<span>{{/s}}',
+      'text',
+      '{{#s}}</button>{{/s}}',
+      '{{#s}}</span>{{/s}}',
+    ].join('\n');
+    const tree = parse(source);
+    const errors = collectErrors(tree, 'test.mustache');
+    // Should detect errors — </span> mismatched on truthy path, <span> unclosed on falsy path
+    const nonWarnings = errors.filter(e => e.severity !== 'warning');
+    expect(nonWarnings.length).toBeGreaterThan(0);
+    // Balance checker should include path condition info
+    expect(nonWarnings.some(e => e.message.includes('when s is'))).toBe(true);
+  });
+
+  it('detects consecutive sections in button/span pattern', () => {
+    // Isolated test: two consecutive {{#s}} sections with whitespace gap
+    const source = '{{#s}}</button>{{/s}}\n{{#s}}</span>{{/s}}';
+    const tree = parse(source);
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Consecutive duplicate section') && e.severity === 'warning')).toBe(true);
   });
 });
 
@@ -213,6 +242,61 @@ describe('Unclosed tag detection', () => {
     const tree = parse('<div>content');
     const errors = collectErrors(tree, 'test.mustache');
     expect(errors.some(e => e.message === 'Unclosed HTML tag: <div>')).toBe(true);
+  });
+});
+
+describe('Mustache lint checks', () => {
+  describe('nested same-name sections', () => {
+    it('detects nested duplicate section', () => {
+      const tree = parse('{{#x}}{{#x}}inner{{/x}}{{/x}}');
+      const errors = collectErrors(tree, 'test.mustache');
+      expect(errors.some(e => e.message.includes('Nested duplicate section') && e.message.includes('{{#x}}'))).toBe(true);
+    });
+
+    it('allows non-nested same-name sections (sequential)', () => {
+      const tree = parse('{{#x}}first{{/x}}{{#x}}second{{/x}}');
+      const errors = collectErrors(tree, 'test.mustache');
+      expect(errors.some(e => e.message.includes('Nested duplicate section'))).toBe(false);
+    });
+
+    it('detects deeply nested duplicate', () => {
+      const tree = parse('{{#a}}{{#b}}{{#a}}deep{{/a}}{{/b}}{{/a}}');
+      const errors = collectErrors(tree, 'test.mustache');
+      expect(errors.some(e => e.message.includes('Nested duplicate section') && e.message.includes('{{#a}}'))).toBe(true);
+    });
+
+    it('allows different-name nested sections', () => {
+      const tree = parse('{{#a}}{{#b}}inner{{/b}}{{/a}}');
+      const errors = collectErrors(tree, 'test.mustache');
+      expect(errors.some(e => e.message.includes('Nested duplicate section'))).toBe(false);
+    });
+  });
+
+  describe('unquoted mustache attribute value', () => {
+    it('detects unquoted mustache in attribute', () => {
+      const tree = parse('<div class={{foo}}></div>');
+      const errors = collectErrors(tree, 'test.mustache');
+      expect(errors.some(e => e.message.includes('Unquoted mustache attribute value'))).toBe(true);
+    });
+
+    it('allows quoted mustache in attribute', () => {
+      const tree = parse('<div class="{{foo}}"></div>');
+      const errors = collectErrors(tree, 'test.mustache');
+      expect(errors.some(e => e.message.includes('Unquoted mustache attribute value'))).toBe(false);
+    });
+
+    it('does not flag standalone mustache in tag', () => {
+      const tree = parse('<div {{attrs}}></div>');
+      const errors = collectErrors(tree, 'test.mustache');
+      expect(errors.some(e => e.message.includes('Unquoted mustache attribute value'))).toBe(false);
+    });
+
+    it('detects unquoted mustache in multiple attributes', () => {
+      const tree = parse('<div class={{foo}} id={{bar}}></div>');
+      const errors = collectErrors(tree, 'test.mustache');
+      const unquotedErrors = errors.filter(e => e.message.includes('Unquoted mustache attribute value'));
+      expect(unquotedErrors.length).toBe(2);
+    });
   });
 });
 
@@ -377,5 +461,110 @@ describe('resolveFiles', () => {
     expect(files).toEqual([]);
     expect(config).not.toBeNull();
     expect(config!.include).toBeUndefined();
+  });
+});
+
+describe('consecutive same-name sections', () => {
+  it('detects consecutive same-type same-name sections', () => {
+    const tree = parse('{{#x}}a{{/x}}{{#x}}b{{/x}}');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Consecutive duplicate section') && e.severity === 'warning')).toBe(true);
+  });
+
+  it('detects consecutive inverted sections', () => {
+    const tree = parse('{{^x}}a{{/x}}{{^x}}b{{/x}}');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Consecutive duplicate section') && e.message.includes('{{^x}}'))).toBe(true);
+  });
+
+  it('does not flag different-type sections', () => {
+    const tree = parse('{{#x}}a{{/x}}{{^x}}b{{/x}}');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Consecutive duplicate section'))).toBe(false);
+  });
+
+  it('does not flag different-name sections', () => {
+    const tree = parse('{{#x}}a{{/x}}{{#y}}b{{/y}}');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Consecutive duplicate section'))).toBe(false);
+  });
+
+  it('flags with whitespace-only gap', () => {
+    const tree = parse('{{#x}}a{{/x}}  \n  {{#x}}b{{/x}}');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Consecutive duplicate section'))).toBe(true);
+  });
+
+  it('does not flag with non-whitespace between sections', () => {
+    const tree = parse('{{#x}}a{{/x}}text{{#x}}b{{/x}}');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Consecutive duplicate section'))).toBe(false);
+  });
+
+  it('severity is warning, not error', () => {
+    const tree = parse('{{^foo}}a{{/foo}}{{^foo}}b{{/foo}}');
+    const errors = collectErrors(tree, 'test.mustache');
+    const consecutive = errors.find(e => e.message.includes('Consecutive duplicate section'));
+    expect(consecutive).toBeDefined();
+    expect(consecutive!.severity).toBe('warning');
+  });
+
+  it('provides fix data', () => {
+    const tree = parse('{{#x}}a{{/x}}{{#x}}b{{/x}}');
+    const errors = collectErrors(tree, 'test.mustache');
+    const consecutive = errors.find(e => e.message.includes('Consecutive duplicate section'));
+    expect(consecutive).toBeDefined();
+    expect(consecutive!.fix).toBeDefined();
+    expect(consecutive!.fix!.length).toBe(1);
+    expect(consecutive!.fixDescription).toBe('Merge consecutive sections');
+  });
+});
+
+describe('applyFixes', () => {
+  it('applies unquoted attribute fix', () => {
+    const source = '<div class={{foo}}></div>';
+    const tree = parse(source);
+    const errors = collectErrors(tree, 'test.mustache');
+    const result = applyFixes(source, errors);
+    expect(result).toBe('<div class="{{foo}}"></div>');
+  });
+
+  it('applies consecutive section merge fix', () => {
+    const source = '{{#x}}a{{/x}}{{#x}}b{{/x}}';
+    const tree = parse(source);
+    const errors = collectErrors(tree, 'test.mustache');
+    const result = applyFixes(source, errors);
+    expect(result).toBe('{{#x}}ab{{/x}}');
+  });
+
+  it('applies multiple fixes in one file', () => {
+    const source = '<div size={{s}}></div>\n{{^m}}a{{/m}}{{^m}}b{{/m}}';
+    const tree = parse(source);
+    const errors = collectErrors(tree, 'test.mustache');
+    const result = applyFixes(source, errors);
+    expect(result).toContain('"{{s}}"');
+    expect(result).toContain('{{^m}}ab{{/m}}');
+  });
+
+  it('returns source unchanged when no fixes', () => {
+    const source = '<div class="ok">text</div>';
+    const tree = parse(source);
+    const errors = collectErrors(tree, 'test.mustache');
+    const result = applyFixes(source, errors);
+    expect(result).toBe(source);
+  });
+});
+
+describe('formatSummary with warnings', () => {
+  it('shows only warnings', () => {
+    const output = formatSummary(0, 1, 5, 2);
+    expect(output).toContain('2 warnings');
+    expect(output).not.toContain('error');
+  });
+
+  it('shows both errors and warnings', () => {
+    const output = formatSummary(3, 2, 10, 1);
+    expect(output).toContain('3 errors');
+    expect(output).toContain('1 warning');
   });
 });

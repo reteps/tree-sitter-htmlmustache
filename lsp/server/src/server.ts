@@ -5,6 +5,7 @@ import {
   InitializeParams,
   InitializeResult,
   TextDocumentSyncKind,
+  CodeActionKind,
 } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import * as path from 'path';
@@ -19,6 +20,7 @@ import { getHoverInfo } from './hover';
 import { getFoldingRanges } from './folding';
 import { formatDocument, formatDocumentRange } from './formatting/index';
 import { getDiagnostics } from './diagnostics';
+import { getCodeActions } from './codeActions';
 import { initializeTextMateRegistry, isTextMateReady, tokenizeEmbeddedContent, setEmbeddedTokenizerLogger } from './embeddedTokenizer';
 import { findCustomCodeTagContent, parseCustomCodeTagSettings } from './customCodeTags';
 import type { CustomCodeTagConfig } from './customCodeTags';
@@ -156,6 +158,11 @@ connection.onInitialize(async (params: InitializeParams): Promise<InitializeResu
 
       // Folding ranges
       foldingRangeProvider: true,
+
+      // Code actions (quick fixes)
+      codeActionProvider: {
+        codeActionKinds: [CodeActionKind.QuickFix],
+      },
 
       // Document formatting
       documentFormattingProvider: true,
@@ -326,6 +333,16 @@ connection.onFoldingRanges((params) => {
   }
 
   return getFoldingRanges(tree);
+});
+
+// Code action handler (quick fixes)
+connection.onCodeAction((params) => {
+  const document = documents.get(params.textDocument.uri);
+  if (!document) {
+    return [];
+  }
+
+  return getCodeActions(params, document);
 });
 
 // Embedded script/style formatting helpers

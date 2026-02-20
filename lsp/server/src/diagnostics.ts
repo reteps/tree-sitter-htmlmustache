@@ -1,6 +1,12 @@
 import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
 import { Tree } from './parser';
 import { checkHtmlBalance, checkUnclosedTags } from './htmlBalanceChecker';
+import {
+  checkNestedSameNameSections,
+  checkUnquotedMustacheAttributes,
+  checkConsecutiveSameNameSections,
+} from './mustacheChecks';
+import type { FixableError } from './mustacheChecks';
 
 export function getDiagnostics(tree: Tree): Diagnostic[] {
   const diagnostics: Diagnostic[] = [];
@@ -70,6 +76,26 @@ export function getDiagnostics(tree: Tree): Diagnostic[] {
       },
       message: error.message,
       source: 'htmlmustache',
+    });
+  }
+
+  // Mustache-specific lint checks
+  const sourceText = tree.rootNode.text;
+  const mustacheChecks: FixableError[] = [
+    ...checkNestedSameNameSections(tree.rootNode),
+    ...checkUnquotedMustacheAttributes(tree.rootNode),
+    ...checkConsecutiveSameNameSections(tree.rootNode, sourceText),
+  ];
+  for (const error of mustacheChecks) {
+    diagnostics.push({
+      severity: error.severity === 'warning' ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error,
+      range: {
+        start: { line: error.node.startPosition.row, character: error.node.startPosition.column },
+        end: { line: error.node.endPosition.row, character: error.node.endPosition.column },
+      },
+      message: error.message,
+      source: 'htmlmustache',
+      data: error.fix ? { fix: error.fix, fixDescription: error.fixDescription } : undefined,
     });
   }
 

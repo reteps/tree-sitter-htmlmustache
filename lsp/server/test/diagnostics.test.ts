@@ -85,11 +85,12 @@ describe('Diagnostics', () => {
       expect(diagnostics.some(d => d.message === 'Mismatched HTML end tag: </span>')).toBe(true);
     });
 
-    it('allows same-name section open/close pairs', () => {
+    it('allows same-name section open/close pairs (only warning for consecutive)', () => {
       const tree = parseText('{{#s}}<div>{{/s}} {{#s}}</div>{{/s}}');
       const diagnostics = getDiagnostics(tree);
 
-      expect(diagnostics.length).toBe(0);
+      // The only diagnostic should be the consecutive section warning
+      expect(diagnostics.every(d => d.severity === DiagnosticSeverity.Warning)).toBe(true);
     });
 
     it('detects inverted section open/close mismatch', () => {
@@ -118,6 +119,43 @@ describe('Diagnostics', () => {
       const diagnostics = getDiagnostics(tree);
 
       expect(diagnostics.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('mustache lint checks', () => {
+    it('detects nested same-name sections', () => {
+      const tree = parseText('{{#x}}{{#x}}inner{{/x}}{{/x}}');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message.includes('Nested duplicate section'))).toBe(true);
+    });
+
+    it('allows sequential same-name sections', () => {
+      const tree = parseText('{{#x}}first{{/x}}{{#x}}second{{/x}}');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message.includes('Nested duplicate section'))).toBe(false);
+    });
+
+    it('detects unquoted mustache attribute value', () => {
+      const tree = parseText('<div class={{foo}}></div>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message.includes('Unquoted mustache attribute value'))).toBe(true);
+    });
+
+    it('allows quoted mustache attribute value', () => {
+      const tree = parseText('<div class="{{foo}}"></div>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message.includes('Unquoted mustache attribute value'))).toBe(false);
+    });
+
+    it('does not flag standalone mustache in tag', () => {
+      const tree = parseText('<div {{attrs}}></div>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message.includes('Unquoted mustache attribute value'))).toBe(false);
     });
   });
 
@@ -155,6 +193,47 @@ describe('Diagnostics', () => {
       const diagnostics = getDiagnostics(tree);
 
       expect(diagnostics.some(d => d.message === 'Unclosed HTML tag: <span>')).toBe(true);
+    });
+  });
+
+  describe('consecutive same-name sections', () => {
+    it('detects consecutive same-name sections with Warning severity', () => {
+      const tree = parseText('{{#x}}a{{/x}}{{#x}}b{{/x}}');
+      const diagnostics = getDiagnostics(tree);
+
+      const consecutive = diagnostics.find(d => d.message.includes('Consecutive duplicate section'));
+      expect(consecutive).toBeDefined();
+      expect(consecutive!.severity).toBe(DiagnosticSeverity.Warning);
+    });
+
+    it('does not flag different-type sections', () => {
+      const tree = parseText('{{#x}}a{{/x}}{{^x}}b{{/x}}');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message.includes('Consecutive duplicate section'))).toBe(false);
+    });
+
+    it('includes fix data in diagnostic', () => {
+      const tree = parseText('{{#x}}a{{/x}}{{#x}}b{{/x}}');
+      const diagnostics = getDiagnostics(tree);
+
+      const consecutive = diagnostics.find(d => d.message.includes('Consecutive duplicate section'));
+      expect(consecutive).toBeDefined();
+      expect(consecutive!.data).toBeDefined();
+      const data = consecutive!.data as { fix: unknown[]; fixDescription: string };
+      expect(data.fix).toHaveLength(1);
+      expect(data.fixDescription).toBe('Merge consecutive sections');
+    });
+
+    it('includes fix data for unquoted attribute', () => {
+      const tree = parseText('<div class={{foo}}></div>');
+      const diagnostics = getDiagnostics(tree);
+
+      const unquoted = diagnostics.find(d => d.message.includes('Unquoted mustache'));
+      expect(unquoted).toBeDefined();
+      expect(unquoted!.data).toBeDefined();
+      const data = unquoted!.data as { fix: unknown[]; fixDescription: string };
+      expect(data.fixDescription).toBe('Wrap mustache value in quotes');
     });
   });
 });

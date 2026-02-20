@@ -8,6 +8,8 @@ import { initializeParser, parseDocument } from './wasm';
 import { findConfigFile, parseJsonc, validateConfig } from '../../lsp/server/src/configFile';
 import type { HtmlMustacheConfig } from '../../lsp/server/src/configFile';
 import { checkHtmlBalance, checkUnclosedTags } from '../../lsp/server/src/htmlBalanceChecker';
+import { checkNestedSameNameSections, checkUnquotedMustacheAttributes, checkConsecutiveSameNameSections } from '../../lsp/server/src/mustacheChecks';
+import type { TextReplacement } from '../../lsp/server/src/mustacheChecks';
 
 // ── Types ──
 
@@ -19,6 +21,9 @@ export interface CheckError {
   endColumn: number;
   message: string;
   nodeText: string;
+  severity?: 'error' | 'warning';
+  fix?: TextReplacement[];
+  fixDescription?: string;
 }
 
 export interface CheckResult {
@@ -34,6 +39,8 @@ interface SyntaxNode {
   text: string;
   startPosition: { row: number; column: number };
   endPosition: { row: number; column: number };
+  startIndex: number;
+  endIndex: number;
   children: SyntaxNode[];
 }
 
@@ -124,6 +131,28 @@ export function collectErrors(tree: Tree, file: string): CheckError[] {
     });
   }
 
+  // Mustache-specific lint checks
+  const sourceText = rootNode.text;
+  const mustacheChecks = [
+    ...checkNestedSameNameSections(rootNode),
+    ...checkUnquotedMustacheAttributes(rootNode),
+    ...checkConsecutiveSameNameSections(rootNode, sourceText),
+  ];
+  for (const error of mustacheChecks) {
+    errors.push({
+      file,
+      line: error.node.startPosition.row + 1,
+      column: error.node.startPosition.column + 1,
+      endLine: error.node.endPosition.row + 1,
+      endColumn: error.node.endPosition.column + 1,
+      message: error.message,
+      nodeText: error.node.text,
+      severity: error.severity,
+      fix: error.fix,
+      fixDescription: error.fixDescription,
+    });
+  }
+
   return errors;
 }
 
@@ -134,8 +163,11 @@ export function formatError(error: CheckError, source: string): string {
   const errorLine = error.line - 1; // 0-based index
 
   // Location header
+  const isWarning = error.severity === 'warning';
+  const severityLabel = isWarning ? chalk.yellow('warning') : chalk.red('error');
+  const colorFn = isWarning ? chalk.yellow : chalk.red;
   const header = chalk.bold(`${error.file}:${error.line}:${error.column}`) +
-    ' ' + chalk.red('error') + ': ' + error.message;
+    ' ' + severityLabel + ': ' + error.message;
 
   // Context lines: up to 2 before + the error line(s)
   const contextStart = Math.max(0, errorLine - 2);
@@ -173,19 +205,32 @@ export function formatError(error: CheckError, source: string): string {
   const underline = ' '.repeat(underlineStart) + '^'.repeat(underlineLength) +
     ' ' + error.message;
 
-  outputLines.push(chalk.dim(' '.repeat(gutterWidth) + ' |') + ' ' + chalk.red(underline));
+  outputLines.push(chalk.dim(' '.repeat(gutterWidth) + ' |') + ' ' + colorFn(underline));
 
   return outputLines.join('\n');
 }
 
-export function formatSummary(totalErrors: number, filesWithErrors: number, totalFiles: number): string {
-  if (totalErrors === 0) {
+export function formatSummary(
+  totalErrors: number,
+  filesWithErrors: number,
+  totalFiles: number,
+  totalWarnings = 0,
+): string {
+  if (totalErrors === 0 && totalWarnings === 0) {
     return chalk.green(`No errors found (${totalFiles} ${totalFiles === 1 ? 'file' : 'files'} checked)`);
   }
-  const errStr = totalErrors === 1 ? 'error' : 'errors';
-  const errFileStr = filesWithErrors === 1 ? 'file' : 'files';
   const totalStr = totalFiles === 1 ? 'file' : 'files';
-  return chalk.red(`${totalErrors} ${errStr} in ${filesWithErrors} ${errFileStr}`) +
+  const parts: string[] = [];
+  if (totalErrors > 0) {
+    const errStr = totalErrors === 1 ? 'error' : 'errors';
+    parts.push(chalk.red(`${totalErrors} ${errStr}`));
+  }
+  if (totalWarnings > 0) {
+    const warnStr = totalWarnings === 1 ? 'warning' : 'warnings';
+    parts.push(chalk.yellow(`${totalWarnings} ${warnStr}`));
+  }
+  const errFileStr = filesWithErrors === 1 ? 'file' : 'files';
+  return `${parts.join(', ')} in ${filesWithErrors} ${errFileStr}` +
     ` (${totalFiles} ${totalStr} checked)`;
 }
 
@@ -263,9 +308,37 @@ export function resolveFiles(cliPatterns: string[]): { files: string[]; config: 
   return { files, config };
 }
 
+// ── Fix application ──
+
+export function applyFixes(source: string, errors: CheckError[]): string {
+  // Collect all fix replacements
+  const replacements: TextReplacement[] = [];
+  for (const error of errors) {
+    if (error.fix) {
+      replacements.push(...error.fix);
+    }
+  }
+
+  if (replacements.length === 0) return source;
+
+  // Sort by startIndex descending to apply back-to-front
+  replacements.sort((a, b) => b.startIndex - a.startIndex);
+
+  // Apply, skipping overlapping replacements
+  let result = source;
+  let minIndex = Infinity;
+  for (const r of replacements) {
+    if (r.endIndex > minIndex) continue; // overlaps with a later (already-applied) replacement
+    result = result.slice(0, r.startIndex) + r.newText + result.slice(r.endIndex);
+    minIndex = r.startIndex;
+  }
+
+  return result;
+}
+
 // ── Main ──
 
-const USAGE = `Usage: htmlmustache check [patterns...]
+const USAGE = `Usage: htmlmustache check [options] [patterns...]
 
 Check HTML Mustache templates for errors.
 
@@ -273,10 +346,12 @@ Arguments:
   patterns  One or more glob patterns (optional if "include" is set in config)
 
 Options:
+  --fix     Automatically fix fixable errors in-place
   --help    Show this help message
 
 Examples:
   htmlmustache check '**/*.mustache'
+  htmlmustache check --fix '**/*.mustache'
   htmlmustache check 'templates/**/*.hbs' 'partials/**/*.mustache'
   htmlmustache check                       (uses "include" from .htmlmustache.jsonc)`;
 
@@ -291,16 +366,19 @@ export async function run(args: string[]): Promise<number> {
     return 0;
   }
 
-  const { files, config } = resolveFiles(args);
+  const fixMode = args.includes('--fix');
+  const patterns = args.filter(a => a !== '--fix');
+
+  const { files, config } = resolveFiles(patterns);
 
   if (files.length === 0) {
-    if (args.length === 0 && (!config?.include || config.include.length === 0)) {
+    if (patterns.length === 0 && (!config?.include || config.include.length === 0)) {
       console.log(USAGE);
       return 1;
     }
-    const patterns = args.length > 0 ? args : config?.include ?? [];
+    const displayPatterns = patterns.length > 0 ? patterns : config?.include ?? [];
     console.error(chalk.yellow('No files matched the given patterns:'));
-    for (const p of patterns) {
+    for (const p of displayPatterns) {
       console.error(chalk.yellow(`  ${p}`));
     }
     return 1;
@@ -309,6 +387,7 @@ export async function run(args: string[]): Promise<number> {
   await initializeParser();
 
   let totalErrors = 0;
+  let totalWarnings = 0;
   let filesWithErrors = 0;
 
   const cwd = process.cwd();
@@ -317,20 +396,36 @@ export async function run(args: string[]): Promise<number> {
 
   for (const file of files) {
     const displayPath = path.relative(cwd, file) || file;
-    const source = fs.readFileSync(file, 'utf-8');
+    let source = fs.readFileSync(file, 'utf-8');
+
+    if (fixMode) {
+      // Apply fixes, then re-parse to report remaining errors
+      const tree = parseDocument(source);
+      const errors = collectErrors(tree, displayPath);
+      const fixed = applyFixes(source, errors);
+      if (fixed !== source) {
+        fs.writeFileSync(file, fixed, 'utf-8');
+        source = fixed;
+      }
+    }
+
     const tree = parseDocument(source);
     const errors = collectErrors(tree, displayPath);
 
+    const fileErrors = errors.filter(e => e.severity !== 'warning');
+    const fileWarnings = errors.filter(e => e.severity === 'warning');
+
     if (errors.length > 0) {
       filesWithErrors++;
-      totalErrors += errors.length;
+      totalErrors += fileErrors.length;
+      totalWarnings += fileWarnings.length;
 
       for (const error of errors) {
         errorOutput.push(formatError(error, source));
       }
     }
     console.log(errors.length > 0
-      ? chalk.red(displayPath)
+      ? (fileErrors.length > 0 ? chalk.red(displayPath) : chalk.yellow(displayPath))
       : chalk.dim(displayPath));
   }
 
@@ -342,6 +437,7 @@ export async function run(args: string[]): Promise<number> {
     }
   }
 
-  console.log(formatSummary(totalErrors, filesWithErrors, files.length));
+  console.log(formatSummary(totalErrors, filesWithErrors, files.length, totalWarnings));
+  // Only errors affect exit code, not warnings
   return totalErrors > 0 ? 1 : 0;
 }
