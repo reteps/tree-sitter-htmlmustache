@@ -16,7 +16,7 @@ import {
 } from './mustacheChecks';
 import type { TextReplacement } from './mustacheChecks';
 import type { RulesConfig, RuleSeverity } from './configFile';
-import { RULE_DEFAULTS } from './ruleMetadata';
+import { RULE_DEFAULTS, KNOWN_RULE_NAMES } from './ruleMetadata';
 
 /** A tree that provides walk() and rootNode, compatible with both web-tree-sitter and CLI wasm. */
 export interface WalkableTree {
@@ -64,6 +64,34 @@ function resolveRuleSeverity(rules: RulesConfig | undefined, ruleName: keyof Rul
   return rules?.[ruleName] ?? RULE_DEFAULTS[ruleName] ?? 'off';
 }
 
+function parseDisableDirective(node: BalanceNode): string | null {
+  if (node.type !== 'html_comment' && node.type !== 'mustache_comment') return null;
+  let inner: string | null = null;
+  if (node.type === 'html_comment') {
+    const match = node.text.match(/^<!--([\s\S]*)-->$/);
+    if (match) inner = match[1].trim();
+  } else {
+    const match = node.text.match(/^\{\{!([\s\S]*)\}\}$/);
+    if (match) inner = match[1].trim();
+  }
+  if (!inner) return null;
+  const prefix = 'htmlmustache-disable ';
+  if (!inner.startsWith(prefix)) return null;
+  const ruleName = inner.slice(prefix.length).trim();
+  return KNOWN_RULE_NAMES.has(ruleName) ? ruleName : null;
+}
+
+function collectDisabledRules(rootNode: BalanceNode): Set<string> {
+  const disabled = new Set<string>();
+  function walk(node: BalanceNode) {
+    const rule = parseDisableDirective(node);
+    if (rule) { disabled.add(rule); return; }
+    for (const child of node.children) walk(child);
+  }
+  walk(rootNode);
+  return disabled;
+}
+
 /**
  * Collect all errors from a parsed tree: syntax errors, balance errors,
  * unclosed tags, and mustache lint checks.
@@ -106,6 +134,13 @@ export function collectErrors(tree: WalkableTree, rules?: RulesConfig): CheckErr
     errors.push({ node: error.node, message: error.message });
   }
 
+  // Collect inline disable directives and merge into effective rules
+  const disabledRules = collectDisabledRules(tree.rootNode);
+  const effectiveRules = { ...rules };
+  for (const rule of disabledRules) {
+    (effectiveRules as Record<string, string>)[rule] = 'off';
+  }
+
   // Configurable lint checks
   const sourceText = tree.rootNode.text;
 
@@ -120,7 +155,7 @@ export function collectErrors(tree: WalkableTree, rules?: RulesConfig): CheckErr
   ];
 
   for (const { rule, errors: getErrors } of ruleChecks) {
-    const severity = resolveRuleSeverity(rules, rule);
+    const severity = resolveRuleSeverity(effectiveRules, rule);
     if (severity === 'off') continue;
 
     for (const error of getErrors()) {
@@ -134,5 +169,8 @@ export function collectErrors(tree: WalkableTree, rules?: RulesConfig): CheckErr
     }
   }
 
-  return errors;
+  // Filter out preferMustacheComments warnings on disable-directive comments themselves
+  return errors.filter(e =>
+    !(e.message.includes('HTML comment found') && parseDisableDirective(e.node) !== null)
+  );
 }

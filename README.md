@@ -247,6 +247,17 @@ Additionally, the following rules are configurable. Set their severities (`"erro
 
 <!-- RULES_TABLE_END -->
 
+### Disabling Lint Rules
+
+Disable a configurable lint rule for an entire file with an inline comment:
+
+```html
+<!-- htmlmustache-disable preferMustacheComments -->
+{{! htmlmustache-disable selfClosingNonVoidTags }}
+```
+
+The comment can appear anywhere in the file. Only configurable rules (listed above) can be disabled. Use multiple comments to disable multiple rules.
+
 ### EditorConfig
 
 Both the CLI and VS Code extension respect your `.editorconfig` file for indentation settings (`indent_style`, `indent_size`). EditorConfig values override `.htmlmustache.jsonc` for indentation, and CLI flags override everything.

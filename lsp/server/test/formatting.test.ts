@@ -242,6 +242,33 @@ describe('Document Formatting', () => {
       const result = format('<div>{{! comment }}</div>');
       expect(result).toBe('<div>{{! comment }}</div>\n');
     });
+
+    it('keeps consecutive comments on separate lines', () => {
+      const input = [
+        '<!-- comment 1 -->',
+        '<!-- comment 2 -->',
+        '<!-- comment 3 -->',
+      ].join('\n');
+      const result = format(input);
+      expect(result).toBe(input + '\n');
+    });
+
+    it('keeps consecutive comments on separate lines inside block element', () => {
+      const input = [
+        '<div>',
+        '  <!-- comment 1 -->',
+        '  <!-- comment 2 -->',
+        '  <!-- comment 3 -->',
+        '</div>',
+      ].join('\n');
+      const result = format(input);
+      expect(result).toBe(input + '\n');
+    });
+
+    it('keeps inline comments on same line', () => {
+      const result = format('<div><!-- a --><!-- b --></div>');
+      expect(result).toBe('<div><!-- a --><!-- b --></div>\n');
+    });
   });
 
   describe('Partials', () => {

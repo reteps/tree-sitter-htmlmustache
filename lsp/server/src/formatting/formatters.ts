@@ -1049,9 +1049,10 @@ export function formatBlockChildren(
       lines.push({ doc: formatNode(node, context), blankLineBefore: pendingBlankLine });
       pendingBlankLine = false;
     } else if (node.type === 'html_comment' || node.type === 'mustache_comment') {
-      // Comments on their own line if multi-line
+      // Comments on their own line if multi-line or on their own line in source
       const isMultiline = node.startPosition.row !== node.endPosition.row;
-      if (isMultiline) {
+      const isOnOwnLine = i > 0 && node.startPosition.row > nodes[i - 1].endPosition.row;
+      if (isMultiline || isOnOwnLine) {
         if (currentLine.length > 0) {
           const lineContent = trimDoc(flushCurrentLine());
           if (hasDocContent(lineContent)) {

@@ -448,6 +448,52 @@ describe('Diagnostics', () => {
     });
   });
 
+  describe('disable directives', () => {
+    it('HTML comment disables a specific rule', () => {
+      const tree = parseText('<!-- htmlmustache-disable selfClosingNonVoidTags -->\n<div/>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message.includes('Self-closing non-void'))).toBe(false);
+    });
+
+    it('mustache comment disables a specific rule', () => {
+      const tree = parseText('{{! htmlmustache-disable selfClosingNonVoidTags }}\n<div/>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message.includes('Self-closing non-void'))).toBe(false);
+    });
+
+    it('multiple rules disabled with multiple comments', () => {
+      const tree = parseText('<!-- htmlmustache-disable selfClosingNonVoidTags -->\n{{! htmlmustache-disable unescapedEntities }}\n<div/><p>a > b</p>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message.includes('Self-closing non-void'))).toBe(false);
+      expect(diagnostics.some(d => d.message.includes('Unescaped'))).toBe(false);
+    });
+
+    it('only the named rule is disabled, others still reported', () => {
+      const tree = parseText('<!-- htmlmustache-disable unescapedEntities -->\n<div/><p>a > b</p>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message.includes('Self-closing non-void'))).toBe(true);
+      expect(diagnostics.some(d => d.message.includes('Unescaped'))).toBe(false);
+    });
+
+    it('unknown rule names are ignored', () => {
+      const tree = parseText('<!-- htmlmustache-disable nonExistentRule -->\n<div/>');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message.includes('Self-closing non-void'))).toBe(true);
+    });
+
+    it('disable comments themselves do not trigger preferMustacheComments', () => {
+      const tree = parseText('<!-- htmlmustache-disable selfClosingNonVoidTags -->');
+      const diagnostics = getDiagnostics(tree, { preferMustacheComments: 'warning' });
+
+      expect(diagnostics.some(d => d.message.includes('HTML comment found'))).toBe(false);
+    });
+  });
+
   describe('rules config overrides', () => {
     it('disables unescaped entities when set to off', () => {
       const tree = parseText('<p>a > b</p>');

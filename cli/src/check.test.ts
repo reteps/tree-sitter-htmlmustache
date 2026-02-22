@@ -768,6 +768,46 @@ describe('prefer mustache comments rule', () => {
   });
 });
 
+describe('disable directives', () => {
+  it('HTML comment disables a specific rule', () => {
+    const tree = parse('<!-- htmlmustache-disable selfClosingNonVoidTags -->\n<div/>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Self-closing non-void'))).toBe(false);
+  });
+
+  it('mustache comment disables a specific rule', () => {
+    const tree = parse('{{! htmlmustache-disable selfClosingNonVoidTags }}\n<div/>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Self-closing non-void'))).toBe(false);
+  });
+
+  it('multiple rules disabled with multiple comments', () => {
+    const tree = parse('<!-- htmlmustache-disable selfClosingNonVoidTags -->\n{{! htmlmustache-disable unescapedEntities }}\n<div/><p>a > b</p>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Self-closing non-void'))).toBe(false);
+    expect(errors.some(e => e.message.includes('Unescaped'))).toBe(false);
+  });
+
+  it('only the named rule is disabled, others still reported', () => {
+    const tree = parse('<!-- htmlmustache-disable unescapedEntities -->\n<div/><p>a > b</p>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Self-closing non-void'))).toBe(true);
+    expect(errors.some(e => e.message.includes('Unescaped'))).toBe(false);
+  });
+
+  it('unknown rule names are ignored', () => {
+    const tree = parse('<!-- htmlmustache-disable nonExistentRule -->\n<div/>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Self-closing non-void'))).toBe(true);
+  });
+
+  it('disable comments themselves do not trigger preferMustacheComments', () => {
+    const tree = parse('<!-- htmlmustache-disable selfClosingNonVoidTags -->');
+    const errors = collectErrors(tree, 'test.mustache', { preferMustacheComments: 'warning' });
+    expect(errors.some(e => e.message.includes('HTML comment found'))).toBe(false);
+  });
+});
+
 describe('rules config overrides', () => {
   it('disables a default-on rule when set to off', () => {
     const tree = parse('<p>a > b</p>');
