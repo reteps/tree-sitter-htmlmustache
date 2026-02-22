@@ -3,6 +3,7 @@ import * as path from 'path';
 import { fileURLToPath } from 'url';
 import type { CustomCodeTagConfig, CustomCodeTagIndentMode } from './customCodeTags';
 import type { CSSDisplay } from './formatting/classifier';
+import { KNOWN_RULE_NAMES } from './ruleMetadata';
 
 const VALID_CSS_DISPLAY_VALUES = new Set<string>([
   'block', 'inline', 'inline-block', 'table-row', 'table-cell', 'table',
@@ -10,6 +11,20 @@ const VALID_CSS_DISPLAY_VALUES = new Set<string>([
   'table-column-group', 'table-caption', 'list-item', 'ruby', 'ruby-base',
   'ruby-text', 'none',
 ]);
+
+export type RuleSeverity = 'error' | 'warning' | 'off';
+
+export interface RulesConfig {
+  nestedDuplicateSections?: RuleSeverity;
+  unquotedMustacheAttributes?: RuleSeverity;
+  consecutiveDuplicateSections?: RuleSeverity;
+  selfClosingNonVoidTags?: RuleSeverity;
+  duplicateAttributes?: RuleSeverity;
+  unescapedEntities?: RuleSeverity;
+  preferMustacheComments?: RuleSeverity;
+}
+
+const VALID_RULE_SEVERITIES = new Set<string>(['error', 'warning', 'off']);
 
 export interface HtmlMustacheConfig {
   printWidth?: number;
@@ -19,6 +34,7 @@ export interface HtmlMustacheConfig {
   customTags?: CustomCodeTagConfig[];
   include?: string[];
   exclude?: string[];
+  rules?: RulesConfig;
 }
 
 const CONFIG_FILENAME = '.htmlmustache.jsonc';
@@ -173,6 +189,19 @@ export function validateConfig(raw: unknown): HtmlMustacheConfig {
       mergedMap.set(tag.name.toLowerCase(), tag);
     }
     config.customTags = Array.from(mergedMap.values());
+  }
+
+  if (obj.rules && typeof obj.rules === 'object' && !Array.isArray(obj.rules)) {
+    const rawRules = obj.rules as Record<string, unknown>;
+    const rules: RulesConfig = {};
+    let hasRules = false;
+    for (const [key, value] of Object.entries(rawRules)) {
+      if (KNOWN_RULE_NAMES.has(key) && typeof value === 'string' && VALID_RULE_SEVERITIES.has(value)) {
+        (rules as Record<string, string>)[key] = value;
+        hasRules = true;
+      }
+    }
+    if (hasRules) config.rules = rules;
   }
 
   return config;

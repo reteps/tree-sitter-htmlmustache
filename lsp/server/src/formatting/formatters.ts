@@ -488,26 +488,21 @@ export function formatScriptStyleElement(
           const dedented = dedentContent(child.text);
           if (dedented.length > 0) {
             const contentLines = dedented.split('\n');
-            if (contentLines.length === 1) {
-              // Single-line content: keep inline
-              parts.push(text(contentLines[0]));
-            } else {
-              const lineDocs: Doc[] = [];
-              for (let j = 0; j < contentLines.length; j++) {
-                if (j > 0) {
-                  if (contentLines[j] === '') {
-                    lineDocs.push('\n');
-                  } else {
-                    lineDocs.push(hardline);
-                  }
-                }
-                if (contentLines[j] !== '') {
-                  lineDocs.push(text(contentLines[j]));
+            const lineDocs: Doc[] = [];
+            for (let j = 0; j < contentLines.length; j++) {
+              if (j > 0) {
+                if (contentLines[j] === '') {
+                  lineDocs.push('\n');
+                } else {
+                  lineDocs.push(hardline);
                 }
               }
-              parts.push(indent(concat([hardline, ...lineDocs])));
-              parts.push(hardline);
+              if (contentLines[j] !== '') {
+                lineDocs.push(text(contentLines[j]));
+              }
             }
+            parts.push(indent(concat([hardline, ...lineDocs])));
+            parts.push(hardline);
           }
         }
       }

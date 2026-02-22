@@ -356,24 +356,27 @@ from numpy import nan
   });
 
   describe('Script and style elements', () => {
-    it('preserves script content', () => {
+    it('breaks single-line script content onto new lines', () => {
       const input = '<script>const x = 1;</script>';
       const result = format(input);
-      expect(result).toBe('<script>const x = 1;</script>\n');
+      expect(result).toBe('<script>\n  const x = 1;\n</script>\n');
     });
 
-    it('preserves style content', () => {
+    it('breaks single-line style content onto new lines', () => {
       const input = '<style>.foo { color: red; }</style>';
       const result = format(input);
-      expect(result).toBe('<style>.foo { color: red; }</style>\n');
+      expect(result).toBe('<style>\n  .foo { color: red; }\n</style>\n');
     });
 
-    it('preserves script with attributes', () => {
+    it('breaks script with attributes onto new lines', () => {
       const input = '<script type="module">import x from "y";</script>';
       const result = format(input);
-      expect(result).toBe('<script type="module">import x from "y";</script>\n');
+      expect(result).toBe(
+        '<script type="module">\n  import x from "y";\n</script>\n'
+      );
     });
   });
+
 
   describe('Doctype', () => {
     it('preserves doctype', () => {

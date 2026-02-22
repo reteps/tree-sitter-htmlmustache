@@ -721,6 +721,69 @@ describe('applyFixes', () => {
   });
 });
 
+describe('prefer mustache comments rule', () => {
+  it('does not flag HTML comments by default (no rules)', () => {
+    const tree = parse('<!-- a comment -->');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('HTML comment found'))).toBe(false);
+  });
+
+  it('flags HTML comments when rule is enabled', () => {
+    const tree = parse('<!-- a comment -->');
+    const errors = collectErrors(tree, 'test.mustache', { preferMustacheComments: 'warning' });
+    expect(errors.some(e => e.message.includes('HTML comment found'))).toBe(true);
+    expect(errors.find(e => e.message.includes('HTML comment found'))!.severity).toBe('warning');
+  });
+
+  it('uses error severity when configured', () => {
+    const tree = parse('<!-- a comment -->');
+    const errors = collectErrors(tree, 'test.mustache', { preferMustacheComments: 'error' });
+    const err = errors.find(e => e.message.includes('HTML comment found'));
+    expect(err).toBeDefined();
+    expect(err!.severity).toBe('error');
+  });
+
+  it('provides fix that converts to mustache comment', () => {
+    const source = '<!-- a comment -->';
+    const tree = parse(source);
+    const errors = collectErrors(tree, 'test.mustache', { preferMustacheComments: 'warning' });
+    const result = applyFixes(source, errors);
+    expect(result).toBe('{{! a comment }}');
+  });
+
+  it('fix handles multiline HTML comments', () => {
+    const source = '<!--\n  multi\n  line\n-->';
+    const tree = parse(source);
+    const errors = collectErrors(tree, 'test.mustache', { preferMustacheComments: 'warning' });
+    const result = applyFixes(source, errors);
+    expect(result).toBe('{{! multi\n  line }}');
+  });
+
+  it('fix handles empty HTML comments', () => {
+    const source = '<!---->';
+    const tree = parse(source);
+    const errors = collectErrors(tree, 'test.mustache', { preferMustacheComments: 'warning' });
+    const result = applyFixes(source, errors);
+    expect(result).toBe('{{!  }}');
+  });
+});
+
+describe('rules config overrides', () => {
+  it('disables a default-on rule when set to off', () => {
+    const tree = parse('<p>a > b</p>');
+    const errors = collectErrors(tree, 'test.mustache', { unescapedEntities: 'off' });
+    expect(errors.some(e => e.message.includes('Unescaped'))).toBe(false);
+  });
+
+  it('changes severity of a rule', () => {
+    const tree = parse('{{#x}}a{{/x}}{{#x}}b{{/x}}');
+    const errors = collectErrors(tree, 'test.mustache', { consecutiveDuplicateSections: 'error' });
+    const consecutive = errors.find(e => e.message.includes('Consecutive duplicate section'));
+    expect(consecutive).toBeDefined();
+    expect(consecutive!.severity).toBe('error');
+  });
+});
+
 describe('formatSummary with warnings', () => {
   it('shows only warnings', () => {
     const output = formatSummary(0, 1, 5, 2);

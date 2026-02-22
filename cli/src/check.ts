@@ -8,6 +8,7 @@ import { initializeParser, parseDocument } from './wasm';
 import { findConfigFile, parseJsonc, validateConfig } from '../../lsp/server/src/configFile';
 import type { HtmlMustacheConfig } from '../../lsp/server/src/configFile';
 import { collectErrors as collectTreeErrors } from '../../lsp/server/src/collectErrors';
+import type { RulesConfig } from '../../lsp/server/src/configFile';
 import type { TextReplacement } from '../../lsp/server/src/mustacheChecks';
 
 // ── Types ──
@@ -32,8 +33,8 @@ export interface CheckResult {
 
 // ── Error collection ──
 
-export function collectErrors(tree: Tree, file: string): CheckError[] {
-  const errors = collectTreeErrors(tree as any);
+export function collectErrors(tree: Tree, file: string, rules?: RulesConfig): CheckError[] {
+  const errors = collectTreeErrors(tree as any, rules);
   return errors.map(error => ({
     file,
     line: error.node.startPosition.row + 1,
@@ -286,6 +287,8 @@ export async function run(args: string[]): Promise<number> {
 
   const errorOutput: string[] = [];
 
+  const rules = config?.rules;
+
   for (const file of files) {
     const displayPath = path.relative(cwd, file) || file;
     let source = fs.readFileSync(file, 'utf-8');
@@ -293,7 +296,7 @@ export async function run(args: string[]): Promise<number> {
     if (fixMode) {
       // Apply fixes, then re-parse to report remaining errors
       const tree = parseDocument(source);
-      const errors = collectErrors(tree, displayPath);
+      const errors = collectErrors(tree, displayPath, rules);
       const fixed = applyFixes(source, errors);
       if (fixed !== source) {
         fs.writeFileSync(file, fixed, 'utf-8');
@@ -302,7 +305,7 @@ export async function run(args: string[]): Promise<number> {
     }
 
     const tree = parseDocument(source);
-    const errors = collectErrors(tree, displayPath);
+    const errors = collectErrors(tree, displayPath, rules);
 
     const fileErrors = errors.filter(e => e.severity !== 'warning');
     const fileWarnings = errors.filter(e => e.severity === 'warning');

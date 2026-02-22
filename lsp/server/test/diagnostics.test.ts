@@ -397,4 +397,79 @@ describe('Diagnostics', () => {
       expect(data.fixDescription).toBe('Wrap mustache value in quotes');
     });
   });
+
+  describe('prefer mustache comments', () => {
+    it('does not flag HTML comments by default', () => {
+      const tree = parseText('<!-- a comment -->');
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.some(d => d.message.includes('HTML comment found'))).toBe(false);
+    });
+
+    it('flags HTML comments when rule is enabled', () => {
+      const tree = parseText('<!-- a comment -->');
+      const diagnostics = getDiagnostics(tree, { preferMustacheComments: 'warning' });
+
+      expect(diagnostics.some(d => d.message.includes('HTML comment found'))).toBe(true);
+    });
+
+    it('uses configured severity', () => {
+      const tree = parseText('<!-- a comment -->');
+      const diagnostics = getDiagnostics(tree, { preferMustacheComments: 'error' });
+
+      const err = diagnostics.find(d => d.message.includes('HTML comment found'));
+      expect(err).toBeDefined();
+      expect(err!.severity).toBe(DiagnosticSeverity.Error);
+    });
+
+    it('provides fix data', () => {
+      const tree = parseText('<!-- a comment -->');
+      const diagnostics = getDiagnostics(tree, { preferMustacheComments: 'warning' });
+
+      const err = diagnostics.find(d => d.message.includes('HTML comment found'));
+      expect(err).toBeDefined();
+      expect(err!.data).toBeDefined();
+      const data = err!.data as { fix: unknown[]; fixDescription: string };
+      expect(data.fixDescription).toBe('Replace HTML comment with mustache comment');
+    });
+
+    it('handles multiline comments', () => {
+      const tree = parseText('<!--\n  multi\n  line\n-->');
+      const diagnostics = getDiagnostics(tree, { preferMustacheComments: 'warning' });
+
+      expect(diagnostics.some(d => d.message.includes('HTML comment found'))).toBe(true);
+    });
+
+    it('handles empty comments', () => {
+      const tree = parseText('<!---->');
+      const diagnostics = getDiagnostics(tree, { preferMustacheComments: 'warning' });
+
+      expect(diagnostics.some(d => d.message.includes('HTML comment found'))).toBe(true);
+    });
+  });
+
+  describe('rules config overrides', () => {
+    it('disables unescaped entities when set to off', () => {
+      const tree = parseText('<p>a > b</p>');
+      const diagnostics = getDiagnostics(tree, { unescapedEntities: 'off' });
+
+      expect(diagnostics.some(d => d.message.includes('Unescaped'))).toBe(false);
+    });
+
+    it('changes consecutive sections severity to error', () => {
+      const tree = parseText('{{#x}}a{{/x}}{{#x}}b{{/x}}');
+      const diagnostics = getDiagnostics(tree, { consecutiveDuplicateSections: 'error' });
+
+      const consecutive = diagnostics.find(d => d.message.includes('Consecutive duplicate section'));
+      expect(consecutive).toBeDefined();
+      expect(consecutive!.severity).toBe(DiagnosticSeverity.Error);
+    });
+
+    it('disables self-closing non-void tag check', () => {
+      const tree = parseText('<div/>');
+      const diagnostics = getDiagnostics(tree, { selfClosingNonVoidTags: 'off' });
+
+      expect(diagnostics.some(d => d.message.includes('Self-closing non-void'))).toBe(false);
+    });
+  });
 });

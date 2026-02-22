@@ -178,7 +178,8 @@ documents.onDidOpen((event) => {
   connection.console.log(`Document opened: ${event.document.uri} (language: ${event.document.languageId})`);
   const tree = parseAndCacheDocument(event.document);
   if (tree) {
-    connection.sendDiagnostics({ uri: event.document.uri, diagnostics: getDiagnostics(tree) });
+    const { config } = resolveConfig(event.document.uri);
+    connection.sendDiagnostics({ uri: event.document.uri, diagnostics: getDiagnostics(tree, config?.rules) });
   }
 });
 
@@ -186,7 +187,8 @@ documents.onDidOpen((event) => {
 documents.onDidChangeContent((change) => {
   const tree = parseAndCacheDocument(change.document);
   if (tree) {
-    connection.sendDiagnostics({ uri: change.document.uri, diagnostics: getDiagnostics(tree) });
+    const { config } = resolveConfig(change.document.uri);
+    connection.sendDiagnostics({ uri: change.document.uri, diagnostics: getDiagnostics(tree, config?.rules) });
   }
 });
 

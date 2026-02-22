@@ -224,6 +224,57 @@ describe('validateConfig', () => {
   it('ignores non-array exclude', () => {
     expect(validateConfig({ exclude: '**/vendor/**' })).toEqual({});
   });
+
+  it('validates rules with known rule names and valid severities', () => {
+    const result = validateConfig({
+      rules: {
+        preferMustacheComments: 'warning',
+        unescapedEntities: 'off',
+        duplicateAttributes: 'error',
+      },
+    });
+    expect(result.rules).toEqual({
+      preferMustacheComments: 'warning',
+      unescapedEntities: 'off',
+      duplicateAttributes: 'error',
+    });
+  });
+
+  it('ignores unknown rule names', () => {
+    const result = validateConfig({
+      rules: {
+        preferMustacheComments: 'warning',
+        nonExistentRule: 'error',
+      },
+    });
+    expect(result.rules).toEqual({ preferMustacheComments: 'warning' });
+  });
+
+  it('ignores invalid rule severity values', () => {
+    const result = validateConfig({
+      rules: {
+        preferMustacheComments: 'warn',
+        unescapedEntities: true,
+        duplicateAttributes: 'error',
+      },
+    });
+    expect(result.rules).toEqual({ duplicateAttributes: 'error' });
+  });
+
+  it('omits rules when all entries are invalid', () => {
+    const result = validateConfig({
+      rules: {
+        unknownRule: 'error',
+        anotherUnknown: 'warning',
+      },
+    });
+    expect(result.rules).toBeUndefined();
+  });
+
+  it('ignores non-object rules', () => {
+    expect(validateConfig({ rules: 'error' })).toEqual({});
+    expect(validateConfig({ rules: ['error'] })).toEqual({});
+  });
 });
 
 describe('findConfigFile', () => {

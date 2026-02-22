@@ -12,8 +12,11 @@ import {
   checkSelfClosingNonVoidTags,
   checkDuplicateAttributes,
   checkUnescapedEntities,
+  checkHtmlComments,
 } from './mustacheChecks';
 import type { TextReplacement } from './mustacheChecks';
+import type { RulesConfig, RuleSeverity } from './configFile';
+import { RULE_DEFAULTS } from './ruleMetadata';
 
 /** A tree that provides walk() and rootNode, compatible with both web-tree-sitter and CLI wasm. */
 export interface WalkableTree {
@@ -57,11 +60,15 @@ function errorMessageForNode(nodeType: string, node: BalanceNode): string {
   return `Missing ${nodeType}`;
 }
 
+function resolveRuleSeverity(rules: RulesConfig | undefined, ruleName: keyof RulesConfig): RuleSeverity {
+  return rules?.[ruleName] ?? RULE_DEFAULTS[ruleName] ?? 'off';
+}
+
 /**
  * Collect all errors from a parsed tree: syntax errors, balance errors,
  * unclosed tags, and mustache lint checks.
  */
-export function collectErrors(tree: WalkableTree): CheckError[] {
+export function collectErrors(tree: WalkableTree, rules?: RulesConfig): CheckError[] {
   const errors: CheckError[] = [];
   const cursor = tree.walk() as unknown as TreeCursor;
 
@@ -99,24 +106,32 @@ export function collectErrors(tree: WalkableTree): CheckError[] {
     errors.push({ node: error.node, message: error.message });
   }
 
-  // Mustache-specific lint checks
+  // Configurable lint checks
   const sourceText = tree.rootNode.text;
-  const mustacheChecks = [
-    ...checkNestedSameNameSections(tree.rootNode),
-    ...checkUnquotedMustacheAttributes(tree.rootNode),
-    ...checkConsecutiveSameNameSections(tree.rootNode, sourceText),
-    ...checkSelfClosingNonVoidTags(tree.rootNode),
-    ...checkDuplicateAttributes(tree.rootNode),
-    ...checkUnescapedEntities(tree.rootNode),
+
+  const ruleChecks: { rule: keyof RulesConfig; errors: () => import('./mustacheChecks').FixableError[] }[] = [
+    { rule: 'nestedDuplicateSections', errors: () => checkNestedSameNameSections(tree.rootNode) },
+    { rule: 'unquotedMustacheAttributes', errors: () => checkUnquotedMustacheAttributes(tree.rootNode) },
+    { rule: 'consecutiveDuplicateSections', errors: () => checkConsecutiveSameNameSections(tree.rootNode, sourceText) },
+    { rule: 'selfClosingNonVoidTags', errors: () => checkSelfClosingNonVoidTags(tree.rootNode) },
+    { rule: 'duplicateAttributes', errors: () => checkDuplicateAttributes(tree.rootNode) },
+    { rule: 'unescapedEntities', errors: () => checkUnescapedEntities(tree.rootNode) },
+    { rule: 'preferMustacheComments', errors: () => checkHtmlComments(tree.rootNode) },
   ];
-  for (const error of mustacheChecks) {
-    errors.push({
-      node: error.node,
-      message: error.message,
-      severity: error.severity,
-      fix: error.fix,
-      fixDescription: error.fixDescription,
-    });
+
+  for (const { rule, errors: getErrors } of ruleChecks) {
+    const severity = resolveRuleSeverity(rules, rule);
+    if (severity === 'off') continue;
+
+    for (const error of getErrors()) {
+      errors.push({
+        node: error.node,
+        message: error.message,
+        severity,
+        fix: error.fix,
+        fixDescription: error.fixDescription,
+      });
+    }
   }
 
   return errors;

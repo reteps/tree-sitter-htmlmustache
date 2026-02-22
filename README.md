@@ -212,6 +212,41 @@ Create a `.htmlmustache.jsonc` file in your project root to configure formatting
 }
 ```
 
+### Lint Rules
+
+The following checks are always enabled and report as errors:
+
+- **Syntax errors** — invalid or unparseable template syntax
+- **Missing tokens** — e.g. a missing closing `>`
+- **Mismatched mustache sections** — `{{/wrong}}` closing a different section than was opened
+- **Mismatched HTML tags** — closing tags that don't match their opening tag, including across mustache branches
+- **Unclosed HTML tags** — non-void elements that are never closed
+
+Additionally, the following rules are configurable. Set their severities (`"error"`, `"warning"`, or `"off"`) in the `rules` object:
+
+```jsonc
+{
+  "rules": {
+    "consecutiveDuplicateSections": "off",
+    "preferMustacheComments": "warning"
+  }
+}
+```
+
+<!-- RULES_TABLE_START -->
+
+| Rule | Default | Description |
+| --- | --- | --- |
+| `nestedDuplicateSections` | `error` | Flags `{{#name}}` nested inside another `{{#name}}` with the same name |
+| `unquotedMustacheAttributes` | `error` | Requires quotes around mustache expressions used as attribute values |
+| `consecutiveDuplicateSections` | `warning` | Warns when adjacent same-name sections can be merged |
+| `selfClosingNonVoidTags` | `error` | Disallows self-closing syntax on non-void HTML elements (e.g. `<div/>`) |
+| `duplicateAttributes` | `error` | Detects duplicate HTML attributes on the same element |
+| `unescapedEntities` | `warning` | Flags unescaped `&` and `>` characters in text content |
+| `preferMustacheComments` | `off` | Suggests replacing HTML comments with mustache comments |
+
+<!-- RULES_TABLE_END -->
+
 ### EditorConfig
 
 Both the CLI and VS Code extension respect your `.editorconfig` file for indentation settings (`indent_style`, `indent_size`). EditorConfig values override `.htmlmustache.jsonc` for indentation, and CLI flags override everything.

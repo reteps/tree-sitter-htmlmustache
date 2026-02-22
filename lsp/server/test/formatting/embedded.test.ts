@@ -176,11 +176,11 @@ describe('Embedded Script/Style Formatting', () => {
   });
 
   describe('Fallback behavior', () => {
-    it('preserves content when no embeddedFormatted map entry exists', () => {
+    it('breaks single-line content onto new lines', () => {
       const result = formatWithoutEmbedded(
         '<script>const x = 1;</script>'
       );
-      expect(result).toBe('<script>const x = 1;</script>\n');
+      expect(result).toBe('<script>\n  const x = 1;\n</script>\n');
     });
 
     it('preserves html_raw_element content (custom raw tags)', async () => {

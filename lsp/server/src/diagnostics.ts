@@ -1,9 +1,10 @@
 import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
 import type { Tree } from './parser';
 import { collectErrors } from './collectErrors';
+import type { RulesConfig } from './configFile';
 
-export function getDiagnostics(tree: Tree): Diagnostic[] {
-  const errors = collectErrors(tree);
+export function getDiagnostics(tree: Tree, rules?: RulesConfig): Diagnostic[] {
+  const errors = collectErrors(tree, rules);
   return errors.map(error => ({
     severity: error.severity === 'warning' ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error,
     range: {

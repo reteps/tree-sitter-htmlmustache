@@ -1,6 +1,6 @@
 {
   "name": "@reteps/tree-sitter-htmlmustache",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "description": "HTML with Mustache/Handlebars template syntax grammar for tree-sitter",
   "repository": {
     "type": "git",
@@ -89,6 +89,7 @@
     "prestart": "tree-sitter build --wasm",
     "start": "tree-sitter playground",
     "test": "tree-sitter test && node --test bindings/node/*_test.js",
-    "test:cli": "vitest run --config cli/vitest.config.ts"
+    "test:cli": "vitest run --config cli/vitest.config.ts",
+    "generate:rule-docs": "tsx scripts/generate-rule-docs.ts"
   }
 }

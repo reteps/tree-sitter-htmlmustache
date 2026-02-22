@@ -302,6 +302,42 @@ export function checkUnescapedEntities(rootNode: BalanceNode): FixableError[] {
   return errors;
 }
 
+// 7. Prefer mustache comments over HTML comments
+export function checkHtmlComments(rootNode: BalanceNode): FixableError[] {
+  const errors: FixableError[] = [];
+
+  function visit(node: BalanceNode) {
+    if (node.type === 'html_comment') {
+      // Extract text between <!-- and -->
+      const raw = node.text;
+      let content = raw;
+      if (content.startsWith('<!--')) content = content.slice(4);
+      if (content.endsWith('-->')) content = content.slice(0, -3);
+      content = content.trim();
+
+      errors.push({
+        node,
+        message: `HTML comment found — use mustache comment {{! ... }} instead`,
+        severity: 'warning',
+        fix: [{
+          startIndex: node.startIndex,
+          endIndex: node.endIndex,
+          newText: `{{! ${content} }}`,
+        }],
+        fixDescription: 'Replace HTML comment with mustache comment',
+      });
+      return;
+    }
+
+    for (const child of node.children) {
+      visit(child);
+    }
+  }
+
+  visit(rootNode);
+  return errors;
+}
+
 export function checkDuplicateAttributes(rootNode: BalanceNode): FixableError[] {
   const errors: FixableError[] = [];
 
