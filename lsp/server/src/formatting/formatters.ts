@@ -564,17 +564,63 @@ export function formatMustacheSection(
   // boundaries), don't indent. Otherwise, indent normally.
   const hasImplicit = hasImplicitEndTags(contentNodes);
 
-  // Staircase indentation: when all content nodes are erroneous end tags
-  // (closing tags from a cross-section split), assign descending indent levels.
-  const isStaircase = !hasImplicit && contentNodes.length > 0 &&
-    contentNodes.every(n => n.type === 'html_erroneous_end_tag');
+  // Staircase indentation: when content includes erroneous end tags (closing tags
+  // from a cross-section split). Each erroneous end tag gets a descending indent
+  // level so the outermost closing tag aligns at indent 0 (matching its opening).
+  // Non-erroneous content between erroneous end tags is indented one level deeper
+  // than the surrounding erroneous tags (it's a child of that scope).
+  const erroneousCount = contentNodes.filter(n => n.type === 'html_erroneous_end_tag').length;
+  const hasStaircase = !hasImplicit && erroneousCount > 0;
 
-  if (isStaircase) {
-    const E = contentNodes.length;
-    for (let i = 0; i < E; i++) {
-      const formatted = formatNode(contentNodes[i], context);
-      parts.push(indentN(concat([hardline, formatted]), E - i));
+  if (hasStaircase) {
+    let virtualDepth = erroneousCount - 1;
+    const groupNodes: SyntaxNode[] = [];
+    let lastNodeEnd = -1;
+    let pendingBlankLine = false;
+    let groupBlankLine = false;
+
+    const emitGroup = () => {
+      if (groupNodes.length === 0) return;
+      const formatted = formatBlockChildren(groupNodes, context);
+      if (hasDocContent(formatted)) {
+        if (groupBlankLine) parts.push('\n');
+        const depth = Math.max(0, virtualDepth + 1);
+        parts.push(depth > 0
+          ? indentN(concat([hardline, formatted]), depth)
+          : concat([hardline, formatted]));
+      }
+      groupNodes.length = 0;
+      groupBlankLine = false;
+    };
+
+    for (const node of contentNodes) {
+      if (lastNodeEnd >= 0 && node.startIndex > lastNodeEnd) {
+        const gap = context.document.getText().slice(lastNodeEnd, node.startIndex);
+        if ((gap.match(/\n/g) || []).length >= 2) {
+          pendingBlankLine = true;
+        }
+      }
+
+      if (node.type === 'html_erroneous_end_tag') {
+        emitGroup();
+        if (pendingBlankLine) parts.push('\n');
+        pendingBlankLine = false;
+        const formatted = formatNode(node, context);
+        const depth = Math.max(0, virtualDepth);
+        parts.push(depth > 0
+          ? indentN(concat([hardline, formatted]), depth)
+          : concat([hardline, formatted]));
+        virtualDepth--;
+      } else {
+        if (groupNodes.length === 0) {
+          groupBlankLine = pendingBlankLine;
+          pendingBlankLine = false;
+        }
+        groupNodes.push(node);
+      }
+      lastNodeEnd = node.endIndex;
     }
+    emitGroup();
     parts.push(hardline);
   } else {
   const formattedContent = formatBlockChildren(contentNodes, context);

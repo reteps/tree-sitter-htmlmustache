@@ -192,32 +192,125 @@ describe('Document Formatting (Integration)', () => {
 
     it('formats 3-level staircase of erroneous end tags', () => {
       const result = format('{{#show}}</div></div></div>{{/show}}');
-      expect(result).toBe('{{#show}}\n      </div>\n    </div>\n  </div>\n{{/show}}\n');
+      expect(result).toBe('{{#show}}\n    </div>\n  </div>\n</div>\n{{/show}}\n');
     });
 
     it('formats 2-level staircase of erroneous end tags', () => {
       const result = format('{{#show}}</div></div>{{/show}}');
-      expect(result).toBe('{{#show}}\n    </div>\n  </div>\n{{/show}}\n');
+      expect(result).toBe('{{#show}}\n  </div>\n</div>\n{{/show}}\n');
     });
 
     it('formats staircase with heterogeneous tags', () => {
       const result = format('{{#show}}</div></section></p>{{/show}}');
-      expect(result).toBe('{{#show}}\n      </div>\n    </section>\n  </p>\n{{/show}}\n');
+      expect(result).toBe('{{#show}}\n    </div>\n  </section>\n</p>\n{{/show}}\n');
     });
 
     it('formats staircase inside a parent element', () => {
       const result = format('<div>{{#show}}</p></p></p>{{/show}}</div>');
-      expect(result).toBe('<div>\n  {{#show}}\n        </p>\n      </p>\n    </p>\n  {{/show}}\n</div>\n');
+      expect(result).toBe('<div>\n  {{#show}}\n      </p>\n    </p>\n  </p>\n  {{/show}}\n</div>\n');
     });
 
-    it('formats single erroneous end tag with no extra indent', () => {
+    it('formats single erroneous end tag with no indent', () => {
       const result = format('{{#show}}</div>{{/show}}');
-      expect(result).toBe('{{#show}}\n  </div>\n{{/show}}\n');
+      expect(result).toBe('{{#show}}\n</div>\n{{/show}}\n');
     });
 
-    it('formats mixed content with erroneous end tags using block layout', () => {
+    it('formats mixed content with erroneous end tags using staircase', () => {
       const result = format('{{#show}}text</div></div>{{/show}}');
-      expect(result).toBe('{{#show}}\n  text\n  </div>\n  </div>\n{{/show}}\n');
+      expect(result).toBe('{{#show}}\n    text\n  </div>\n</div>\n{{/show}}\n');
+    });
+
+    it('formats cross-boundary fieldset with matching indent levels', () => {
+      const input = '{{^inline}}\n<fieldset class="d-block">\n    <legend class="visually-hidden">Checkbox options</legend>\n{{/inline}}\n\n{{^inline}}\n    </fieldset>\n{{/inline}}';
+      const result = format(input);
+      expect(result).toBe('{{^inline}}\n<fieldset class="d-block">\n  <legend class="visually-hidden">Checkbox options</legend>\n{{/inline}}\n\n{{^inline}}\n</fieldset>\n{{/inline}}\n');
+    });
+
+    it('formats complex cross-boundary with mixed staircase and code tag', () => {
+      const tree = parseText(`{{#show_python}}
+<div id="pl-dataframe-{{uuid}}" class="card mb-4">
+    <div class="card-header">
+        <ul class="nav nav-tabs card-header-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <a class="nav-link active" data-bs-toggle="tab" href="#table-{{uuid}}">Table</a>
+            </li>
+            <li class="nav-item" role="presentation">
+                <a class="nav-link" data-bs-toggle="tab" href="#code-{{uuid}}">Code</a>
+            </li>
+        </ul>
+    </div>
+
+    <div class="card-body">
+        <div class="tab-content">
+            <div id="table-{{uuid}}" role="tabpanel" class="tab-pane show active">
+{{/show_python}}
+
+<div>
+    {{{frame_html}}}
+
+    {{#num_rows}}
+        {{#num_cols}}
+            <p class="pl-dataframe-table-dimensions">{{num_rows}} rows x {{num_cols}} columns</p>
+        {{/num_cols}}
+    {{/num_rows}}
+</div>
+
+{{#show_python}}
+    </div>
+
+    <div id="code-{{uuid}}" role="tabpanel" class="tab-pane">
+        <!-- Don't unindent this, will cause formatting issues -->
+        <pl-code language="python" copy-code-button="True">
+from pandas import DataFrame, Timestamp
+from numpy import nan
+
+{{{varname}}} = DataFrame(
+{{{code_string}}}
+)
+        </pl-code>
+    </div>
+    </div>
+    </div>
+    </div>
+{{/show_python}}`);
+      const document = createMockDocument(tree.rootNode.text);
+      const customTags = [{ name: 'pl-code', languageDefault: 'python' }];
+      const edits = formatDocument(tree, document, defaultOptions, { customTags });
+      expect(edits.length).toBe(1);
+      const result = edits[0].newText;
+      // Third section: staircase with E=4 erroneous end tags, depths 3,2,1,0
+      // Closing indentation mirrors the opening section's nesting
+      const lines = result.split('\n');
+      const thirdSectionStart = lines.indexOf('{{#show_python}}', 1);
+      const thirdSection = lines.slice(thirdSectionStart);
+      // First erroneous end tag at indent 3 (6 spaces) matches table-pane div
+      expect(thirdSection[1]).toBe('      </div>');
+      // Sibling element at indent 3 (6 spaces)
+      expect(thirdSection[3]).toMatch(/^ {6}<div/);
+      // pl-code content preserved (not reformatted)
+      expect(thirdSection[6]).toBe('from pandas import DataFrame, Timestamp');
+      // Trailing staircase closes at descending indent levels
+      const closingDivs = thirdSection
+        .map((l, i) => ({ line: l, idx: i }))
+        .filter(({ line }) => /^\s*<\/div>$/.test(line))
+        .map(({ line }) => line);
+      // Last 3 closing divs should be the staircase: indent 2, 1, 0
+      const staircase = closingDivs.slice(-3);
+      expect(staircase).toEqual(['    </div>', '  </div>', '</div>']);
+    });
+
+    it('formats mixed staircase with erroneous end tag then element then erroneous end tags', () => {
+      const input = '{{#show}}</div><div class="inner"><p>text</p></div></div></div>{{/show}}';
+      const result = format(input);
+      // E=3 erroneous end tags: depths 2, 1, 0
+      // First err at indent 2 (vd=2), element group at indent 2 (vd+1=2), err at 1, err at 0
+      expect(result).toBe('{{#show}}\n    </div>\n    <div class="inner">\n      <p>text</p>\n    </div>\n  </div>\n</div>\n{{/show}}\n');
+    });
+
+    it('formats cross-boundary 4-deep div nesting with matching indent levels', () => {
+      const input = '{{#show}}\n<div class="a">\n<div class="b">\n<div class="c">\n<div class="d">\n{{/show}}\n\n{{#show}}\n</div>\n</div>\n</div>\n</div>\n{{/show}}';
+      const result = format(input);
+      expect(result).toBe('{{#show}}\n<div class="a">\n  <div class="b">\n    <div class="c">\n      <div class="d">\n{{/show}}\n\n{{#show}}\n      </div>\n    </div>\n  </div>\n</div>\n{{/show}}\n');
     });
   });
 
