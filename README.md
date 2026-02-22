@@ -244,6 +244,7 @@ Additionally, the following rules are configurable. Set their severities (`"erro
 | `duplicateAttributes` | `error` | Detects duplicate HTML attributes on the same element |
 | `unescapedEntities` | `warning` | Flags unescaped `&` and `>` characters in text content |
 | `preferMustacheComments` | `off` | Suggests replacing HTML comments with mustache comments |
+| `unrecognizedHtmlTags` | `error` | Flags HTML tags that are not standard HTML elements or valid custom elements |
 
 <!-- RULES_TABLE_END -->
 

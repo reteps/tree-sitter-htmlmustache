@@ -42,6 +42,11 @@ export const RULES: RuleDefinition[] = [
     defaultSeverity: 'off',
     description: 'Suggests replacing HTML comments with mustache comments',
   },
+  {
+    name: 'unrecognizedHtmlTags',
+    defaultSeverity: 'error',
+    description: 'Flags HTML tags that are not standard HTML elements or valid custom elements',
+  },
 ];
 
 /** Set of all known rule names (for config validation). */

@@ -309,8 +309,8 @@ describe('Classifier', () => {
       const tags = makeTagMap({ name: 'my-widget' });
       const tree = parseText('<my-widget>content</my-widget>');
       const node = tree.rootNode.child(0)!;
-      // Unknown tag without explicit display → inline (CSS_DISPLAY_MAP fallthrough)
-      expect(getCSSDisplay(node, tags)).toBe('inline');
+      // Custom tag without explicit display → inline-block (inline externally, block internally)
+      expect(getCSSDisplay(node, tags)).toBe('inline-block');
     });
   });
 

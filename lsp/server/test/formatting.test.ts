@@ -96,6 +96,26 @@ describe('Document Formatting', () => {
       expect(result).toBe('<div><br /></div>\n');
     });
 
+    it('adds line break after br tag in block content', () => {
+      const result = format('<p>Hello<br>World</p>');
+      expect(result).toBe('<p>\n  Hello<br>\n  World\n</p>\n');
+    });
+
+    it('adds line break after self-closing br tag in block content', () => {
+      const result = format('<p>Hello<br />World</p>');
+      expect(result).toBe('<p>\n  Hello<br />\n  World\n</p>\n');
+    });
+
+    it('handles br at end of content without extra blank line', () => {
+      const result = format('<p>Hello<br></p>');
+      expect(result).toBe('<p>Hello<br></p>\n');
+    });
+
+    it('handles multiple br tags', () => {
+      const result = format('<p>Line 1<br>Line 2<br>Line 3</p>');
+      expect(result).toBe('<p>\n  Line 1<br>\n  Line 2<br>\n  Line 3\n</p>\n');
+    });
+
     it('keeps short block with void element flat', () => {
       const result = format('<div><img src="test.jpg"></div>');
       expect(result).toBe('<div><img src="test.jpg"></div>\n');

@@ -338,6 +338,76 @@ export function checkHtmlComments(rootNode: BalanceNode): FixableError[] {
   return errors;
 }
 
+// 8. Unrecognized HTML tags
+const KNOWN_HTML_TAGS = new Set([
+  // Void elements
+  'area', 'base', 'basefont', 'bgsound', 'br', 'col', 'command',
+  'embed', 'frame', 'hr', 'image', 'img', 'input', 'isindex',
+  'keygen', 'link', 'menuitem', 'meta', 'nextid', 'param',
+  'source', 'track', 'wbr',
+  // Non-void elements
+  'a', 'abbr', 'address', 'article', 'aside', 'audio',
+  'b', 'bdi', 'bdo', 'blockquote', 'body', 'button',
+  'canvas', 'caption', 'cite', 'code', 'colgroup',
+  'data', 'datalist', 'dd', 'del', 'details', 'dfn', 'dialog', 'div', 'dl', 'dt',
+  'em',
+  'fieldset', 'figcaption', 'figure', 'footer', 'form',
+  'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'head', 'header', 'hgroup', 'html',
+  'i', 'iframe', 'ins',
+  'kbd',
+  'label', 'legend', 'li',
+  'main', 'map', 'mark', 'math', 'menu', 'meter',
+  'nav', 'noscript',
+  'object', 'ol', 'optgroup', 'option', 'output',
+  'p', 'picture', 'pre', 'progress',
+  'q',
+  'rb', 'rp', 'rt', 'rtc', 'ruby',
+  's', 'samp', 'script', 'search', 'section', 'select', 'slot', 'small', 'span', 'strong', 'style', 'sub', 'summary', 'sup', 'svg',
+  'table', 'tbody', 'td', 'template', 'textarea', 'tfoot', 'th', 'thead', 'time', 'title', 'tr',
+  'u', 'ul',
+  'var', 'video',
+]);
+
+export function checkUnrecognizedHtmlTags(rootNode: BalanceNode, customTagNames?: string[]): FixableError[] {
+  const errors: FixableError[] = [];
+  const customSet = customTagNames ? new Set(customTagNames.map(n => n.toLowerCase())) : undefined;
+
+  function visit(node: BalanceNode) {
+    if (node.type === 'html_element' || node.type === 'html_self_closing_tag') {
+      // Check tag name for svg/math to skip their subtrees
+      const tagNameNode = node.type === 'html_self_closing_tag'
+        ? node.children.find(c => c.type === 'html_tag_name')
+        : node.children.find(c => c.type === 'html_start_tag')?.children.find(c => c.type === 'html_tag_name');
+      const tagName = tagNameNode?.text.toLowerCase();
+      if (tagName === 'svg' || tagName === 'math') return;
+    }
+
+    if (node.type === 'html_start_tag' || node.type === 'html_self_closing_tag') {
+      const tagNameNode = node.children.find(c => c.type === 'html_tag_name');
+      if (tagNameNode) {
+        const tagName = tagNameNode.text.toLowerCase();
+        if (
+          !KNOWN_HTML_TAGS.has(tagName) &&
+          !customSet?.has(tagName)
+        ) {
+          errors.push({
+            node: tagNameNode,
+            message: `Unrecognized HTML tag: <${tagNameNode.text}>`,
+          });
+        }
+      }
+      return;
+    }
+
+    for (const child of node.children) {
+      visit(child);
+    }
+  }
+
+  visit(rootNode);
+  return errors;
+}
+
 export function checkDuplicateAttributes(rootNode: BalanceNode): FixableError[] {
   const errors: FixableError[] = [];
 

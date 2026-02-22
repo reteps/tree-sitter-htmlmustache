@@ -33,7 +33,7 @@ import {
   getCSSDisplay,
   isWhitespaceInsensitive,
 } from './classifier';
-import { normalizeText, getVisibleChildren, normalizeMustacheWhitespace, normalizeMustacheWhitespaceAll, getIgnoreDirective } from './utils';
+import { normalizeText, getVisibleChildren, normalizeMustacheWhitespace, normalizeMustacheWhitespaceAll, getIgnoreDirective, getTagName } from './utils';
 import type { CustomCodeTagConfig } from '../customCodeTags';
 import { getAttributeValue } from '../customCodeTags';
 import { isRawContentElement } from '../nodeHelpers';
@@ -297,7 +297,7 @@ export function formatHtmlElement(node: SyntaxNode, context: FormatterContext, f
         parts.push(text(child.text));
       }
     }
-  } else if (!isBlock && (!hasHtmlElementChildren || (forceInline && !contentNodes.some(
+  } else if (!isBlock && (!hasHtmlElementChildren || (forceInline && display !== 'inline-block' && !contentNodes.some(
     (child) => isRawContentElement(child) || isBlockLevel(child, tags)
   )))) {
     // Standalone element with attributes: use outer group wrapping so content
@@ -1170,6 +1170,19 @@ export function formatBlockChildren(
         } else {
           currentLine.push(formatted);
         }
+      }
+    }
+
+    // Force line break after <br> tags
+    if (node.type === 'html_element' && currentLine.length > 0) {
+      const tagName = getTagName(node);
+      if (tagName?.toLowerCase() === 'br') {
+        const lineContent = trimDoc(flushCurrentLine());
+        if (hasDocContent(lineContent)) {
+          lines.push({ doc: lineContent, blankLineBefore: blankLineBeforeCurrentLine });
+          blankLineBeforeCurrentLine = false;
+        }
+        currentLine = [];
       }
     }
 

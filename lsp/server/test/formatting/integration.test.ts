@@ -549,6 +549,48 @@ describe('Custom Code Tags (Integration)', () => {
   });
 });
 
+describe('Custom Inline-Block Tags (Integration)', () => {
+  function formatWithCustomTags(content: string, tags: { name: string; display?: string }[]): string {
+    const tree = parseText(content);
+    const document = createMockDocument(content);
+    const customTags = tags.map(t => ({ name: t.name, ...(t.display ? { display: t.display } : {}) }));
+    const edits = formatDocument(tree, document, defaultOptions, { customTags });
+    expect(edits.length).toBe(1);
+    return edits[0].newText;
+  }
+
+  it('inline-block custom tag indents block children but stays inline in text flow', () => {
+    const result = formatWithCustomTags(
+      '<p><pl-multiple-choice><pl-answer>A</pl-answer><pl-answer>B</pl-answer></pl-multiple-choice>.</p>',
+      [{ name: 'pl-multiple-choice' }, { name: 'pl-answer' }]
+    );
+    // Adjacent period stays on same line (inline externally)
+    // but pl-answer children are indented (block internally)
+    expect(result).toBe(
+      '<p>\n  <pl-multiple-choice>\n    <pl-answer>A</pl-answer>\n    <pl-answer>B</pl-answer>\n  </pl-multiple-choice>.\n</p>\n'
+    );
+  });
+
+  it('custom tag without display defaults to inline-block', () => {
+    const result = formatWithCustomTags(
+      '<div><my-widget><span>inner</span></my-widget></div>',
+      [{ name: 'my-widget' }]
+    );
+    // Block internally: span child gets indented
+    expect(result).toBe(
+      '<div>\n  <my-widget>\n    <span>inner</span>\n  </my-widget>\n</div>\n'
+    );
+  });
+
+  it('custom tag with explicit inline display stays fully inline', () => {
+    const result = formatWithCustomTags(
+      '<p>Hello <my-tag><span>world</span></my-tag>!</p>',
+      [{ name: 'my-tag', display: 'inline' }]
+    );
+    expect(result).toBe('<p>Hello <my-tag><span>world</span></my-tag>!</p>\n');
+  });
+});
+
 describe('Document Range Formatting (Integration)', () => {
   function formatRange(content: string, startLine: number, startChar: number, endLine: number, endChar: number): string {
     const tree = parseText(content);

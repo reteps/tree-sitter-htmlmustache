@@ -179,7 +179,8 @@ documents.onDidOpen((event) => {
   const tree = parseAndCacheDocument(event.document);
   if (tree) {
     const { config } = resolveConfig(event.document.uri);
-    connection.sendDiagnostics({ uri: event.document.uri, diagnostics: getDiagnostics(tree, config?.rules) });
+    const customTagNames = config?.customTags?.map(t => t.name);
+    connection.sendDiagnostics({ uri: event.document.uri, diagnostics: getDiagnostics(tree, config?.rules, customTagNames) });
   }
 });
 
@@ -188,7 +189,8 @@ documents.onDidChangeContent((change) => {
   const tree = parseAndCacheDocument(change.document);
   if (tree) {
     const { config } = resolveConfig(change.document.uri);
-    connection.sendDiagnostics({ uri: change.document.uri, diagnostics: getDiagnostics(tree, config?.rules) });
+    const customTagNames = config?.customTags?.map(t => t.name);
+    connection.sendDiagnostics({ uri: change.document.uri, diagnostics: getDiagnostics(tree, config?.rules, customTagNames) });
   }
 });
 

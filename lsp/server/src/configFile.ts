@@ -22,6 +22,7 @@ export interface RulesConfig {
   duplicateAttributes?: RuleSeverity;
   unescapedEntities?: RuleSeverity;
   preferMustacheComments?: RuleSeverity;
+  unrecognizedHtmlTags?: RuleSeverity;
 }
 
 const VALID_RULE_SEVERITIES = new Set<string>(['error', 'warning', 'off']);

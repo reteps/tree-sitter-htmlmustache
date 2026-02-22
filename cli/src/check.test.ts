@@ -808,6 +808,76 @@ describe('disable directives', () => {
   });
 });
 
+describe('unrecognized HTML tags', () => {
+  it('allows standard HTML tags', () => {
+    const tree = parse('<div><span><input></span></div>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Unrecognized HTML tag'))).toBe(false);
+  });
+
+  it('flags unrecognized tags', () => {
+    const tree = parse('<foo></foo>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message === 'Unrecognized HTML tag: <foo>')).toBe(true);
+  });
+
+  it('flags typo tags', () => {
+    const tree = parse('<dvi></dvi>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message === 'Unrecognized HTML tag: <dvi>')).toBe(true);
+  });
+
+  it('flags custom elements with hyphens when not in customTags', () => {
+    const tree = parse('<my-component></my-component>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message === 'Unrecognized HTML tag: <my-component>')).toBe(true);
+  });
+
+  it('allows custom elements listed in customTagNames', () => {
+    const tree = parse('<my-component></my-component>');
+    const errors = collectErrors(tree, 'test.mustache', undefined, ['my-component']);
+    expect(errors.some(e => e.message.includes('Unrecognized HTML tag'))).toBe(false);
+  });
+
+  it('allows custom tags from config (case-insensitive)', () => {
+    const tree = parse('<codeblock></codeblock>');
+    const errors = collectErrors(tree, 'test.mustache', undefined, ['CodeBlock']);
+    expect(errors.some(e => e.message.includes('Unrecognized HTML tag'))).toBe(false);
+  });
+
+  it('does not flag tags inside <svg>', () => {
+    const tree = parse('<svg><path d="M0 0"/></svg>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Unrecognized HTML tag'))).toBe(false);
+  });
+
+  it('does not flag tags inside <math>', () => {
+    const tree = parse('<math><mrow><mi>x</mi></mrow></math>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Unrecognized HTML tag'))).toBe(false);
+  });
+
+  it('can be disabled via config', () => {
+    const tree = parse('<foo></foo>');
+    const errors = collectErrors(tree, 'test.mustache', { unrecognizedHtmlTags: 'off' });
+    expect(errors.some(e => e.message.includes('Unrecognized HTML tag'))).toBe(false);
+  });
+
+  it('can be set to warning', () => {
+    const tree = parse('<foo></foo>');
+    const errors = collectErrors(tree, 'test.mustache', { unrecognizedHtmlTags: 'warning' });
+    const err = errors.find(e => e.message.includes('Unrecognized HTML tag'));
+    expect(err).toBeDefined();
+    expect(err!.severity).toBe('warning');
+  });
+
+  it('can be disabled via inline comment', () => {
+    const tree = parse('{{! htmlmustache-disable unrecognizedHtmlTags }}\n<foo></foo>');
+    const errors = collectErrors(tree, 'test.mustache');
+    expect(errors.some(e => e.message.includes('Unrecognized HTML tag'))).toBe(false);
+  });
+});
+
 describe('rules config overrides', () => {
   it('disables a default-on rule when set to off', () => {
     const tree = parse('<p>a > b</p>');

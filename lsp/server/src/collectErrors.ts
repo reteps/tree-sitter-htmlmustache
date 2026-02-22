@@ -13,6 +13,7 @@ import {
   checkDuplicateAttributes,
   checkUnescapedEntities,
   checkHtmlComments,
+  checkUnrecognizedHtmlTags,
 } from './mustacheChecks';
 import type { TextReplacement } from './mustacheChecks';
 import type { RulesConfig, RuleSeverity } from './configFile';
@@ -96,7 +97,7 @@ function collectDisabledRules(rootNode: BalanceNode): Set<string> {
  * Collect all errors from a parsed tree: syntax errors, balance errors,
  * unclosed tags, and mustache lint checks.
  */
-export function collectErrors(tree: WalkableTree, rules?: RulesConfig): CheckError[] {
+export function collectErrors(tree: WalkableTree, rules?: RulesConfig, customTagNames?: string[]): CheckError[] {
   const errors: CheckError[] = [];
   const cursor = tree.walk() as unknown as TreeCursor;
 
@@ -152,6 +153,7 @@ export function collectErrors(tree: WalkableTree, rules?: RulesConfig): CheckErr
     { rule: 'duplicateAttributes', errors: () => checkDuplicateAttributes(tree.rootNode) },
     { rule: 'unescapedEntities', errors: () => checkUnescapedEntities(tree.rootNode) },
     { rule: 'preferMustacheComments', errors: () => checkHtmlComments(tree.rootNode) },
+    { rule: 'unrecognizedHtmlTags', errors: () => checkUnrecognizedHtmlTags(tree.rootNode, customTagNames) },
   ];
 
   for (const { rule, errors: getErrors } of ruleChecks) {

@@ -189,6 +189,8 @@ export function getCSSDisplay(node: SyntaxNode, customTags: Map<string, CustomCo
         if (config.display) return config.display;
         // Code tags default to block
         if (isCodeTag(config)) return 'block';
+        // Custom tags default to inline-block (inline externally, block internally)
+        return 'inline-block';
       }
       return CSS_DISPLAY_MAP[lower] ?? 'inline';
     }
