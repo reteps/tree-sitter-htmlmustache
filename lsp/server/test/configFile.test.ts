@@ -68,8 +68,8 @@ describe('parseJsonc', () => {
       "indentSize": 4,
       "mustacheSpaces": true,
 
-      // Custom code tags
-      "customCodeTags": [
+      // Custom tags
+      "customTags": [
         {
           "name": "pl-code",
           "languageAttribute": "language",
@@ -81,7 +81,7 @@ describe('parseJsonc', () => {
     expect(result.printWidth).toBe(100);
     expect(result.indentSize).toBe(4);
     expect(result.mustacheSpaces).toBe(true);
-    expect(result.customCodeTags).toHaveLength(1);
+    expect(result.customTags).toHaveLength(1);
   });
 });
 
@@ -121,34 +121,70 @@ describe('validateConfig', () => {
     expect(validateConfig({ unknownKey: 'value', printWidth: 80 })).toEqual({ printWidth: 80 });
   });
 
-  it('validates customCodeTags', () => {
+  it('validates customTags', () => {
     const result = validateConfig({
-      customCodeTags: [
+      customTags: [
         { name: 'pl-code', languageAttribute: 'language', indent: 'always' },
         { name: '' }, // invalid: empty name
         { noName: true }, // invalid: no name
         'not-an-object', // invalid
       ],
     });
-    expect(result.customCodeTags).toHaveLength(1);
-    expect(result.customCodeTags![0].name).toBe('pl-code');
-    expect(result.customCodeTags![0].languageAttribute).toBe('language');
-    expect(result.customCodeTags![0].indent).toBe('always');
+    expect(result.customTags).toHaveLength(1);
+    expect(result.customTags![0].name).toBe('pl-code');
+    expect(result.customTags![0].languageAttribute).toBe('language');
+    expect(result.customTags![0].indent).toBe('always');
   });
 
-  it('validates customCodeTags indent mode', () => {
+  it('validates customTags indent mode', () => {
     const result = validateConfig({
-      customCodeTags: [
+      customTags: [
         { name: 'tag1', indent: 'never' },
         { name: 'tag2', indent: 'invalid' },
         { name: 'tag3', indent: 'attribute', indentAttribute: 'src' },
       ],
     });
-    expect(result.customCodeTags).toHaveLength(3);
-    expect(result.customCodeTags![0].indent).toBe('never');
-    expect(result.customCodeTags![1].indent).toBeUndefined();
-    expect(result.customCodeTags![2].indent).toBe('attribute');
-    expect(result.customCodeTags![2].indentAttribute).toBe('src');
+    expect(result.customTags).toHaveLength(3);
+    expect(result.customTags![0].indent).toBe('never');
+    expect(result.customTags![1].indent).toBeUndefined();
+    expect(result.customTags![2].indent).toBe('attribute');
+    expect(result.customTags![2].indentAttribute).toBe('src');
+  });
+
+  it('validates customTags display field', () => {
+    const result = validateConfig({
+      customTags: [
+        { name: 'my-card', display: 'block' },
+        { name: 'my-badge', display: 'inline-block' },
+        { name: 'my-widget', display: 'invalid-display' },
+      ],
+    });
+    expect(result.customTags).toHaveLength(3);
+    expect(result.customTags![0].display).toBe('block');
+    expect(result.customTags![1].display).toBe('inline-block');
+    expect(result.customTags![2].display).toBeUndefined();
+  });
+
+  it('merges customCodeTags (legacy) and customTags', () => {
+    const result = validateConfig({
+      customCodeTags: [
+        { name: 'pl-code', languageDefault: 'python' },
+        { name: 'old-tag', languageDefault: 'text' },
+      ],
+      customTags: [
+        { name: 'pl-code', languageDefault: 'cpp', display: 'block' },
+        { name: 'my-card', display: 'block' },
+      ],
+    });
+    expect(result.customTags).toHaveLength(3);
+    // customTags overrides customCodeTags by name
+    const plCode = result.customTags!.find(t => t.name === 'pl-code');
+    expect(plCode?.languageDefault).toBe('cpp');
+    expect(plCode?.display).toBe('block');
+    // old-tag from customCodeTags preserved
+    expect(result.customTags!.find(t => t.name === 'old-tag')).toBeDefined();
+    // my-card from customTags preserved
+    expect(result.customTags!.find(t => t.name === 'my-card')).toBeDefined();
   });
 
   it('validates include array', () => {

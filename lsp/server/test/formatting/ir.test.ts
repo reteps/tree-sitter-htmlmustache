@@ -100,7 +100,7 @@ describe('IR Builders', () => {
     });
 
     it('sets break flag when shouldBreak is true', () => {
-      const doc = group('content', true);
+      const doc = group('content', { shouldBreak: true });
       expect(isGroup(doc)).toBe(true);
       if (isGroup(doc)) {
         expect(doc.break).toBe(true);

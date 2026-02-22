@@ -8,7 +8,7 @@ import { formatDocument } from '../../lsp/server/src/formatting/index';
 import type { FormattingOptions, FormatDocumentParams } from '../../lsp/server/src/formatting/index';
 import { getEditorConfigOptions } from '../../lsp/server/src/formatting/editorconfig';
 import { loadConfigFileForPath } from '../../lsp/server/src/configFile';
-import { parseCustomCodeTagSettings } from '../../lsp/server/src/customCodeTags';
+import type { CustomCodeTagConfig } from '../../lsp/server/src/customCodeTags';
 import { initializeParser, parseDocument } from './wasm';
 import { resolveFiles } from './check';
 
@@ -109,19 +109,18 @@ function resolveSettings(flags: FormatFlags, filePath?: string): {
   let insertSpaces = true;
   let printWidth = 80;
   let mustacheSpaces: boolean | undefined = false;
-  let customCodeTags: string[] | undefined;
-  let customCodeTagConfigs: ReturnType<typeof parseCustomCodeTagSettings>['configs'] | undefined;
+  let customTags: CustomCodeTagConfig[] | undefined;
 
   // 2. Config file overrides defaults
   const configFile = filePath ? loadConfigFileForPath(filePath) : null;
+  let noBreakDelimiters: string[] | undefined;
   if (configFile) {
     if (configFile.indentSize !== undefined) tabSize = configFile.indentSize;
     if (configFile.printWidth !== undefined) printWidth = configFile.printWidth;
     if (configFile.mustacheSpaces !== undefined) mustacheSpaces = configFile.mustacheSpaces;
-    if (configFile.customCodeTags && configFile.customCodeTags.length > 0) {
-      const parsed = parseCustomCodeTagSettings(configFile.customCodeTags);
-      customCodeTags = parsed.tagNames;
-      customCodeTagConfigs = parsed.configs;
+    if (configFile.noBreakDelimiters) noBreakDelimiters = configFile.noBreakDelimiters;
+    if (configFile.customTags && configFile.customTags.length > 0) {
+      customTags = configFile.customTags;
     }
   }
 
@@ -142,8 +141,8 @@ function resolveSettings(flags: FormatFlags, filePath?: string): {
     options: { tabSize, insertSpaces },
     printWidth,
     mustacheSpaces,
-    customCodeTags,
-    customCodeTagConfigs,
+    noBreakDelimiters,
+    customTags,
     configFile,
   };
 }

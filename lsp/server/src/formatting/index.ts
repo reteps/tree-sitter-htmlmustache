@@ -46,12 +46,24 @@ import { isBlockLevel, getContentNodes, hasImplicitEndTags } from './classifier'
 import type { CustomCodeTagConfig } from '../customCodeTags';
 
 export interface FormatDocumentParams {
-  customCodeTags?: string[];
+  customTags?: CustomCodeTagConfig[];
   printWidth?: number;
   embeddedFormatted?: Map<number, string>;
   mustacheSpaces?: boolean;
-  customCodeTagConfigs?: CustomCodeTagConfig[];
+  noBreakDelimiters?: string[];
   configFile?: HtmlMustacheConfig | null;
+}
+
+/**
+ * Build a Map<string, CustomCodeTagConfig> from the customTags array.
+ */
+function buildCustomTagMap(customTags?: CustomCodeTagConfig[]): Map<string, CustomCodeTagConfig> | undefined {
+  if (!customTags || customTags.length === 0) return undefined;
+  const map = new Map<string, CustomCodeTagConfig>();
+  for (const config of customTags) {
+    map.set(config.name.toLowerCase(), config);
+  }
+  return map;
 }
 
 /**
@@ -63,7 +75,7 @@ export function formatDocument(
   options: FormattingOptions,
   params: FormatDocumentParams = {},
 ): TextEdit[] {
-  const { customCodeTags, printWidth = 80, embeddedFormatted, mustacheSpaces, customCodeTagConfigs, configFile } = params;
+  const { printWidth = 80, embeddedFormatted, mustacheSpaces, noBreakDelimiters, configFile } = params;
   const mergedOptions = mergeOptions(options, document.uri, configFile);
   const indentUnit = createIndentUnit(mergedOptions);
 
@@ -72,14 +84,13 @@ export function formatDocument(
     return [];
   }
 
-  const configMap = buildConfigMap(customCodeTagConfigs);
-  const customCodeTagSet = customCodeTags ? new Set(customCodeTags.map(t => t.toLowerCase())) : undefined;
+  const customTagMap = buildCustomTagMap(params.customTags);
   const context: FormatterContext = {
     document,
-    customCodeTags: customCodeTagSet,
-    customCodeTagConfigs: configMap,
+    customTags: customTagMap,
     embeddedFormatted,
     mustacheSpaces,
+    noBreakDelimiters,
   };
   const doc = formatDocumentToDoc(tree.rootNode, context);
   const formatted = print(doc, { indentUnit, printWidth });
@@ -103,7 +114,7 @@ export function formatDocumentRange(
   options: FormattingOptions,
   params: FormatDocumentParams = {},
 ): TextEdit[] {
-  const { customCodeTags, printWidth = 80, embeddedFormatted, mustacheSpaces, customCodeTagConfigs, configFile } = params;
+  const { customTags, printWidth = 80, embeddedFormatted, mustacheSpaces, noBreakDelimiters, configFile } = params;
   const mergedOptions = mergeOptions(options, document.uri, configFile);
   const indentUnit = createIndentUnit(mergedOptions);
 
@@ -112,7 +123,7 @@ export function formatDocumentRange(
     return [];
   }
 
-  const customCodeTagSet = customCodeTags ? new Set(customCodeTags.map(t => t.toLowerCase())) : undefined;
+  const customTagMap = buildCustomTagMap(customTags);
 
   // Find nodes that overlap with the range
   const startOffset = document.offsetAt(range.start);
@@ -127,7 +138,7 @@ export function formatDocumentRange(
   // Expand to include complete block-level elements
   while (
     targetNode.parent &&
-    !isBlockLevel(targetNode, customCodeTagSet) &&
+    !isBlockLevel(targetNode, customTagMap) &&
     targetNode.type !== 'document'
   ) {
     targetNode = targetNode.parent;
@@ -141,13 +152,12 @@ export function formatDocumentRange(
     getContentNodes
   );
 
-  const configMap = buildConfigMap(customCodeTagConfigs);
   const context: FormatterContext = {
     document,
-    customCodeTags: customCodeTagSet,
-    customCodeTagConfigs: configMap,
+    customTags: customTagMap,
     embeddedFormatted,
     mustacheSpaces,
+    noBreakDelimiters,
   };
   const doc = formatNodeForRange(targetNode, context);
   const formatted = print(doc, { indentUnit, printWidth });
@@ -179,15 +189,6 @@ function formatNodeForRange(
   context: FormatterContext
 ): import('./ir').Doc {
   return formatNode(node, context);
-}
-
-function buildConfigMap(configs?: CustomCodeTagConfig[]): Map<string, CustomCodeTagConfig> | undefined {
-  if (!configs || configs.length === 0) return undefined;
-  const map = new Map<string, CustomCodeTagConfig>();
-  for (const config of configs) {
-    map.set(config.name.toLowerCase(), config);
-  }
-  return map;
 }
 
 function applyBaseIndent(

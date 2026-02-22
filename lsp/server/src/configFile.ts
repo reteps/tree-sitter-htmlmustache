@@ -2,12 +2,21 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
 import type { CustomCodeTagConfig, CustomCodeTagIndentMode } from './customCodeTags';
+import type { CSSDisplay } from './formatting/classifier';
+
+const VALID_CSS_DISPLAY_VALUES = new Set<string>([
+  'block', 'inline', 'inline-block', 'table-row', 'table-cell', 'table',
+  'table-row-group', 'table-header-group', 'table-footer-group', 'table-column',
+  'table-column-group', 'table-caption', 'list-item', 'ruby', 'ruby-base',
+  'ruby-text', 'none',
+]);
 
 export interface HtmlMustacheConfig {
   printWidth?: number;
   indentSize?: number;
   mustacheSpaces?: boolean;
-  customCodeTags?: CustomCodeTagConfig[];
+  noBreakDelimiters?: string[];
+  customTags?: CustomCodeTagConfig[];
   include?: string[];
   exclude?: string[];
 }
@@ -87,6 +96,35 @@ export function findConfigFile(startDir: string): string | null {
 const VALID_INDENT_MODES = new Set<string>(['never', 'always', 'attribute']);
 
 /**
+ * Parse an array of custom tag entries from raw config.
+ */
+function parseCustomTagArray(arr: unknown): CustomCodeTagConfig[] {
+  if (!Array.isArray(arr)) return [];
+  const tags: CustomCodeTagConfig[] = [];
+  for (const entry of arr) {
+    if (entry && typeof entry === 'object' && 'name' in entry) {
+      const e = entry as Record<string, unknown>;
+      if (typeof e.name !== 'string' || e.name.length === 0) continue;
+      const tag: CustomCodeTagConfig = { name: e.name };
+      if (typeof e.display === 'string' && VALID_CSS_DISPLAY_VALUES.has(e.display)) {
+        tag.display = e.display as CSSDisplay;
+      }
+      if (typeof e.languageAttribute === 'string') tag.languageAttribute = e.languageAttribute;
+      if (e.languageMap && typeof e.languageMap === 'object' && !Array.isArray(e.languageMap)) {
+        tag.languageMap = e.languageMap as Record<string, string>;
+      }
+      if (typeof e.languageDefault === 'string') tag.languageDefault = e.languageDefault;
+      if (typeof e.indent === 'string' && VALID_INDENT_MODES.has(e.indent)) {
+        tag.indent = e.indent as CustomCodeTagIndentMode;
+      }
+      if (typeof e.indentAttribute === 'string') tag.indentAttribute = e.indentAttribute;
+      tags.push(tag);
+    }
+  }
+  return tags;
+}
+
+/**
  * Validate a raw parsed config object and return a typed HtmlMustacheConfig.
  * Ignores unknown keys and invalid values.
  */
@@ -105,6 +143,13 @@ export function validateConfig(raw: unknown): HtmlMustacheConfig {
     config.mustacheSpaces = obj.mustacheSpaces;
   }
 
+  if (Array.isArray(obj.noBreakDelimiters)) {
+    const items = obj.noBreakDelimiters.filter(
+      (s: unknown) => typeof s === 'string' && s.length > 0
+    );
+    if (items.length > 0) config.noBreakDelimiters = items as string[];
+  }
+
   if (Array.isArray(obj.include)) {
     const items = obj.include.filter((s: unknown) => typeof s === 'string' && s.length > 0);
     if (items.length > 0) config.include = items as string[];
@@ -114,26 +159,20 @@ export function validateConfig(raw: unknown): HtmlMustacheConfig {
     if (items.length > 0) config.exclude = items as string[];
   }
 
-  if (Array.isArray(obj.customCodeTags)) {
-    const tags: CustomCodeTagConfig[] = [];
-    for (const entry of obj.customCodeTags) {
-      if (entry && typeof entry === 'object' && 'name' in entry) {
-        const e = entry as Record<string, unknown>;
-        if (typeof e.name !== 'string' || e.name.length === 0) continue;
-        const tag: CustomCodeTagConfig = { name: e.name };
-        if (typeof e.languageAttribute === 'string') tag.languageAttribute = e.languageAttribute;
-        if (e.languageMap && typeof e.languageMap === 'object' && !Array.isArray(e.languageMap)) {
-          tag.languageMap = e.languageMap as Record<string, string>;
-        }
-        if (typeof e.languageDefault === 'string') tag.languageDefault = e.languageDefault;
-        if (typeof e.indent === 'string' && VALID_INDENT_MODES.has(e.indent)) {
-          tag.indent = e.indent as CustomCodeTagIndentMode;
-        }
-        if (typeof e.indentAttribute === 'string') tag.indentAttribute = e.indentAttribute;
-        tags.push(tag);
-      }
+  // Parse both customCodeTags (legacy key) and customTags, merge into customTags.
+  // customTags entries override customCodeTags entries by name.
+  const parsedCodeTags = parseCustomTagArray(obj.customCodeTags);
+  const parsedCustomTags = parseCustomTagArray(obj.customTags);
+
+  if (parsedCodeTags.length > 0 || parsedCustomTags.length > 0) {
+    const mergedMap = new Map<string, CustomCodeTagConfig>();
+    for (const tag of parsedCodeTags) {
+      mergedMap.set(tag.name.toLowerCase(), tag);
     }
-    if (tags.length > 0) config.customCodeTags = tags;
+    for (const tag of parsedCustomTags) {
+      mergedMap.set(tag.name.toLowerCase(), tag);
+    }
+    config.customTags = Array.from(mergedMap.values());
   }
 
   return config;

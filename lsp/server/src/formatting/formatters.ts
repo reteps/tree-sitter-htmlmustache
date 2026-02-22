@@ -17,6 +17,7 @@ import {
   softline,
   line,
   indent,
+  indentN,
   group,
   text,
   empty,
@@ -39,10 +40,10 @@ import { isRawContentElement } from '../nodeHelpers';
 
 export interface FormatterContext {
   document: TextDocument;
-  customCodeTags?: Set<string>;
-  customCodeTagConfigs?: Map<string, CustomCodeTagConfig>;
+  customTags?: Map<string, CustomCodeTagConfig>;
   embeddedFormatted?: Map<number, string>;
   mustacheSpaces?: boolean;
+  noBreakDelimiters?: string[];
 }
 
 /**
@@ -144,7 +145,7 @@ export function formatNode(
       return formatDocument(node, context);
 
     case 'html_element':
-      return formatHtmlElement(node, context);
+      return formatHtmlElement(node, context, forceInline);
 
     case 'html_script_element':
     case 'html_style_element':
@@ -191,8 +192,8 @@ export function formatText(node: SyntaxNode): Doc {
 /**
  * Format an HTML element.
  */
-export function formatHtmlElement(node: SyntaxNode, context: FormatterContext): Doc {
-  const tags = context.customCodeTags;
+export function formatHtmlElement(node: SyntaxNode, context: FormatterContext, forceInline = false): Doc {
+  const tags = context.customTags;
   const display = getCSSDisplay(node, tags);
   const isBlock = isWhitespaceInsensitive(display);
   const preserveContent = shouldPreserveContent(node, tags);
@@ -247,7 +248,7 @@ export function formatHtmlElement(node: SyntaxNode, context: FormatterContext): 
   if (preserveContent) {
     // Check if this custom code tag should be indented
     const tagNameLower = startTag ? getTagNameFromStartTag(startTag) : null;
-    const tagConfig = tagNameLower ? context.customCodeTagConfigs?.get(tagNameLower) : undefined;
+    const tagConfig = tagNameLower ? context.customTags?.get(tagNameLower) : undefined;
     const shouldIndent = tagConfig ? resolveIndentMode(node, tagConfig) : false;
 
     if (shouldIndent && startTag && endTag) {
@@ -296,7 +297,29 @@ export function formatHtmlElement(node: SyntaxNode, context: FormatterContext): 
         parts.push(text(child.text));
       }
     }
-  } else if (!isBlock && !hasHtmlElementChildren) {
+  } else if (!isBlock && (!hasHtmlElementChildren || (forceInline && !contentNodes.some(
+    (child) => isRawContentElement(child) || isBlockLevel(child, tags)
+  )))) {
+    // Standalone element with attributes: use outer group wrapping so content
+    // goes on its own line when attributes wrap (matches Prettier's printTag)
+    if (!forceInline && startTag && startTagHasAttributes(startTag)) {
+      const formattedContent = formatBlockChildren(contentNodes, context);
+      if (hasDocContent(formattedContent)) {
+        const bareStartTag = formatStartTag(startTag, context, true);
+        const outerParts: Doc[] = [
+          group(bareStartTag),
+          indent(concat([softline, formattedContent])),
+        ];
+        if (hasRealEndTag) {
+          outerParts.push(softline);
+        }
+        if (endTag) {
+          outerParts.push(formatEndTag(endTag));
+        }
+        return group(concat(outerParts));
+      }
+    }
+
     // Inline element with only text/interpolation content - keep tight
     // Preserve whitespace gaps between sibling nodes (e.g. space between
     // mustache_interpolation and text that tree-sitter puts in the gap)
@@ -308,7 +331,7 @@ export function formatHtmlElement(node: SyntaxNode, context: FormatterContext): 
           parts.push(text(' '));
         }
       }
-      parts.push(formatNode(child, context));
+      parts.push(formatNode(child, context, forceInline));
       prevEnd = child.endIndex;
     }
   } else {
@@ -331,6 +354,26 @@ export function formatHtmlElement(node: SyntaxNode, context: FormatterContext): 
       if (isBlock && !hasBlockChildren) {
         // Block element with only inline content: wrap in group so short ones stay flat
         // e.g. <div>x</div> stays on one line, <div>long content...</div> breaks
+        const hasAttrs = startTag && startTagHasAttributes(startTag);
+
+        if (hasAttrs && startTag) {
+          // Outer group wrapping: match Prettier's printTag pattern
+          // group([group(openTag), indent([softline, content]), softline, closingTag])
+          const bareStartTag = formatStartTag(startTag, context, true);
+          const outerParts: Doc[] = [
+            group(bareStartTag),
+            indent(concat([softline, formattedContent])),
+          ];
+          if (hasRealEndTag) {
+            outerParts.push(softline);
+          }
+          if (endTag) {
+            outerParts.push(formatEndTag(endTag));
+          }
+          return group(concat(outerParts));
+        }
+
+        // No attributes — existing logic
         const doc = group(
           concat([
             indent(concat([softline, formattedContent])),
@@ -415,7 +458,7 @@ export function formatScriptStyleElement(
         if (node.type === 'html_raw_element') {
           const startTagNode = node.child(0);
           const tagNameLower = startTagNode?.type === 'html_start_tag' ? getTagNameFromStartTag(startTagNode) : null;
-          const tagConfig = tagNameLower ? context.customCodeTagConfigs?.get(tagNameLower) : undefined;
+          const tagConfig = tagNameLower ? context.customTags?.get(tagNameLower) : undefined;
           if (tagConfig && resolveIndentMode(node, tagConfig)) {
             const dedented = dedentContent(child.text);
             if (dedented.length > 0) {
@@ -520,6 +563,20 @@ export function formatMustacheSection(
   // Determine indentation: if content has implicit end tags (HTML crossing mustache
   // boundaries), don't indent. Otherwise, indent normally.
   const hasImplicit = hasImplicitEndTags(contentNodes);
+
+  // Staircase indentation: when all content nodes are erroneous end tags
+  // (closing tags from a cross-section split), assign descending indent levels.
+  const isStaircase = !hasImplicit && contentNodes.length > 0 &&
+    contentNodes.every(n => n.type === 'html_erroneous_end_tag');
+
+  if (isStaircase) {
+    const E = contentNodes.length;
+    for (let i = 0; i < E; i++) {
+      const formatted = formatNode(contentNodes[i], context);
+      parts.push(indentN(concat([hardline, formatted]), E - i));
+    }
+    parts.push(hardline);
+  } else {
   const formattedContent = formatBlockChildren(contentNodes, context);
   const hasContent = hasDocContent(formattedContent);
 
@@ -532,10 +589,10 @@ export function formatMustacheSection(
     } else {
       // Check if content has CSS-block children (accounting for text flow)
       const hasBlockChildren = contentNodes.some((child, i) => {
-        if (!shouldTreatAsBlock(child, i, contentNodes, context.customCodeTags)) {
+        if (!shouldTreatAsBlock(child, i, contentNodes, context.customTags)) {
           return false;
         }
-        const childDisplay = getCSSDisplay(child, context.customCodeTags);
+        const childDisplay = getCSSDisplay(child, context.customTags);
         return isWhitespaceInsensitive(childDisplay) || isRawContentElement(child);
       });
 
@@ -550,6 +607,7 @@ export function formatMustacheSection(
       }
     }
   }
+  }
 
   // Closing tag
   if (endNode) {
@@ -561,11 +619,31 @@ export function formatMustacheSection(
 }
 
 /**
+ * Check if a start tag has any attributes.
+ */
+function startTagHasAttributes(startTag: SyntaxNode): boolean {
+  for (let i = 0; i < startTag.childCount; i++) {
+    const child = startTag.child(i);
+    if (!child) continue;
+    if (
+      child.type === 'html_attribute' ||
+      child.type === 'mustache_attribute' ||
+      child.type === 'mustache_interpolation' ||
+      child.type === 'mustache_triple'
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Format a start tag with attributes.
  * Wraps in a group so attributes break onto separate lines when
  * the tag exceeds print width.
+ * When `bare` is true, returns the tag IR without the outer group wrapper.
  */
-export function formatStartTag(node: SyntaxNode, context?: FormatterContext): Doc {
+export function formatStartTag(node: SyntaxNode, context?: FormatterContext, bare = false): Doc {
   let tagNameText = '';
   const attrs: Doc[] = [];
 
@@ -608,14 +686,13 @@ export function formatStartTag(node: SyntaxNode, context?: FormatterContext): Do
   const breakClosingBracket = isSelfClosing ? '/>' : '>';
 
   // Wrap tag in group: flat puts attrs on one line, break wraps them
-  return group(
-    concat([
-      text('<'),
-      text(tagNameText),
-      indent(concat([line, concat(attrParts)])),
-      ifBreak(concat([hardline, text(breakClosingBracket)]), text(closingBracket)),
-    ])
-  );
+  const inner = concat([
+    text('<'),
+    text(tagNameText),
+    indent(concat([line, concat(attrParts)])),
+    ifBreak(concat([hardline, text(breakClosingBracket)]), text(closingBracket)),
+  ]);
+  return bare ? inner : group(inner);
 }
 
 /**
@@ -675,6 +752,58 @@ function textWords(str: string): Doc[] {
     parts.push(words[i]);
   }
   return parts;
+}
+
+/**
+ * Replace `line` separators with `" "` inside delimited regions so the
+ * fill algorithm treats delimited content as unbreakable.
+ *
+ * Scans string parts for delimiter boundaries. Between an opening and closing
+ * delimiter, any `line` separator is replaced with a literal space string.
+ * Delimiters are matched longest-first to handle e.g. `$$` before `$`.
+ */
+export function collapseDelimitedRegions(parts: Doc[], delimiters: string[]): Doc[] {
+  if (delimiters.length === 0) return parts;
+
+  // Sort longest-first so $$ is checked before $
+  const sorted = [...delimiters].sort((a, b) => b.length - a.length);
+
+  const result = [...parts];
+  let activeDelimiter: string | null = null;
+
+  for (let i = 0; i < result.length; i++) {
+    const part = result[i];
+
+    if (typeof part === 'string') {
+      if (activeDelimiter === null) {
+        // Look for an opening delimiter
+        for (const delim of sorted) {
+          const delimIdx = part.indexOf(delim);
+          if (delimIdx >= 0) {
+            // Check if it also closes in the same string
+            const afterOpen = delimIdx + delim.length;
+            const closeIdx = part.indexOf(delim, afterOpen);
+            if (closeIdx >= 0) {
+              // Self-contained (e.g. "$x$") — no state change, already atomic
+              continue;
+            }
+            activeDelimiter = delim;
+            break;
+          }
+        }
+      } else {
+        // Look for the closing delimiter
+        if (part.includes(activeDelimiter)) {
+          activeDelimiter = null;
+        }
+      }
+    } else if (activeDelimiter !== null && isLine(part)) {
+      // Inside a delimited region: replace line with non-breaking space
+      result[i] = ' ';
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -748,6 +877,12 @@ export function formatBlockChildren(
   let inIgnoreRegion = false;
   let ignoreRegionStartIndex = -1;
 
+  const noBreakDelims = context.noBreakDelimiters;
+  function flushCurrentLine(): Doc {
+    const parts = noBreakDelims ? collapseDelimitedRegions(currentLine, noBreakDelims) : currentLine;
+    return inlineContentToFill(parts);
+  }
+
   for (let i = 0; i < nodes.length; i++) {
     const node = nodes[i];
 
@@ -768,7 +903,7 @@ export function formatBlockChildren(
     if (directive === 'ignore-end' && inIgnoreRegion) {
       // Flush any pending inline content
       if (currentLine.length > 0) {
-        const lineContent = trimDoc(inlineContentToFill(currentLine));
+        const lineContent = trimDoc(flushCurrentLine());
         if (hasDocContent(lineContent)) {
           lines.push({ doc: lineContent, blankLineBefore: blankLineBeforeCurrentLine });
         }
@@ -799,7 +934,7 @@ export function formatBlockChildren(
     // ignore-start: begin a region
     if (directive === 'ignore-start') {
       if (currentLine.length > 0) {
-        const lineContent = trimDoc(inlineContentToFill(currentLine));
+        const lineContent = trimDoc(flushCurrentLine());
         if (hasDocContent(lineContent)) {
           lines.push({ doc: lineContent, blankLineBefore: blankLineBeforeCurrentLine });
         }
@@ -818,7 +953,7 @@ export function formatBlockChildren(
     // ignore (next-node): emit the comment, set flag
     if (directive === 'ignore') {
       if (currentLine.length > 0) {
-        const lineContent = trimDoc(inlineContentToFill(currentLine));
+        const lineContent = trimDoc(flushCurrentLine());
         if (hasDocContent(lineContent)) {
           lines.push({ doc: lineContent, blankLineBefore: blankLineBeforeCurrentLine });
         }
@@ -844,12 +979,12 @@ export function formatBlockChildren(
 
     // ignore-end without ignore-start: treat as normal comment (fall through)
 
-    const treatAsBlock = shouldTreatAsBlock(node, i, nodes, context.customCodeTags);
+    const treatAsBlock = shouldTreatAsBlock(node, i, nodes, context.customTags);
 
     // Check for whitespace between nodes in original document (inline gap handling)
     if (lastNodeEnd >= 0 && node.startIndex > lastNodeEnd) {
       const prevNode = nodes[i - 1];
-      const prevTreatAsBlock = shouldTreatAsBlock(prevNode, i - 1, nodes, context.customCodeTags);
+      const prevTreatAsBlock = shouldTreatAsBlock(prevNode, i - 1, nodes, context.customTags);
 
       if (!prevTreatAsBlock && !treatAsBlock) {
         const gap = context.document.getText().slice(lastNodeEnd, node.startIndex);
@@ -862,7 +997,7 @@ export function formatBlockChildren(
     if (treatAsBlock) {
       // Flush current inline content
       if (currentLine.length > 0) {
-        const lineContent = trimDoc(inlineContentToFill(currentLine));
+        const lineContent = trimDoc(flushCurrentLine());
         if (hasDocContent(lineContent)) {
           lines.push({ doc: lineContent, blankLineBefore: blankLineBeforeCurrentLine });
         }
@@ -877,7 +1012,7 @@ export function formatBlockChildren(
       const isMultiline = node.startPosition.row !== node.endPosition.row;
       if (isMultiline) {
         if (currentLine.length > 0) {
-          const lineContent = trimDoc(inlineContentToFill(currentLine));
+          const lineContent = trimDoc(flushCurrentLine());
           if (hasDocContent(lineContent)) {
             lines.push({ doc: lineContent, blankLineBefore: blankLineBeforeCurrentLine });
           }
@@ -917,7 +1052,7 @@ export function formatBlockChildren(
             if (!trimmed) {
               // Empty line = paragraph break — flush current inline flow
               if (currentLine.length > 0) {
-                const lineContent = trimDoc(inlineContentToFill(currentLine));
+                const lineContent = trimDoc(flushCurrentLine());
                 if (hasDocContent(lineContent)) {
                   lines.push({ doc: lineContent, blankLineBefore: blankLineBeforeCurrentLine });
                   blankLineBeforeCurrentLine = false;
@@ -947,7 +1082,7 @@ export function formatBlockChildren(
           }
 
           if (currentLine.length > 0) {
-            const lineContent = trimDoc(inlineContentToFill(currentLine));
+            const lineContent = trimDoc(flushCurrentLine());
             if (hasDocContent(lineContent)) {
               lines.push({ doc: lineContent, blankLineBefore: blankLineBeforeCurrentLine });
               blankLineBeforeCurrentLine = pendingBlankLine;
@@ -1011,7 +1146,7 @@ export function formatBlockChildren(
 
   // Flush remaining inline content
   if (currentLine.length > 0) {
-    const lineContent = trimDoc(inlineContentToFill(currentLine));
+    const lineContent = trimDoc(flushCurrentLine());
     if (hasDocContent(lineContent)) {
       lines.push({ doc: lineContent, blankLineBefore: blankLineBeforeCurrentLine });
     }

@@ -189,6 +189,36 @@ describe('Document Formatting (Integration)', () => {
       const result = format('<span class="input-group">{{#label}}<span>{{{label}}}</span>{{/label}}<input /></span>');
       expect(result).toBe('<span class="input-group">\n  {{#label}}<span>{{{label}}}</span>{{/label}}\n  <input />\n</span>\n');
     });
+
+    it('formats 3-level staircase of erroneous end tags', () => {
+      const result = format('{{#show}}</div></div></div>{{/show}}');
+      expect(result).toBe('{{#show}}\n      </div>\n    </div>\n  </div>\n{{/show}}\n');
+    });
+
+    it('formats 2-level staircase of erroneous end tags', () => {
+      const result = format('{{#show}}</div></div>{{/show}}');
+      expect(result).toBe('{{#show}}\n    </div>\n  </div>\n{{/show}}\n');
+    });
+
+    it('formats staircase with heterogeneous tags', () => {
+      const result = format('{{#show}}</div></section></p>{{/show}}');
+      expect(result).toBe('{{#show}}\n      </div>\n    </section>\n  </p>\n{{/show}}\n');
+    });
+
+    it('formats staircase inside a parent element', () => {
+      const result = format('<div>{{#show}}</p></p></p>{{/show}}</div>');
+      expect(result).toBe('<div>\n  {{#show}}\n        </p>\n      </p>\n    </p>\n  {{/show}}\n</div>\n');
+    });
+
+    it('formats single erroneous end tag with no extra indent', () => {
+      const result = format('{{#show}}</div>{{/show}}');
+      expect(result).toBe('{{#show}}\n  </div>\n{{/show}}\n');
+    });
+
+    it('formats mixed content with erroneous end tags using block layout', () => {
+      const result = format('{{#show}}text</div></div>{{/show}}');
+      expect(result).toBe('{{#show}}\n  text\n  </div>\n  </div>\n{{/show}}\n');
+    });
   });
 
   describe('Mustache interpolation', () => {
@@ -365,10 +395,11 @@ describe('Document Formatting (Integration)', () => {
 });
 
 describe('Custom Code Tags (Integration)', () => {
-  function formatWithCodeTags(content: string, tags: string[]): string {
+  function formatWithCodeTags(content: string, tags: { name: string; languageDefault?: string }[]): string {
     const tree = parseText(content);
     const document = createMockDocument(content);
-    const edits = formatDocument(tree, document, defaultOptions, { customCodeTags: tags });
+    const customTags = tags.map(t => ({ name: t.name, languageDefault: t.languageDefault ?? 'text' }));
+    const edits = formatDocument(tree, document, defaultOptions, { customTags });
     expect(edits.length).toBe(1);
     return edits[0].newText;
   }
@@ -376,7 +407,7 @@ describe('Custom Code Tags (Integration)', () => {
   it('preserves content of custom code tag', () => {
     const result = formatWithCodeTags(
       '<pl-code>  some   code  </pl-code>',
-      ['pl-code']
+      [{ name: 'pl-code' }]
     );
     expect(result).toBe('<pl-code>  some   code  </pl-code>\n');
   });
@@ -384,7 +415,7 @@ describe('Custom Code Tags (Integration)', () => {
   it('treats custom code tag as block-level', () => {
     const result = formatWithCodeTags(
       '<div><pl-code>code</pl-code></div>',
-      ['pl-code']
+      [{ name: 'pl-code' }]
     );
     expect(result).toBe('<div>\n  <pl-code>code</pl-code>\n</div>\n');
   });
@@ -392,7 +423,7 @@ describe('Custom Code Tags (Integration)', () => {
   it('preserves whitespace in custom code tag children', () => {
     const result = formatWithCodeTags(
       '<pl-file-editor>\n  line1\n  line2\n</pl-file-editor>',
-      ['pl-file-editor']
+      [{ name: 'pl-file-editor' }]
     );
     expect(result).toBe('<pl-file-editor>\n  line1\n  line2\n</pl-file-editor>\n');
   });
@@ -400,7 +431,7 @@ describe('Custom Code Tags (Integration)', () => {
   it('indents closing tag of nested custom code tag', () => {
     const result = formatWithCodeTags(
       '<div>\n<pl-code>\ndef square(x):\n    return x * x\n</pl-code>\n</div>',
-      ['pl-code']
+      [{ name: 'pl-code' }]
     );
     expect(result).toBe('<div>\n  <pl-code>\ndef square(x):\n    return x * x\n  </pl-code>\n</div>\n');
   });
@@ -408,7 +439,7 @@ describe('Custom Code Tags (Integration)', () => {
   it('does not affect tags not in custom code tags list', () => {
     const result = formatWithCodeTags(
       '<div>  multiple   spaces  </div>',
-      ['pl-code']
+      [{ name: 'pl-code' }]
     );
     expect(result).toBe('<div>multiple spaces</div>\n');
   });
@@ -416,7 +447,7 @@ describe('Custom Code Tags (Integration)', () => {
   it('handles case-insensitive matching', () => {
     const result = formatWithCodeTags(
       '<PL-CODE>  code  </PL-CODE>',
-      ['pl-code']
+      [{ name: 'pl-code' }]
     );
     expect(result).toBe('<PL-CODE>  code  </PL-CODE>\n');
   });

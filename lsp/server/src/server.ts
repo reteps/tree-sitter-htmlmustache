@@ -22,7 +22,7 @@ import { formatDocument, formatDocumentRange } from './formatting/index';
 import { getDiagnostics } from './diagnostics';
 import { getCodeActions } from './codeActions';
 import { initializeTextMateRegistry, isTextMateReady, tokenizeEmbeddedContent, setEmbeddedTokenizerLogger } from './embeddedTokenizer';
-import { findCustomCodeTagContent, parseCustomCodeTagSettings } from './customCodeTags';
+import { findCustomCodeTagContent, isCodeTag } from './customCodeTags';
 import type { CustomCodeTagConfig } from './customCodeTags';
 import { loadConfigFile } from './configFile';
 import type { HtmlMustacheConfig } from './configFile';
@@ -46,25 +46,18 @@ let rawTextQuery: Query | null = null;
  */
 function resolveConfig(uri: string): {
   config: HtmlMustacheConfig | null;
-  customCodeTags: string[];
-  customCodeTagConfigs: CustomCodeTagConfig[];
+  customTags: CustomCodeTagConfig[];
   printWidth: number;
   mustacheSpaces: boolean | undefined;
+  noBreakDelimiters: string[] | undefined;
 } {
   const config = loadConfigFile(uri);
-  let customCodeTags: string[] = [];
-  let customCodeTagConfigs: CustomCodeTagConfig[] = [];
-  if (config?.customCodeTags && config.customCodeTags.length > 0) {
-    const parsed = parseCustomCodeTagSettings(config.customCodeTags);
-    customCodeTags = parsed.tagNames;
-    customCodeTagConfigs = parsed.configs;
-  }
   return {
     config,
-    customCodeTags,
-    customCodeTagConfigs,
+    customTags: config?.customTags ?? [],
     printWidth: config?.printWidth ?? 80,
     mustacheSpaces: config?.mustacheSpaces,
+    noBreakDelimiters: config?.noBreakDelimiters,
   };
 }
 
@@ -254,14 +247,15 @@ connection.languages.semanticTokens.on(async (params) => {
   }
 
   // Load config for this document
-  const { customCodeTagConfigs } = resolveConfig(document.uri);
+  const { customTags } = resolveConfig(document.uri);
 
   // Tokenize embedded language content in custom code tags
   let embeddedTokens: TokenInfo[] = [];
-  connection.console.log(`  -> TextMate ready: ${isTextMateReady()}, configs: ${customCodeTagConfigs.length}`);
-  if (isTextMateReady() && customCodeTagConfigs.length > 0) {
+  const codeTagConfigs = customTags.filter(isCodeTag);
+  connection.console.log(`  -> TextMate ready: ${isTextMateReady()}, configs: ${codeTagConfigs.length}`);
+  if (isTextMateReady() && codeTagConfigs.length > 0) {
     try {
-      const codeTagContents = findCustomCodeTagContent(tree.rootNode, customCodeTagConfigs);
+      const codeTagContents = findCustomCodeTagContent(tree.rootNode, codeTagConfigs);
       connection.console.log(`  -> Found ${codeTagContents.length} custom code tag regions`);
       for (const c of codeTagContents) {
         connection.console.log(`     - lang=${c.languageId}, row=${c.startRow}, col=${c.startCol}, text=${JSON.stringify(c.text.slice(0, 80))}...`);
@@ -467,10 +461,10 @@ connection.onDocumentFormatting(async (params) => {
     return [];
   }
 
-  const { config, customCodeTags, customCodeTagConfigs, printWidth, mustacheSpaces } = resolveConfig(document.uri);
+  const { config, customTags, printWidth, mustacheSpaces, noBreakDelimiters } = resolveConfig(document.uri);
   const embeddedFormatted = await formatEmbeddedRegions(tree.rootNode, params.options);
   return formatDocument(tree, document, params.options, {
-    customCodeTags, printWidth, embeddedFormatted, mustacheSpaces, customCodeTagConfigs, configFile: config,
+    customTags, printWidth, embeddedFormatted, mustacheSpaces, noBreakDelimiters, configFile: config,
   });
 });
 
@@ -486,10 +480,10 @@ connection.onDocumentRangeFormatting(async (params) => {
     return [];
   }
 
-  const { config, customCodeTags, customCodeTagConfigs, printWidth, mustacheSpaces } = resolveConfig(document.uri);
+  const { config, customTags, printWidth, mustacheSpaces, noBreakDelimiters } = resolveConfig(document.uri);
   const embeddedFormatted = await formatEmbeddedRegions(tree.rootNode, params.options);
   return formatDocumentRange(tree, document, params.range, params.options, {
-    customCodeTags, printWidth, embeddedFormatted, mustacheSpaces, customCodeTagConfigs, configFile: config,
+    customTags, printWidth, embeddedFormatted, mustacheSpaces, noBreakDelimiters, configFile: config,
   });
 });
 

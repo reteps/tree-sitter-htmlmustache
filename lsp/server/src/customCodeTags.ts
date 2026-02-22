@@ -1,9 +1,11 @@
 import type { Node as SyntaxNode } from 'web-tree-sitter';
+import type { CSSDisplay } from './formatting/classifier';
 
 export type CustomCodeTagIndentMode = 'never' | 'always' | 'attribute';
 
 export interface CustomCodeTagConfig {
   name: string;
+  display?: CSSDisplay;
   languageAttribute?: string;
   languageMap?: Record<string, string>;
   languageDefault?: string;
@@ -11,37 +13,22 @@ export interface CustomCodeTagConfig {
   indentAttribute?: string;
 }
 
+/** Alias for CustomCodeTagConfig (unified name). */
+export type CustomTagConfig = CustomCodeTagConfig;
+
+/**
+ * Check if a custom tag config represents a code tag (has language settings).
+ * Code tags get preserved content and default to block display.
+ */
+export function isCodeTag(config: CustomCodeTagConfig): boolean {
+  return !!(config.languageAttribute || config.languageDefault);
+}
+
 export interface CustomCodeTagContent {
   text: string;
   languageId: string;
   startRow: number;
   startCol: number;
-}
-
-/**
- * Parse customCodeTags settings, extracting tag names and full configs.
- */
-const VALID_INDENT_MODES = new Set<string>(['never', 'always', 'attribute']);
-
-export function parseCustomCodeTagSettings(tags: unknown[]): { tagNames: string[]; configs: CustomCodeTagConfig[] } {
-  const tagNames: string[] = [];
-  const configs: CustomCodeTagConfig[] = [];
-  for (const tag of tags) {
-    if (tag && typeof tag === 'object' && 'name' in tag && typeof (tag as { name: unknown }).name === 'string') {
-      const t = tag as Record<string, unknown>;
-      const config: CustomCodeTagConfig = { name: t.name as string };
-      if (typeof t.languageAttribute === 'string') config.languageAttribute = t.languageAttribute;
-      if (t.languageMap && typeof t.languageMap === 'object') config.languageMap = t.languageMap as Record<string, string>;
-      if (typeof t.languageDefault === 'string') config.languageDefault = t.languageDefault;
-      if (typeof t.indent === 'string' && VALID_INDENT_MODES.has(t.indent)) {
-        config.indent = t.indent as CustomCodeTagIndentMode;
-      }
-      if (typeof t.indentAttribute === 'string') config.indentAttribute = t.indentAttribute;
-      tagNames.push(config.name);
-      configs.push(config);
-    }
-  }
-  return { tagNames, configs };
 }
 
 /**

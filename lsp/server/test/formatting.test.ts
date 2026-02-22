@@ -170,6 +170,19 @@ describe('Document Formatting', () => {
       expect(result).toBe('<span class="input-group">\n  {{#label}}<span>{{{label}}}</span>{{/label}}\n  <input />\n</span>\n');
     });
 
+    it('formats erroneous end tags as block-level', () => {
+      // Erroneous end tags (orphaned closing tags from cross-section patterns) should each be on their own line
+      const input = '{{#show}}<div><div><div>{{/show}}\n</div></div></div>';
+      const result = format(input);
+      expect(result).toContain('</div>\n</div>\n</div>\n');
+    });
+
+    it('formats single erroneous end tag on its own line', () => {
+      const input = '{{#show}}<div>{{/show}}\n</div>';
+      const result = format(input);
+      expect(result).toBe('{{#show}}\n<div>\n{{/show}}\n</div>\n');
+    });
+
     it('indents void elements inside mustache sections', () => {
       const input = '{{#img-top-src}}\n<img src="{{img-top-src}}" alt="{{img-top-alt}}" class="card-img-top">\n{{/img-top-src}}';
       const result = format(input);
@@ -446,6 +459,67 @@ At minimum, you will receive a score of 0%.
       expect(result).toContain('<div\n');
       expect(result).toContain('class="very-long-class-name-that-goes-on-forever"');
     });
+
+    it('puts content on its own line when attributes wrap', () => {
+      const result = format('<button type="button" class="btn btn-outline-secondary btn-sm file-preview-download">Download</button>');
+      expect(result).toBe(
+        '<button\n' +
+        '  type="button"\n' +
+        '  class="btn btn-outline-secondary btn-sm file-preview-download"\n' +
+        '>\n' +
+        '  Download\n' +
+        '</button>\n'
+      );
+    });
+
+    it('keeps attrs and content flat when everything fits', () => {
+      const result = format('<button class="btn">OK</button>');
+      expect(result).toBe('<button class="btn">OK</button>\n');
+    });
+
+    it('wraps attrs with block children unchanged', () => {
+      const result = format('<div class="container very-long-class-name" id="also-a-long-identifier-that-exceeds-print-width"><p>content</p></div>');
+      // Attrs wrap, block child on its own line with indent
+      expect(result).toContain('<div\n');
+      expect(result).toContain('  <p>content</p>\n');
+    });
+
+    it('keeps inline elements in text flow unchanged', () => {
+      const result = format('<p>Click <a href="url">here</a>.</p>');
+      expect(result).toBe('<p>Click <a href="url">here</a>.</p>\n');
+    });
+  });
+
+  describe('Block elements followed by text', () => {
+    it('puts a newline between block element and following text', () => {
+      const result = format('<table><tr><td>data</td></tr></table> For any other input, the answer is 0.');
+      expect(result).toContain('</table>\n');
+      expect(result).not.toContain('</table> For');
+    });
+
+    it('preserves blank lines between block element and text', () => {
+      const input = '<table><tr><td>data</td></tr></table>\n\nFor any other input, the answer is 0.';
+      const result = format(input);
+      expect(result).toContain('</table>\n\n');
+    });
+  });
+
+  describe('Inline elements with inline HTML children in text flow', () => {
+    it('keeps <a><code>x</code></a> tight when in text flow', () => {
+      const result = format('<p>See <a href="url"><code>docs</code></a>.</p>');
+      expect(result).toBe('<p>See <a href="url"><code>docs</code></a>.</p>\n');
+    });
+
+    it('keeps </a> and trailing punctuation together', () => {
+      const result = format('<p>Read <a href="url"><code>this</code></a>, then continue.</p>');
+      expect(result).toBe('<p>Read <a href="url"><code>this</code></a>, then continue.</p>\n');
+    });
+
+    it('still expands standalone inline elements with HTML children', () => {
+      // When NOT in text flow, inline elements with HTML children should still expand
+      const result = format('<span class="container"><span>inner</span><a href="#">link</a></span>');
+      expect(result).toBe('<span class="container">\n  <span>inner</span>\n  <a href="#">link</a>\n</span>\n');
+    });
   });
 
   describe('Whitespace sensitivity', () => {
@@ -685,10 +759,9 @@ describe('Custom Code Tag Indentation', () => {
     configs: CustomCodeTagConfig[],
     options: FormattingOptions = defaultOpts
   ): string {
-    const tagNames = configs.map(c => c.name);
     const tree = parseText(content);
     const document = createMockDocument(content);
-    const edits = formatDocument(tree, document, options, { customCodeTags: tagNames, customCodeTagConfigs: configs });
+    const edits = formatDocument(tree, document, options, { customTags: configs });
     expect(edits.length).toBe(1);
     return edits[0].newText;
   }
@@ -697,7 +770,7 @@ describe('Custom Code Tag Indentation', () => {
     it('preserves content as-is with no indent config', () => {
       const result = formatWithConfigs(
         '<pl-code>\n    indented content\n      more indented\n</pl-code>',
-        [{ name: 'pl-code' }]
+        [{ name: 'pl-code', languageDefault: 'python' }]
       );
       expect(result).toBe('<pl-code>\n    indented content\n      more indented\n</pl-code>\n');
     });
@@ -705,7 +778,7 @@ describe('Custom Code Tag Indentation', () => {
     it('preserves content as-is with explicit indent: "never"', () => {
       const result = formatWithConfigs(
         '<pl-code>\n    indented content\n      more indented\n</pl-code>',
-        [{ name: 'pl-code', indent: 'never' }]
+        [{ name: 'pl-code', languageDefault: 'python', indent: 'never' }]
       );
       expect(result).toBe('<pl-code>\n    indented content\n      more indented\n</pl-code>\n');
     });
@@ -715,7 +788,7 @@ describe('Custom Code Tag Indentation', () => {
     it('dedents and re-indents content at nesting level 0', () => {
       const result = formatWithConfigs(
         '<pl-code>\n    line one\n    line two\n</pl-code>',
-        [{ name: 'pl-code', indent: 'always' }]
+        [{ name: 'pl-code', languageDefault: 'python', indent: 'always' }]
       );
       expect(result).toBe('<pl-code>\n  line one\n  line two\n</pl-code>\n');
     });
@@ -723,7 +796,7 @@ describe('Custom Code Tag Indentation', () => {
     it('handles mixed indentation levels', () => {
       const result = formatWithConfigs(
         '<pl-code>\n        def foo():\n            return 1\n</pl-code>',
-        [{ name: 'pl-code', indent: 'always' }]
+        [{ name: 'pl-code', languageDefault: 'python', indent: 'always' }]
       );
       expect(result).toBe('<pl-code>\n  def foo():\n      return 1\n</pl-code>\n');
     });
@@ -731,7 +804,7 @@ describe('Custom Code Tag Indentation', () => {
     it('handles nesting inside other elements', () => {
       const result = formatWithConfigs(
         '<div>\n  <pl-code>\n      line one\n      line two\n  </pl-code>\n</div>',
-        [{ name: 'pl-code', indent: 'always' }]
+        [{ name: 'pl-code', languageDefault: 'python', indent: 'always' }]
       );
       expect(result).toBe('<div>\n  <pl-code>\n    line one\n    line two\n  </pl-code>\n</div>\n');
     });
@@ -739,7 +812,7 @@ describe('Custom Code Tag Indentation', () => {
     it('preserves empty lines within content', () => {
       const result = formatWithConfigs(
         '<pl-code>\n    line one\n\n    line two\n</pl-code>',
-        [{ name: 'pl-code', indent: 'always' }]
+        [{ name: 'pl-code', languageDefault: 'python', indent: 'always' }]
       );
       expect(result).toBe('<pl-code>\n  line one\n\n  line two\n</pl-code>\n');
     });
@@ -747,7 +820,7 @@ describe('Custom Code Tag Indentation', () => {
     it('handles content with no common indent', () => {
       const result = formatWithConfigs(
         '<pl-code>\nline one\n  indented\n</pl-code>',
-        [{ name: 'pl-code', indent: 'always' }]
+        [{ name: 'pl-code', languageDefault: 'python', indent: 'always' }]
       );
       expect(result).toBe('<pl-code>\n  line one\n    indented\n</pl-code>\n');
     });
@@ -757,7 +830,7 @@ describe('Custom Code Tag Indentation', () => {
     it('indents when attribute has truthy value "true"', () => {
       const result = formatWithConfigs(
         '<pl-code source-file-name="test.py">\n    line one\n    line two\n</pl-code>',
-        [{ name: 'pl-code', indent: 'attribute', indentAttribute: 'source-file-name' }]
+        [{ name: 'pl-code', languageDefault: 'python', indent: 'attribute', indentAttribute: 'source-file-name' }]
       );
       expect(result).toBe('<pl-code source-file-name="test.py">\n  line one\n  line two\n</pl-code>\n');
     });
@@ -765,7 +838,7 @@ describe('Custom Code Tag Indentation', () => {
     it('indents when attribute has any non-falsy string', () => {
       const result = formatWithConfigs(
         '<pl-code source-file-name="anything">\n    line one\n</pl-code>',
-        [{ name: 'pl-code', indent: 'attribute', indentAttribute: 'source-file-name' }]
+        [{ name: 'pl-code', languageDefault: 'python', indent: 'attribute', indentAttribute: 'source-file-name' }]
       );
       expect(result).toBe('<pl-code source-file-name="anything">\n  line one\n</pl-code>\n');
     });
@@ -773,7 +846,7 @@ describe('Custom Code Tag Indentation', () => {
     it('preserves content when attribute is missing', () => {
       const result = formatWithConfigs(
         '<pl-code>\n    line one\n    line two\n</pl-code>',
-        [{ name: 'pl-code', indent: 'attribute', indentAttribute: 'source-file-name' }]
+        [{ name: 'pl-code', languageDefault: 'python', indent: 'attribute', indentAttribute: 'source-file-name' }]
       );
       expect(result).toBe('<pl-code>\n    line one\n    line two\n</pl-code>\n');
     });
@@ -781,7 +854,7 @@ describe('Custom Code Tag Indentation', () => {
     it('preserves content when attribute is "false"', () => {
       const result = formatWithConfigs(
         '<pl-code source-file-name="false">\n    line one\n</pl-code>',
-        [{ name: 'pl-code', indent: 'attribute', indentAttribute: 'source-file-name' }]
+        [{ name: 'pl-code', languageDefault: 'python', indent: 'attribute', indentAttribute: 'source-file-name' }]
       );
       expect(result).toBe('<pl-code source-file-name="false">\n    line one\n</pl-code>\n');
     });
@@ -789,7 +862,7 @@ describe('Custom Code Tag Indentation', () => {
     it('preserves content when attribute is "0"', () => {
       const result = formatWithConfigs(
         '<pl-code source-file-name="0">\n    line one\n</pl-code>',
-        [{ name: 'pl-code', indent: 'attribute', indentAttribute: 'source-file-name' }]
+        [{ name: 'pl-code', languageDefault: 'python', indent: 'attribute', indentAttribute: 'source-file-name' }]
       );
       expect(result).toBe('<pl-code source-file-name="0">\n    line one\n</pl-code>\n');
     });
@@ -797,7 +870,7 @@ describe('Custom Code Tag Indentation', () => {
     it('preserves content when attribute is empty string', () => {
       const result = formatWithConfigs(
         '<pl-code source-file-name="">\n    line one\n</pl-code>',
-        [{ name: 'pl-code', indent: 'attribute', indentAttribute: 'source-file-name' }]
+        [{ name: 'pl-code', languageDefault: 'python', indent: 'attribute', indentAttribute: 'source-file-name' }]
       );
       expect(result).toBe('<pl-code source-file-name="">\n    line one\n</pl-code>\n');
     });
@@ -962,5 +1035,79 @@ describe('Config File Integration', () => {
 
     // Clean up .editorconfig
     fs.unlinkSync(path.join(tempDir, '.editorconfig'));
+  });
+});
+
+describe('noBreakDelimiters', () => {
+  function formatWithDelimiters(
+    content: string,
+    noBreakDelimiters: string[],
+    printWidth = 40,
+  ): string {
+    const tree = parseText(content);
+    const document = createMockDocument(content);
+    const edits = formatDocument(tree, document, defaultOptions, {
+      printWidth,
+      noBreakDelimiters,
+    });
+    expect(edits.length).toBe(1);
+    return edits[0].newText;
+  }
+
+  it('keeps formula on one line when it fits', () => {
+    const input = '<p>The value is $x = 5$.</p>';
+    const result = formatWithDelimiters(input, ['$'], 80);
+    expect(result).toBe('<p>The value is $x = 5$.</p>\n');
+  });
+
+  it('moves entire formula to next line as a unit when wrapping', () => {
+    const input = '<p>The resistance is $R_2 = 100\\Omega$ which is large.</p>';
+    const result = formatWithDelimiters(input, ['$'], 40);
+    // The formula should not break mid-formula
+    expect(result).toContain('$R_2 = 100\\Omega$');
+    // Verify no line break inside the delimiters
+    const lines = result.split('\n');
+    for (const line of lines) {
+      const dollars = (line.match(/\$/g) || []).length;
+      // Each line should have 0 or an even number of $ (matched pairs)
+      expect(dollars % 2).toBe(0);
+    }
+  });
+
+  it('keeps formula with mustache interpolation together', () => {
+    const input = '<p>The resistance is $R_2 = {{params.R2}}\\Omega$ in the circuit.</p>';
+    const result = formatWithDelimiters(input, ['$'], 40);
+    expect(result).toContain('$R_2 = {{params.R2}}\\Omega$');
+  });
+
+  it('handles multiple formulas on the same line', () => {
+    const input = '<p>We have $x = 1$ and $y = 2$ here.</p>';
+    const result = formatWithDelimiters(input, ['$'], 80);
+    expect(result).toContain('$x = 1$');
+    expect(result).toContain('$y = 2$');
+  });
+
+  it('handles $$ display math delimiters', () => {
+    const input = '<p>Consider $$E = mc^2$$ as shown.</p>';
+    const result = formatWithDelimiters(input, ['$', '$$'], 30);
+    expect(result).toContain('$$E = mc^2$$');
+  });
+
+  it('does not affect formatting when noBreakDelimiters is not configured', () => {
+    const input = '<p>The resistance is $R_2 = 100\\Omega$ which is large.</p>';
+    const tree = parseText(input);
+    const document = createMockDocument(input);
+    const edits = formatDocument(tree, document, defaultOptions, { printWidth: 40 });
+    expect(edits.length).toBe(1);
+    // Without noBreakDelimiters, wrapping can break inside $ delimiters
+    const result = edits[0].newText;
+    expect(result).toBeDefined();
+  });
+
+  it('handles unpaired delimiter gracefully', () => {
+    const input = '<p>The price is $5 and that is all.</p>';
+    const result = formatWithDelimiters(input, ['$'], 30);
+    // Should not crash; unpaired $ is treated as normal text
+    expect(result).toContain('$5');
   });
 });

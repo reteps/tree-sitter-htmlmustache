@@ -87,7 +87,7 @@ describe('Printer', () => {
     });
 
     it('always breaks when shouldBreak is true', () => {
-      const doc = group(concat(['a', line, 'b']), true);
+      const doc = group(concat(['a', line, 'b']), { shouldBreak: true });
       expect(print(doc, { ...defaultOptions, printWidth: 80 })).toBe('a\nb');
     });
 
@@ -121,7 +121,7 @@ describe('Printer', () => {
     });
 
     it('uses breakContents in break mode', () => {
-      const doc = group(concat(['a', ifBreak(' BREAK', ' FLAT'), 'b']), true);
+      const doc = group(concat(['a', ifBreak(' BREAK', ' FLAT'), 'b']), { shouldBreak: true });
       expect(print(doc, { ...defaultOptions, printWidth: 80 })).toBe('a BREAKb');
     });
   });

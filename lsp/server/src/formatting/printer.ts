@@ -17,6 +17,7 @@ export interface PrinterOptions {
 interface PrintState {
   indentLevel: number;
   mode: 'flat' | 'break';
+  groupModes: Map<symbol, 'flat' | 'break'>;
 }
 
 /**
@@ -24,7 +25,7 @@ interface PrintState {
  */
 export function print(doc: Doc, options: PrinterOptions): string {
   const output: string[] = [];
-  const state: PrintState = { indentLevel: 0, mode: 'break' };
+  const state: PrintState = { indentLevel: 0, mode: 'break', groupModes: new Map() };
 
   printDoc(doc, state, output, options);
 
@@ -127,12 +128,13 @@ function printDoc(
         // Forced break
         const prevMode = state.mode;
         state.mode = 'break';
+        if (doc.id) state.groupModes.set(doc.id, 'break');
         printDoc(doc.contents, state, output, options);
         state.mode = prevMode;
       } else {
         // Try to fit on one line
         const flatOutput: string[] = [];
-        const flatState: PrintState = { ...state, mode: 'flat' };
+        const flatState: PrintState = { ...state, mode: 'flat', groupModes: new Map(state.groupModes) };
         printDoc(doc.contents, flatState, flatOutput, options);
 
         const flatContent = flatOutput.join('');
@@ -144,11 +146,13 @@ function printDoc(
           !flatContent.includes('\n') &&
           col + flatContent.length <= printWidth
         ) {
+          if (doc.id) state.groupModes.set(doc.id, 'flat');
           output.push(flatContent);
         } else {
           // Break mode
           const prevMode = state.mode;
           state.mode = 'break';
+          if (doc.id) state.groupModes.set(doc.id, 'break');
           printDoc(doc.contents, state, output, options);
           state.mode = prevMode;
         }
@@ -160,13 +164,17 @@ function printDoc(
       printFill(doc.parts, state, output, options);
       break;
 
-    case 'ifBreak':
-      if (state.mode === 'break') {
+    case 'ifBreak': {
+      const effectiveMode = doc.groupId
+        ? (state.groupModes.get(doc.groupId) ?? state.mode)
+        : state.mode;
+      if (effectiveMode === 'break') {
         printDoc(doc.breakContents, state, output, options);
       } else {
         printDoc(doc.flatContents, state, output, options);
       }
       break;
+    }
 
     case 'breakParent':
       // breakParent is handled by containsBreakParent() in group evaluation.

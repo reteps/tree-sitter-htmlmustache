@@ -44,6 +44,7 @@ export interface Group {
   type: 'group';
   contents: Doc;
   break?: boolean;
+  id?: symbol;
 }
 
 export interface Fill {
@@ -59,6 +60,7 @@ export interface IfBreak {
   type: 'ifBreak';
   breakContents: Doc;
   flatContents: Doc;
+  groupId?: symbol;
 }
 
 // Constants
@@ -105,20 +107,35 @@ export function indent(contents: Doc): Doc {
 }
 
 /**
+ * Indent the contents by N levels.
+ */
+export function indentN(contents: Doc, n: number): Doc {
+  if (n <= 0 || contents === '') return contents;
+  let result = contents;
+  for (let i = 0; i < n; i++) {
+    result = indent(result);
+  }
+  return result;
+}
+
+/**
  * Create a group that may be printed flat or broken across lines.
  * When `shouldBreak` is true, the group will always break.
+ * When `id` is set, the group's mode can be referenced by `ifBreak` nodes.
  */
-export function group(contents: Doc, shouldBreak = false): Doc {
+export function group(contents: Doc, options?: { shouldBreak?: boolean; id?: symbol }): Doc {
   if (contents === '') return '';
-  return { type: 'group', contents, break: shouldBreak || undefined };
+  const shouldBreak = options?.shouldBreak;
+  return { type: 'group', contents, break: shouldBreak || undefined, id: options?.id };
 }
 
 /**
  * Create an ifBreak node that prints different content depending on
  * whether the enclosing group breaks or stays flat.
+ * When `groupId` is set, checks that specific group's mode instead.
  */
-export function ifBreak(breakContents: Doc, flatContents: Doc): Doc {
-  return { type: 'ifBreak', breakContents, flatContents };
+export function ifBreak(breakContents: Doc, flatContents: Doc, options?: { groupId?: symbol }): Doc {
+  return { type: 'ifBreak', breakContents, flatContents, groupId: options?.groupId };
 }
 
 /**

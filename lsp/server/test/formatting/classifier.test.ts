@@ -13,6 +13,7 @@ import {
   INLINE_ELEMENTS,
   PRESERVE_CONTENT_ELEMENTS,
 } from '../../src/formatting/classifier';
+import type { CustomCodeTagConfig } from '../../src/customCodeTags';
 
 describe('Classifier', () => {
   describe('INLINE_ELEMENTS', () => {
@@ -221,32 +222,75 @@ describe('Classifier', () => {
       const sectionIndex = children.findIndex(c => c.type === 'mustache_section');
       expect(shouldHtmlElementStayInline(children[sectionIndex], sectionIndex, children)).toBe(false);
     });
+
+    it('returns false for block-display elements adjacent to text', () => {
+      const tree = parseText('<table><tr><td>data</td></tr></table> Some text after');
+      const children = Array.from({ length: tree.rootNode.childCount }, (_, i) =>
+        tree.rootNode.child(i)!
+      );
+      const tableIndex = children.findIndex(c => c.type === 'html_element');
+      expect(shouldHtmlElementStayInline(children[tableIndex], tableIndex, children)).toBe(false);
+    });
   });
 
-  describe('custom code tags', () => {
-    it('getCSSDisplay returns block for custom code tags', () => {
-      const tags = new Set(['pl-code']);
+  describe('custom tags', () => {
+    function makeTagMap(...configs: CustomCodeTagConfig[]): Map<string, CustomCodeTagConfig> {
+      const map = new Map<string, CustomCodeTagConfig>();
+      for (const c of configs) map.set(c.name.toLowerCase(), c);
+      return map;
+    }
+
+    it('getCSSDisplay returns block for code tags (has languageDefault)', () => {
+      const tags = makeTagMap({ name: 'pl-code', languageDefault: 'python' });
       const tree = parseText('<pl-code>content</pl-code>');
       const node = tree.rootNode.child(0)!;
       expect(getCSSDisplay(node, tags)).toBe('block');
     });
 
-    it('shouldPreserveContent returns true for custom code tags', () => {
-      const tags = new Set(['pl-code']);
+    it('getCSSDisplay uses explicit display for display-only custom tags', () => {
+      const tags = makeTagMap({ name: 'my-card', display: 'block' });
+      const tree = parseText('<my-card>content</my-card>');
+      const node = tree.rootNode.child(0)!;
+      expect(getCSSDisplay(node, tags)).toBe('block');
+    });
+
+    it('getCSSDisplay returns explicit display even for code tags', () => {
+      const tags = makeTagMap({ name: 'pl-code', display: 'inline-block', languageDefault: 'python' });
+      const tree = parseText('<pl-code>content</pl-code>');
+      const node = tree.rootNode.child(0)!;
+      expect(getCSSDisplay(node, tags)).toBe('inline-block');
+    });
+
+    it('shouldPreserveContent returns true for code tags', () => {
+      const tags = makeTagMap({ name: 'pl-code', languageDefault: 'python' });
       const tree = parseText('<pl-code>content</pl-code>');
       const node = tree.rootNode.child(0)!;
       expect(shouldPreserveContent(node, tags)).toBe(true);
     });
 
-    it('isBlockLevel returns true for custom code tags', () => {
-      const tags = new Set(['pl-code']);
+    it('shouldPreserveContent returns false for display-only custom tags', () => {
+      const tags = makeTagMap({ name: 'my-card', display: 'block' });
+      const tree = parseText('<my-card>content</my-card>');
+      const node = tree.rootNode.child(0)!;
+      expect(shouldPreserveContent(node, tags)).toBe(false);
+    });
+
+    it('isBlockLevel returns true for code tags', () => {
+      const tags = makeTagMap({ name: 'pl-code', languageDefault: 'python' });
       const tree = parseText('<pl-code>content</pl-code>');
       const node = tree.rootNode.child(0)!;
       expect(isBlockLevel(node, tags)).toBe(true);
     });
 
+    it('isBlockLevel returns true for display:block custom tags', () => {
+      const tags = makeTagMap({ name: 'my-card', display: 'block' });
+      const tree = parseText('<my-card>content</my-card>');
+      const node = tree.rootNode.child(0)!;
+      expect(isBlockLevel(node, tags)).toBe(true);
+    });
+
     it('handles case-insensitive tag names', () => {
-      const tags = new Set(['pl-code']);
+      const tags = makeTagMap({ name: 'pl-code', languageDefault: 'python' });
       const tree = parseText('<pl-code>content</pl-code>');
       const node = tree.rootNode.child(0)!;
       expect(getCSSDisplay(node, tags)).toBe('block');
@@ -254,11 +298,19 @@ describe('Classifier', () => {
     });
 
     it('does not affect non-custom tags', () => {
-      const tags = new Set(['pl-code']);
+      const tags = makeTagMap({ name: 'pl-code', languageDefault: 'python' });
       const tree = parseText('<span>content</span>');
       const node = tree.rootNode.child(0)!;
       expect(getCSSDisplay(node, tags)).toBe('inline');
       expect(shouldPreserveContent(node, tags)).toBe(false);
+    });
+
+    it('falls through to CSS_DISPLAY_MAP for custom tags without display or language', () => {
+      const tags = makeTagMap({ name: 'my-widget' });
+      const tree = parseText('<my-widget>content</my-widget>');
+      const node = tree.rootNode.child(0)!;
+      // Unknown tag without explicit display → inline (CSS_DISPLAY_MAP fallthrough)
+      expect(getCSSDisplay(node, tags)).toBe('inline');
     });
   });
 
@@ -285,6 +337,17 @@ describe('Classifier', () => {
         tree.rootNode.child(i)!
       );
       expect(shouldTreatAsBlock(children[0], 0, children)).toBe(true);
+    });
+
+    it('returns true for erroneous end tags', () => {
+      const tree = parseText('{{#show}}<div>{{/show}}\n</div>');
+      const children = Array.from({ length: tree.rootNode.childCount }, (_, i) =>
+        tree.rootNode.child(i)!
+      );
+      const errNode = children.find(c => c.type === 'html_erroneous_end_tag');
+      expect(errNode).toBeDefined();
+      const idx = children.indexOf(errNode!);
+      expect(shouldTreatAsBlock(errNode!, idx, children)).toBe(true);
     });
   });
 });
