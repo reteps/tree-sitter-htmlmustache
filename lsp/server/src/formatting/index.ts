@@ -40,7 +40,7 @@ export interface TextEdit {
 import { print } from './printer';
 import { formatDocument as formatDocumentToDoc, FormatterContext } from './formatters';
 import { mergeOptions, createIndentUnit } from './editorconfig';
-import type { HtmlMustacheConfig } from '../configFile';
+import type { HtmlMustacheConfig, NoBreakDelimiter } from '../configFile';
 import { findContainingNode, calculateIndentLevel } from './utils';
 import { isBlockLevel, getContentNodes, hasImplicitEndTags } from './classifier';
 import type { CustomCodeTagConfig } from '../customCodeTags';
@@ -50,7 +50,7 @@ export interface FormatDocumentParams {
   printWidth?: number;
   embeddedFormatted?: Map<number, string>;
   mustacheSpaces?: boolean;
-  noBreakDelimiters?: string[];
+  noBreakDelimiters?: NoBreakDelimiter[];
   configFile?: HtmlMustacheConfig | null;
 }
 

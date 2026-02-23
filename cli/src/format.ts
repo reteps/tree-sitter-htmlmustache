@@ -8,6 +8,7 @@ import { formatDocument } from '../../lsp/server/src/formatting/index';
 import type { FormattingOptions, FormatDocumentParams } from '../../lsp/server/src/formatting/index';
 import { getEditorConfigOptions } from '../../lsp/server/src/formatting/editorconfig';
 import { loadConfigFileForPath } from '../../lsp/server/src/configFile';
+import type { NoBreakDelimiter } from '../../lsp/server/src/configFile';
 import type { CustomCodeTagConfig } from '../../lsp/server/src/customCodeTags';
 import { initializeParser, parseDocument } from './wasm';
 import { resolveFiles } from './check';
@@ -113,7 +114,7 @@ function resolveSettings(flags: FormatFlags, filePath?: string): {
 
   // 2. Config file overrides defaults
   const configFile = filePath ? loadConfigFileForPath(filePath) : null;
-  let noBreakDelimiters: string[] | undefined;
+  let noBreakDelimiters: NoBreakDelimiter[] | undefined;
   if (configFile) {
     if (configFile.indentSize !== undefined) tabSize = configFile.indentSize;
     if (configFile.printWidth !== undefined) printWidth = configFile.printWidth;

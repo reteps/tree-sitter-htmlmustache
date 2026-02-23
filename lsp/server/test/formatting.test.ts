@@ -1090,7 +1090,7 @@ describe('Config File Integration', () => {
 describe('noBreakDelimiters', () => {
   function formatWithDelimiters(
     content: string,
-    noBreakDelimiters: string[],
+    noBreakDelimiters: { start: string; end: string }[],
     printWidth = 40,
   ): string {
     const tree = parseText(content);
@@ -1105,13 +1105,13 @@ describe('noBreakDelimiters', () => {
 
   it('keeps formula on one line when it fits', () => {
     const input = '<p>The value is $x = 5$.</p>';
-    const result = formatWithDelimiters(input, ['$'], 80);
+    const result = formatWithDelimiters(input, [{ start: '$', end: '$' }], 80);
     expect(result).toBe('<p>The value is $x = 5$.</p>\n');
   });
 
   it('moves entire formula to next line as a unit when wrapping', () => {
     const input = '<p>The resistance is $R_2 = 100\\Omega$ which is large.</p>';
-    const result = formatWithDelimiters(input, ['$'], 40);
+    const result = formatWithDelimiters(input, [{ start: '$', end: '$' }], 40);
     // The formula should not break mid-formula
     expect(result).toContain('$R_2 = 100\\Omega$');
     // Verify no line break inside the delimiters
@@ -1125,20 +1125,20 @@ describe('noBreakDelimiters', () => {
 
   it('keeps formula with mustache interpolation together', () => {
     const input = '<p>The resistance is $R_2 = {{params.R2}}\\Omega$ in the circuit.</p>';
-    const result = formatWithDelimiters(input, ['$'], 40);
+    const result = formatWithDelimiters(input, [{ start: '$', end: '$' }], 40);
     expect(result).toContain('$R_2 = {{params.R2}}\\Omega$');
   });
 
   it('handles multiple formulas on the same line', () => {
     const input = '<p>We have $x = 1$ and $y = 2$ here.</p>';
-    const result = formatWithDelimiters(input, ['$'], 80);
+    const result = formatWithDelimiters(input, [{ start: '$', end: '$' }], 80);
     expect(result).toContain('$x = 1$');
     expect(result).toContain('$y = 2$');
   });
 
   it('handles $$ display math delimiters', () => {
     const input = '<p>Consider $$E = mc^2$$ as shown.</p>';
-    const result = formatWithDelimiters(input, ['$', '$$'], 30);
+    const result = formatWithDelimiters(input, [{ start: '$', end: '$' }, { start: '$$', end: '$$' }], 30);
     expect(result).toContain('$$E = mc^2$$');
   });
 
@@ -1155,8 +1155,30 @@ describe('noBreakDelimiters', () => {
 
   it('handles unpaired delimiter gracefully', () => {
     const input = '<p>The price is $5 and that is all.</p>';
-    const result = formatWithDelimiters(input, ['$'], 30);
+    const result = formatWithDelimiters(input, [{ start: '$', end: '$' }], 30);
     // Should not crash; unpaired $ is treated as normal text
     expect(result).toContain('$5');
+  });
+
+  it('handles asymmetric \\(...\\) delimiters', () => {
+    const input = '<p>The formula is \\(x^2 + y^2 = r^2\\) in the plane.</p>';
+    const result = formatWithDelimiters(input, [{ start: '\\(', end: '\\)' }], 40);
+    expect(result).toContain('\\(x^2 + y^2 = r^2\\)');
+  });
+
+  it('handles asymmetric \\[...\\] display math delimiters', () => {
+    const input = '<p>Consider \\[E = mc^2\\] as shown.</p>';
+    const result = formatWithDelimiters(input, [{ start: '\\[', end: '\\]' }], 30);
+    expect(result).toContain('\\[E = mc^2\\]');
+  });
+
+  it('handles mixed symmetric and asymmetric delimiters', () => {
+    const input = '<p>Inline $a + b$ and display \\[E = mc^2\\] formulas.</p>';
+    const result = formatWithDelimiters(input, [
+      { start: '$', end: '$' },
+      { start: '\\[', end: '\\]' },
+    ], 40);
+    expect(result).toContain('$a + b$');
+    expect(result).toContain('\\[E = mc^2\\]');
   });
 });

@@ -27,11 +27,16 @@ export interface RulesConfig {
 
 const VALID_RULE_SEVERITIES = new Set<string>(['error', 'warning', 'off']);
 
+export interface NoBreakDelimiter {
+  start: string;
+  end: string;
+}
+
 export interface HtmlMustacheConfig {
   printWidth?: number;
   indentSize?: number;
   mustacheSpaces?: boolean;
-  noBreakDelimiters?: string[];
+  noBreakDelimiters?: NoBreakDelimiter[];
   customTags?: CustomCodeTagConfig[];
   include?: string[];
   exclude?: string[];
@@ -161,10 +166,19 @@ export function validateConfig(raw: unknown): HtmlMustacheConfig {
   }
 
   if (Array.isArray(obj.noBreakDelimiters)) {
-    const items = obj.noBreakDelimiters.filter(
-      (s: unknown) => typeof s === 'string' && s.length > 0
-    );
-    if (items.length > 0) config.noBreakDelimiters = items as string[];
+    const items: NoBreakDelimiter[] = [];
+    for (const entry of obj.noBreakDelimiters) {
+      if (
+        entry && typeof entry === 'object' && !Array.isArray(entry) &&
+        typeof (entry as Record<string, unknown>).start === 'string' &&
+        (entry as Record<string, unknown>).start !== '' &&
+        typeof (entry as Record<string, unknown>).end === 'string' &&
+        (entry as Record<string, unknown>).end !== ''
+      ) {
+        items.push({ start: (entry as Record<string, unknown>).start as string, end: (entry as Record<string, unknown>).end as string });
+      }
+    }
+    if (items.length > 0) config.noBreakDelimiters = items;
   }
 
   if (Array.isArray(obj.include)) {

@@ -37,13 +37,14 @@ import { normalizeText, getVisibleChildren, normalizeMustacheWhitespace, normali
 import type { CustomCodeTagConfig } from '../customCodeTags';
 import { getAttributeValue } from '../customCodeTags';
 import { isRawContentElement } from '../nodeHelpers';
+import type { NoBreakDelimiter } from '../configFile';
 
 export interface FormatterContext {
   document: TextDocument;
   customTags?: Map<string, CustomCodeTagConfig>;
   embeddedFormatted?: Map<number, string>;
   mustacheSpaces?: boolean;
-  noBreakDelimiters?: string[];
+  noBreakDelimiters?: NoBreakDelimiter[];
 }
 
 /**
@@ -803,14 +804,16 @@ function textWords(str: string): Doc[] {
  * delimiter, any `line` separator is replaced with a literal space string.
  * Delimiters are matched longest-first to handle e.g. `$$` before `$`.
  */
-export function collapseDelimitedRegions(parts: Doc[], delimiters: string[]): Doc[] {
+export function collapseDelimitedRegions(parts: Doc[], delimiters: NoBreakDelimiter[]): Doc[] {
   if (delimiters.length === 0) return parts;
 
-  // Sort longest-first so $$ is checked before $
-  const sorted = [...delimiters].sort((a, b) => b.length - a.length);
+  // Sort longest-first by max(start.length, end.length) so $$ is checked before $
+  const sorted = [...delimiters].sort(
+    (a, b) => Math.max(b.start.length, b.end.length) - Math.max(a.start.length, a.end.length)
+  );
 
   const result = [...parts];
-  let activeDelimiter: string | null = null;
+  let activeDelimiter: NoBreakDelimiter | null = null;
 
   for (let i = 0; i < result.length; i++) {
     const part = result[i];
@@ -819,11 +822,11 @@ export function collapseDelimitedRegions(parts: Doc[], delimiters: string[]): Do
       if (activeDelimiter === null) {
         // Look for an opening delimiter
         for (const delim of sorted) {
-          const delimIdx = part.indexOf(delim);
-          if (delimIdx >= 0) {
+          const startIdx = part.indexOf(delim.start);
+          if (startIdx >= 0) {
             // Check if it also closes in the same string
-            const afterOpen = delimIdx + delim.length;
-            const closeIdx = part.indexOf(delim, afterOpen);
+            const afterOpen = startIdx + delim.start.length;
+            const closeIdx = part.indexOf(delim.end, afterOpen);
             if (closeIdx >= 0) {
               // Self-contained (e.g. "$x$") — no state change, already atomic
               continue;
@@ -834,7 +837,7 @@ export function collapseDelimitedRegions(parts: Doc[], delimiters: string[]): Do
         }
       } else {
         // Look for the closing delimiter
-        if (part.includes(activeDelimiter)) {
+        if (part.includes(activeDelimiter.end)) {
           activeDelimiter = null;
         }
       }

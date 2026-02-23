@@ -25,7 +25,7 @@ import { initializeTextMateRegistry, isTextMateReady, tokenizeEmbeddedContent, s
 import { findCustomCodeTagContent, isCodeTag } from './customCodeTags';
 import type { CustomCodeTagConfig } from './customCodeTags';
 import { loadConfigFile } from './configFile';
-import type { HtmlMustacheConfig } from './configFile';
+import type { HtmlMustacheConfig, NoBreakDelimiter } from './configFile';
 
 // Create connection and document manager
 const connection = createConnection(ProposedFeatures.all);
@@ -49,7 +49,7 @@ function resolveConfig(uri: string): {
   customTags: CustomCodeTagConfig[];
   printWidth: number;
   mustacheSpaces: boolean | undefined;
-  noBreakDelimiters: string[] | undefined;
+  noBreakDelimiters: NoBreakDelimiter[] | undefined;
 } {
   const config = loadConfigFile(uri);
   return {
