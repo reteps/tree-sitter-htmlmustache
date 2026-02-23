@@ -120,6 +120,24 @@ describe('Diagnostics', () => {
 
       expect(diagnostics.length).toBeGreaterThan(0);
     });
+
+    it('detects balance errors even with many balanced cross-boundary sections', () => {
+      // 16 independently balanced cross-boundary sections (after merge: truthy=[open,close], falsy=[]).
+      // Plus one section with an unmatched open tag.
+      // Without balance-detection optimization, 17 section names > MAX_SECTION_NAMES=15
+      // would trigger the safety valve and miss the error.
+      const balanced = Array.from(
+        { length: 16 },
+        (_, i) => `{{#s${i}}}<div>{{/s${i}}}{{#s${i}}}</div>{{/s${i}}}`,
+      ).join('\n');
+      const template = `${balanced}\n{{#bad}}<span>{{/bad}}`;
+      const tree = parseText(template);
+      const diagnostics = getDiagnostics(tree);
+
+      expect(
+        diagnostics.some(d => d.message.includes('Unclosed HTML tag: <span>')),
+      ).toBe(true);
+    });
   });
 
   describe('mustache lint checks', () => {

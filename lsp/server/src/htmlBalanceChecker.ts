@@ -189,29 +189,41 @@ function mergeAdjacentForks(items: PathItem[]): PathItem[] {
 // --- Phase 3: Enumerate paths and validate balance ---
 
 /**
- * Check if a list of path items contains any TagEvents (opens/closes),
- * either directly or inside nested forks.
+ * Check if a branch (list of PathItems) is self-balanced: all opens are matched
+ * by closes in LIFO order, leaving the stack empty. Nested forks are balanced
+ * only if both their branches are independently balanced (making the fork a no-op).
  */
-function hasTagEvents(items: PathItem[]): boolean {
+function isBranchBalanced(items: PathItem[]): boolean {
+  const stack: string[] = [];
   for (const item of items) {
-    if (item.type !== 'fork') return true; // It's a TagEvent
-    if (hasTagEvents(item.truthy) || hasTagEvents(item.falsy)) return true;
+    if (item.type === 'fork') {
+      if (!isBranchBalanced(item.truthy) || !isBranchBalanced(item.falsy)) {
+        return false;
+      }
+    } else if (item.type === 'open') {
+      stack.push(item.tagName);
+    } else {
+      if (stack.length === 0 || stack[stack.length - 1] !== item.tagName) {
+        return false;
+      }
+      stack.pop();
+    }
   }
-  return false;
+  return stack.length === 0;
 }
 
 /**
  * Collect only section names that affect HTML tag balance.
- * A fork only matters if at least one of its branches contains tag events.
- * Forks with balanced HTML (like {{#correct}}<span>...</span>{{/correct}})
- * produce empty branches after extraction and are skipped.
+ * A fork only matters if at least one of its branches is unbalanced.
+ * Forks where both branches are independently balanced (e.g. truthy has
+ * matched open/close pairs and falsy is empty) are no-ops and skipped.
  * This reduces 2^N enumeration to only the relevant variables.
  */
 function collectSectionNames(items: PathItem[]): Set<string> {
   const names = new Set<string>();
   for (const item of items) {
     if (item.type === 'fork') {
-      if (hasTagEvents(item.truthy) || hasTagEvents(item.falsy)) {
+      if (!isBranchBalanced(item.truthy) || !isBranchBalanced(item.falsy)) {
         names.add(item.sectionName);
       }
       for (const name of collectSectionNames(item.truthy)) names.add(name);
