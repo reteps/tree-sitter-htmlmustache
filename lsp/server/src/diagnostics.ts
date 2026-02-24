@@ -1,10 +1,10 @@
 import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
 import type { Tree } from './parser';
 import { collectErrors } from './collectErrors';
-import type { RulesConfig } from './configFile';
+import type { RulesConfig, CustomRule } from './configFile';
 
-export function getDiagnostics(tree: Tree, rules?: RulesConfig, customTagNames?: string[]): Diagnostic[] {
-  const errors = collectErrors(tree, rules, customTagNames);
+export function getDiagnostics(tree: Tree, rules?: RulesConfig, customTagNames?: string[], customRules?: CustomRule[]): Diagnostic[] {
+  const errors = collectErrors(tree, rules, customTagNames, customRules);
   return errors.map(error => ({
     severity: error.severity === 'warning' ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error,
     range: {

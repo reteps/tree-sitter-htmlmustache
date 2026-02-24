@@ -16,8 +16,9 @@ import {
   checkUnrecognizedHtmlTags,
 } from './mustacheChecks';
 import type { TextReplacement } from './mustacheChecks';
-import type { RulesConfig, RuleSeverity } from './configFile';
+import type { RulesConfig, RuleSeverity, CustomRule } from './configFile';
 import { RULE_DEFAULTS, KNOWN_RULE_NAMES } from './ruleMetadata';
+import { parseSelector, matchSelector } from './selectorMatcher';
 
 /** A tree that provides walk() and rootNode, compatible with both web-tree-sitter and CLI wasm. */
 export interface WalkableTree {
@@ -65,7 +66,7 @@ function resolveRuleSeverity(rules: RulesConfig | undefined, ruleName: keyof Rul
   return rules?.[ruleName] ?? RULE_DEFAULTS[ruleName] ?? 'off';
 }
 
-function parseDisableDirective(node: BalanceNode): string | null {
+function parseDisableDirective(node: BalanceNode, customRuleIds?: Set<string>): string | null {
   if (node.type !== 'html_comment' && node.type !== 'mustache_comment') return null;
   let inner: string | null = null;
   if (node.type === 'html_comment') {
@@ -79,13 +80,15 @@ function parseDisableDirective(node: BalanceNode): string | null {
   const prefix = 'htmlmustache-disable ';
   if (!inner.startsWith(prefix)) return null;
   const ruleName = inner.slice(prefix.length).trim();
-  return KNOWN_RULE_NAMES.has(ruleName) ? ruleName : null;
+  if (KNOWN_RULE_NAMES.has(ruleName)) return ruleName;
+  if (customRuleIds?.has(ruleName)) return ruleName;
+  return null;
 }
 
-function collectDisabledRules(rootNode: BalanceNode): Set<string> {
+function collectDisabledRules(rootNode: BalanceNode, customRuleIds?: Set<string>): Set<string> {
   const disabled = new Set<string>();
   function walk(node: BalanceNode) {
-    const rule = parseDisableDirective(node);
+    const rule = parseDisableDirective(node, customRuleIds);
     if (rule) { disabled.add(rule); return; }
     for (const child of node.children) walk(child);
   }
@@ -97,7 +100,7 @@ function collectDisabledRules(rootNode: BalanceNode): Set<string> {
  * Collect all errors from a parsed tree: syntax errors, balance errors,
  * unclosed tags, and mustache lint checks.
  */
-export function collectErrors(tree: WalkableTree, rules?: RulesConfig, customTagNames?: string[]): CheckError[] {
+export function collectErrors(tree: WalkableTree, rules?: RulesConfig, customTagNames?: string[], customRules?: CustomRule[]): CheckError[] {
   const errors: CheckError[] = [];
   const cursor = tree.walk() as unknown as TreeCursor;
 
@@ -136,7 +139,8 @@ export function collectErrors(tree: WalkableTree, rules?: RulesConfig, customTag
   }
 
   // Collect inline disable directives and merge into effective rules
-  const disabledRules = collectDisabledRules(tree.rootNode);
+  const customRuleIds = customRules ? new Set(customRules.map(r => r.id)) : undefined;
+  const disabledRules = collectDisabledRules(tree.rootNode, customRuleIds);
   const effectiveRules = { ...rules };
   for (const rule of disabledRules) {
     (effectiveRules as Record<string, string>)[rule] = 'off';
@@ -171,8 +175,23 @@ export function collectErrors(tree: WalkableTree, rules?: RulesConfig, customTag
     }
   }
 
+  // Custom selector-based rules
+  if (customRules) {
+    for (const rule of customRules) {
+      if (disabledRules.has(rule.id)) continue;
+      const severity = rule.severity ?? 'error';
+      if (severity === 'off') continue;
+      const parsed = parseSelector(rule.selector);
+      if (!parsed) continue;
+      const matches = matchSelector(tree.rootNode, parsed);
+      for (const node of matches) {
+        errors.push({ node, message: rule.message, severity });
+      }
+    }
+  }
+
   // Filter out preferMustacheComments warnings on disable-directive comments themselves
   return errors.filter(e =>
-    !(e.message.includes('HTML comment found') && parseDisableDirective(e.node) !== null)
+    !(e.message.includes('HTML comment found') && parseDisableDirective(e.node, customRuleIds) !== null)
   );
 }

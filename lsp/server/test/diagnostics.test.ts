@@ -512,6 +512,68 @@ describe('Diagnostics', () => {
     });
   });
 
+  describe('custom rules', () => {
+    it('produces diagnostic from custom rule', () => {
+      const tree = parseText('<div><font></font></div>');
+      const customRules = [{ id: 'no-font', selector: 'font', message: 'Deprecated element' }];
+      const diagnostics = getDiagnostics(tree, undefined, undefined, customRules);
+
+      expect(diagnostics.some(d => d.message === 'Deprecated element')).toBe(true);
+    });
+
+    it('uses custom rule severity', () => {
+      const tree = parseText('<font></font>');
+      const customRules = [{ id: 'no-font', selector: 'font', message: 'Deprecated element', severity: 'warning' as const }];
+      const diagnostics = getDiagnostics(tree, undefined, undefined, customRules);
+
+      const err = diagnostics.find(d => d.message === 'Deprecated element');
+      expect(err).toBeDefined();
+      expect(err!.severity).toBe(DiagnosticSeverity.Warning);
+    });
+
+    it('defaults to error severity when not specified', () => {
+      const tree = parseText('<font></font>');
+      const customRules = [{ id: 'no-font', selector: 'font', message: 'Deprecated element' }];
+      const diagnostics = getDiagnostics(tree, undefined, undefined, customRules);
+
+      const err = diagnostics.find(d => d.message === 'Deprecated element');
+      expect(err).toBeDefined();
+      expect(err!.severity).toBe(DiagnosticSeverity.Error);
+    });
+
+    it('inline disable by custom rule id', () => {
+      const tree = parseText('<!-- htmlmustache-disable no-font -->\n<font></font>');
+      const customRules = [{ id: 'no-font', selector: 'font', message: 'Deprecated element' }];
+      const diagnostics = getDiagnostics(tree, undefined, undefined, customRules);
+
+      expect(diagnostics.some(d => d.message === 'Deprecated element')).toBe(false);
+    });
+
+    it('custom rule with descendant selector', () => {
+      const tree = parseText('<div><p><span></span></p></div>');
+      const customRules = [{ id: 'no-span-in-div', selector: 'div span', message: 'No span in div' }];
+      const diagnostics = getDiagnostics(tree, undefined, undefined, customRules);
+
+      expect(diagnostics.some(d => d.message === 'No span in div')).toBe(true);
+    });
+
+    it('custom rule with comma-separated selectors', () => {
+      const tree = parseText('<div></div><span></span>');
+      const customRules = [{ id: 'no-both', selector: 'div, span', message: 'Neither allowed' }];
+      const diagnostics = getDiagnostics(tree, undefined, undefined, customRules);
+
+      expect(diagnostics.filter(d => d.message === 'Neither allowed')).toHaveLength(2);
+    });
+
+    it('skips custom rule with invalid selector', () => {
+      const tree = parseText('<div></div>');
+      const customRules = [{ id: 'bad', selector: '> div', message: 'Bad rule' }];
+      const diagnostics = getDiagnostics(tree, undefined, undefined, customRules);
+
+      expect(diagnostics.some(d => d.message === 'Bad rule')).toBe(false);
+    });
+  });
+
   describe('rules config overrides', () => {
     it('disables unescaped entities when set to off', () => {
       const tree = parseText('<p>a > b</p>');

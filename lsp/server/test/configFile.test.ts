@@ -275,6 +275,69 @@ describe('validateConfig', () => {
     expect(validateConfig({ rules: 'error' })).toEqual({});
     expect(validateConfig({ rules: ['error'] })).toEqual({});
   });
+
+  it('validates customRules with valid entries', () => {
+    const result = validateConfig({
+      customRules: [
+        { id: 'no-font', selector: 'font', message: 'Deprecated element' },
+        { id: 'no-inline', selector: '[style]', message: 'Avoid inline styles', severity: 'warning' },
+      ],
+    });
+    expect(result.customRules).toHaveLength(2);
+    expect(result.customRules![0]).toEqual({ id: 'no-font', selector: 'font', message: 'Deprecated element' });
+    expect(result.customRules![1].severity).toBe('warning');
+  });
+
+  it('skips customRules entries missing id', () => {
+    const result = validateConfig({
+      customRules: [
+        { selector: 'font', message: 'Missing id' },
+        { id: 'ok', selector: 'div', message: 'Valid' },
+      ],
+    });
+    expect(result.customRules).toHaveLength(1);
+    expect(result.customRules![0].id).toBe('ok');
+  });
+
+  it('skips customRules entries with empty id', () => {
+    const result = validateConfig({
+      customRules: [{ id: '', selector: 'font', message: 'Empty id' }],
+    });
+    expect(result.customRules).toBeUndefined();
+  });
+
+  it('skips customRules entries missing selector', () => {
+    const result = validateConfig({
+      customRules: [{ id: 'x', message: 'No selector' }],
+    });
+    expect(result.customRules).toBeUndefined();
+  });
+
+  it('skips customRules entries missing message', () => {
+    const result = validateConfig({
+      customRules: [{ id: 'x', selector: 'div' }],
+    });
+    expect(result.customRules).toBeUndefined();
+  });
+
+  it('skips customRules entries with invalid severity', () => {
+    const result = validateConfig({
+      customRules: [{ id: 'x', selector: 'div', message: 'Test', severity: 'warn' }],
+    });
+    expect(result.customRules).toHaveLength(1);
+    expect(result.customRules![0].severity).toBeUndefined();
+  });
+
+  it('omits customRules when all entries are invalid', () => {
+    const result = validateConfig({
+      customRules: [{ bad: true }, 'not-an-object', null],
+    });
+    expect(result.customRules).toBeUndefined();
+  });
+
+  it('ignores non-array customRules', () => {
+    expect(validateConfig({ customRules: 'font' })).toEqual({});
+  });
 });
 
 describe('findConfigFile', () => {

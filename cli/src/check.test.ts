@@ -878,6 +878,68 @@ describe('unrecognized HTML tags', () => {
   });
 });
 
+describe('custom rules', () => {
+  it('detects custom rule match by tag', () => {
+    const tree = parse('<div><font></font></div>');
+    const errors = collectErrors(tree, 'test.mustache', undefined, undefined, [
+      { id: 'no-font', selector: 'font', message: 'Deprecated element' },
+    ]);
+    expect(errors.some(e => e.message === 'Deprecated element')).toBe(true);
+  });
+
+  it('uses custom rule severity', () => {
+    const tree = parse('<font></font>');
+    const errors = collectErrors(tree, 'test.mustache', undefined, undefined, [
+      { id: 'no-font', selector: 'font', message: 'Deprecated', severity: 'warning' },
+    ]);
+    const err = errors.find(e => e.message === 'Deprecated');
+    expect(err).toBeDefined();
+    expect(err!.severity).toBe('warning');
+  });
+
+  it('defaults custom rule to error severity', () => {
+    const tree = parse('<font></font>');
+    const errors = collectErrors(tree, 'test.mustache', undefined, undefined, [
+      { id: 'no-font', selector: 'font', message: 'Deprecated' },
+    ]);
+    const err = errors.find(e => e.message === 'Deprecated');
+    expect(err).toBeDefined();
+    expect(err!.severity).toBe('error');
+  });
+
+  it('respects inline disable for custom rule id', () => {
+    const tree = parse('<!-- htmlmustache-disable no-font -->\n<font></font>');
+    const errors = collectErrors(tree, 'test.mustache', undefined, undefined, [
+      { id: 'no-font', selector: 'font', message: 'Deprecated' },
+    ]);
+    expect(errors.some(e => e.message === 'Deprecated')).toBe(false);
+  });
+
+  it('custom rule with attribute selector', () => {
+    const tree = parse('<div style="color:red"></div><div></div>');
+    const errors = collectErrors(tree, 'test.mustache', undefined, undefined, [
+      { id: 'no-style', selector: '[style]', message: 'No inline styles' },
+    ]);
+    expect(errors.filter(e => e.message === 'No inline styles')).toHaveLength(1);
+  });
+
+  it('custom rule with comma-separated selectors', () => {
+    const tree = parse('<b></b><i></i><span></span>');
+    const errors = collectErrors(tree, 'test.mustache', undefined, undefined, [
+      { id: 'no-bi', selector: 'b, i', message: 'Use semantic tags' },
+    ]);
+    expect(errors.filter(e => e.message === 'Use semantic tags')).toHaveLength(2);
+  });
+
+  it('skips custom rule with severity off', () => {
+    const tree = parse('<font></font>');
+    const errors = collectErrors(tree, 'test.mustache', undefined, undefined, [
+      { id: 'no-font', selector: 'font', message: 'Deprecated', severity: 'off' },
+    ]);
+    expect(errors.some(e => e.message === 'Deprecated')).toBe(false);
+  });
+});
+
 describe('rules config overrides', () => {
   it('disables a default-on rule when set to off', () => {
     const tree = parse('<p>a > b</p>');

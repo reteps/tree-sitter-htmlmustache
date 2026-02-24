@@ -33,8 +33,10 @@ export interface CheckResult {
 
 // ── Error collection ──
 
-export function collectErrors(tree: Tree, file: string, rules?: RulesConfig, customTagNames?: string[]): CheckError[] {
-  const errors = collectTreeErrors(tree as any, rules, customTagNames);
+import type { CustomRule } from '../../lsp/server/src/configFile';
+
+export function collectErrors(tree: Tree, file: string, rules?: RulesConfig, customTagNames?: string[], customRules?: CustomRule[]): CheckError[] {
+  const errors = collectTreeErrors(tree as any, rules, customTagNames, customRules);
   return errors.map(error => ({
     file,
     line: error.node.startPosition.row + 1,
@@ -289,6 +291,7 @@ export async function run(args: string[]): Promise<number> {
 
   const rules = config?.rules;
   const customTagNames = config?.customTags?.map(t => t.name);
+  const customRules = config?.customRules;
 
   for (const file of files) {
     const displayPath = path.relative(cwd, file) || file;
@@ -297,7 +300,7 @@ export async function run(args: string[]): Promise<number> {
     if (fixMode) {
       // Apply fixes, then re-parse to report remaining errors
       const tree = parseDocument(source);
-      const errors = collectErrors(tree, displayPath, rules, customTagNames);
+      const errors = collectErrors(tree, displayPath, rules, customTagNames, customRules);
       const fixed = applyFixes(source, errors);
       if (fixed !== source) {
         fs.writeFileSync(file, fixed, 'utf-8');
@@ -306,7 +309,7 @@ export async function run(args: string[]): Promise<number> {
     }
 
     const tree = parseDocument(source);
-    const errors = collectErrors(tree, displayPath, rules, customTagNames);
+    const errors = collectErrors(tree, displayPath, rules, customTagNames, customRules);
 
     const fileErrors = errors.filter(e => e.severity !== 'warning');
     const fileWarnings = errors.filter(e => e.severity === 'warning');

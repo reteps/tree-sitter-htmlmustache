@@ -27,6 +27,13 @@ export interface RulesConfig {
 
 const VALID_RULE_SEVERITIES = new Set<string>(['error', 'warning', 'off']);
 
+export interface CustomRule {
+  id: string;
+  selector: string;
+  message: string;
+  severity?: RuleSeverity;
+}
+
 export interface NoBreakDelimiter {
   start: string;
   end: string;
@@ -41,6 +48,7 @@ export interface HtmlMustacheConfig {
   include?: string[];
   exclude?: string[];
   rules?: RulesConfig;
+  customRules?: CustomRule[];
 }
 
 const CONFIG_FILENAME = '.htmlmustache.jsonc';
@@ -217,6 +225,23 @@ export function validateConfig(raw: unknown): HtmlMustacheConfig {
       }
     }
     if (hasRules) config.rules = rules;
+  }
+
+  if (Array.isArray(obj.customRules)) {
+    const rules: CustomRule[] = [];
+    for (const entry of obj.customRules) {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+      const e = entry as Record<string, unknown>;
+      if (typeof e.id !== 'string' || e.id.length === 0) continue;
+      if (typeof e.selector !== 'string' || e.selector.length === 0) continue;
+      if (typeof e.message !== 'string' || e.message.length === 0) continue;
+      const rule: CustomRule = { id: e.id, selector: e.selector, message: e.message };
+      if (typeof e.severity === 'string' && VALID_RULE_SEVERITIES.has(e.severity)) {
+        rule.severity = e.severity as RuleSeverity;
+      }
+      rules.push(rule);
+    }
+    if (rules.length > 0) config.customRules = rules;
   }
 
   return config;

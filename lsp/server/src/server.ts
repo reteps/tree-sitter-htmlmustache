@@ -180,7 +180,7 @@ documents.onDidOpen((event) => {
   if (tree) {
     const { config } = resolveConfig(event.document.uri);
     const customTagNames = config?.customTags?.map(t => t.name);
-    connection.sendDiagnostics({ uri: event.document.uri, diagnostics: getDiagnostics(tree, config?.rules, customTagNames) });
+    connection.sendDiagnostics({ uri: event.document.uri, diagnostics: getDiagnostics(tree, config?.rules, customTagNames, config?.customRules) });
   }
 });
 
@@ -190,7 +190,7 @@ documents.onDidChangeContent((change) => {
   if (tree) {
     const { config } = resolveConfig(change.document.uri);
     const customTagNames = config?.customTags?.map(t => t.name);
-    connection.sendDiagnostics({ uri: change.document.uri, diagnostics: getDiagnostics(tree, config?.rules, customTagNames) });
+    connection.sendDiagnostics({ uri: change.document.uri, diagnostics: getDiagnostics(tree, config?.rules, customTagNames, config?.customRules) });
   }
 });
 
