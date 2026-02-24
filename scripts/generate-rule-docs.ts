@@ -10,7 +10,7 @@ const END_MARKER = '<!-- RULES_TABLE_END -->';
 const header = '| Rule | Default | Description |';
 const separator = '| --- | --- | --- |';
 const rows = RULES.map(
-  r => `| \`${r.name}\` | \`${r.defaultSeverity}\` | ${r.description} |`,
+  (r) => `| \`${r.name}\` | \`${r.defaultSeverity}\` | ${r.description} |`,
 );
 const table = [header, separator, ...rows].join('\n');
 
@@ -23,7 +23,9 @@ const startIdx = readme.indexOf(START_MARKER);
 const endIdx = readme.indexOf(END_MARKER);
 
 if (startIdx === -1 || endIdx === -1) {
-  console.error(`Could not find ${START_MARKER} / ${END_MARKER} markers in README.md`);
+  console.error(
+    `Could not find ${START_MARKER} / ${END_MARKER} markers in README.md`,
+  );
   process.exit(1);
 }
 

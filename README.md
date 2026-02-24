@@ -228,36 +228,87 @@ Additionally, the following rules are configurable. Set their severities (`"erro
 {
   "rules": {
     "consecutiveDuplicateSections": "off",
-    "preferMustacheComments": "warning"
-  }
+    "preferMustacheComments": "warning",
+  },
 }
 ```
 
 <!-- RULES_TABLE_START -->
 
-| Rule | Default | Description |
-| --- | --- | --- |
-| `nestedDuplicateSections` | `error` | Flags `{{#name}}` nested inside another `{{#name}}` with the same name |
-| `unquotedMustacheAttributes` | `error` | Requires quotes around mustache expressions used as attribute values |
-| `consecutiveDuplicateSections` | `warning` | Warns when adjacent same-name sections can be merged |
-| `selfClosingNonVoidTags` | `error` | Disallows self-closing syntax on non-void HTML elements (e.g. `<div/>`) |
-| `duplicateAttributes` | `error` | Detects duplicate HTML attributes on the same element |
-| `unescapedEntities` | `warning` | Flags unescaped `&` and `>` characters in text content |
-| `preferMustacheComments` | `off` | Suggests replacing HTML comments with mustache comments |
-| `unrecognizedHtmlTags` | `error` | Flags HTML tags that are not standard HTML elements or valid custom elements |
+| Rule                           | Default   | Description                                                                  |
+| ------------------------------ | --------- | ---------------------------------------------------------------------------- |
+| `nestedDuplicateSections`      | `error`   | Flags `{{#name}}` nested inside another `{{#name}}` with the same name       |
+| `unquotedMustacheAttributes`   | `error`   | Requires quotes around mustache expressions used as attribute values         |
+| `consecutiveDuplicateSections` | `warning` | Warns when adjacent same-name sections can be merged                         |
+| `selfClosingNonVoidTags`       | `error`   | Disallows self-closing syntax on non-void HTML elements (e.g. `<div/>`)      |
+| `duplicateAttributes`          | `error`   | Detects duplicate HTML attributes on the same element                        |
+| `unescapedEntities`            | `warning` | Flags unescaped `&` and `>` characters in text content                       |
+| `preferMustacheComments`       | `off`     | Suggests replacing HTML comments with mustache comments                      |
+| `unrecognizedHtmlTags`         | `error`   | Flags HTML tags that are not standard HTML elements or valid custom elements |
 
 <!-- RULES_TABLE_END -->
 
+### Custom Rules
+
+Define project-specific lint rules using CSS-like selectors to match HTML elements and Mustache sections:
+
+```jsonc
+{
+  "customRules": [
+    {
+      "id": "no-font",
+      "selector": "font",
+      "message": "The <font> tag is deprecated. Use CSS instead.",
+    },
+    {
+      "id": "no-inline-styles",
+      "selector": "[style]",
+      "message": "Avoid inline styles",
+      "severity": "warning",
+    },
+    {
+      "id": "images-need-alt",
+      "selector": "img:not([alt])",
+      "message": "Images must have alt text for accessibility",
+    },
+    {
+      "id": "no-hidden-inputs-in-list",
+      "selector": "#items > input[type=hidden]",
+      "message": "Hidden inputs inside {{#items}} sections are usually a mistake",
+    },
+  ],
+}
+```
+
+Each custom rule requires an `id`, `selector`, and `message`. The `severity` defaults to `"error"` but can be set to `"warning"` or `"off"`.
+
+**Selector syntax:**
+
+| Selector             | Matches                                  |
+| -------------------- | ---------------------------------------- |
+| `div`                | HTML elements by tag name                |
+| `#items`             | Mustache sections by name (`{{#items}}`) |
+| `*`                  | Any HTML element                         |
+| `#`                  | Any Mustache section                     |
+| `div span`           | Descendant (span anywhere inside div)    |
+| `div > span`         | Direct child (span directly inside div)  |
+| `[style]`            | Attribute presence                       |
+| `input[type=hidden]` | Attribute value                          |
+| `img:not([alt])`     | Negated attribute                        |
+| `div, span`          | Comma-separated alternatives             |
+
+The `>` (child) combinator is kind-transparent: `div > span` matches even if a Mustache section sits between them (e.g. `<div>{{#show}}<span>{{/show}}</div>`), and `#a > #b` matches across intervening HTML elements.
+
 ### Disabling Lint Rules
 
-Disable a configurable lint rule for an entire file with an inline comment:
+Disable a lint rule for an entire file with an inline comment:
 
 ```html
 <!-- htmlmustache-disable preferMustacheComments -->
 {{! htmlmustache-disable selfClosingNonVoidTags }}
 ```
 
-The comment can appear anywhere in the file. Only configurable rules (listed above) can be disabled. Use multiple comments to disable multiple rules.
+The comment can appear anywhere in the file. Both built-in and custom rules can be disabled by name/id. Use multiple comments to disable multiple rules.
 
 ### EditorConfig
 
