@@ -42,6 +42,7 @@ export interface CheckError {
   severity?: 'error' | 'warning';
   fix?: TextReplacement[];
   fixDescription?: string;
+  ruleName?: string;
 }
 
 const ERROR_NODE_TYPES = new Set([
@@ -171,6 +172,7 @@ export function collectErrors(tree: WalkableTree, rules?: RulesConfig, customTag
         severity,
         fix: error.fix,
         fixDescription: error.fixDescription,
+        ruleName: rule,
       });
     }
   }
@@ -185,7 +187,7 @@ export function collectErrors(tree: WalkableTree, rules?: RulesConfig, customTag
       if (!parsed) continue;
       const matches = matchSelector(tree.rootNode, parsed);
       for (const node of matches) {
-        errors.push({ node, message: rule.message, severity });
+        errors.push({ node, message: rule.message, severity, ruleName: rule.id });
       }
     }
   }

@@ -13,6 +13,8 @@ export function getDiagnostics(tree: Tree, rules?: RulesConfig, customTagNames?:
     },
     message: error.message,
     source: 'htmlmustache',
-    data: error.fix ? { fix: error.fix, fixDescription: error.fixDescription } : undefined,
+    data: error.fix || error.ruleName
+      ? { fix: error.fix, fixDescription: error.fixDescription, ruleName: error.ruleName }
+      : undefined,
   }));
 }
