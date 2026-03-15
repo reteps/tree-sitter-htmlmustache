@@ -8,5 +8,5 @@ await build({
   format: 'cjs',
   outfile: 'cli/out/main.js',
   banner: { js: '#!/usr/bin/env node' },
-  external: ['web-tree-sitter', 'editorconfig', 'tree-sitter'],
+  external: ['web-tree-sitter', 'editorconfig', 'tree-sitter', 'prettier'],
 });

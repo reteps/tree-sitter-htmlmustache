@@ -1,6 +1,6 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { initializeParser } from './wasm';
-import { formatSource } from './format';
+import { formatSource, _setPrettierForTesting } from './format';
 import type { FormattingOptions } from '../../lsp/server/src/formatting/index';
 import type { HtmlMustacheConfig } from '../../lsp/server/src/configFile';
 
@@ -12,25 +12,25 @@ const defaultOptions: FormattingOptions = { tabSize: 2, insertSpaces: true };
 
 describe('formatSource', () => {
   describe('basic HTML', () => {
-    it('formats nested block elements', () => {
-      const result = formatSource('<div><p>hello</p></div>', defaultOptions);
+    it('formats nested block elements', async () => {
+      const result = await formatSource('<div><p>hello</p></div>', defaultOptions);
       expect(result).toBe('<div>\n  <p>hello</p>\n</div>\n');
     });
 
-    it('keeps short inline content flat', () => {
-      const result = formatSource('<span>text</span>', defaultOptions);
+    it('keeps short inline content flat', async () => {
+      const result = await formatSource('<span>text</span>', defaultOptions);
       expect(result).toBe('<span>text</span>\n');
     });
 
-    it('formats attributes', () => {
-      const result = formatSource('<div class="foo" id="bar">content</div>', defaultOptions);
+    it('formats attributes', async () => {
+      const result = await formatSource('<div class="foo" id="bar">content</div>', defaultOptions);
       expect(result).toBe('<div class="foo" id="bar">content</div>\n');
     });
   });
 
   describe('mustache templates', () => {
-    it('formats mustache sections as blocks', () => {
-      const result = formatSource(
+    it('formats mustache sections as blocks', async () => {
+      const result = await formatSource(
         '<div>{{#items}}<p>{{name}}</p>{{/items}}</div>',
         defaultOptions,
       );
@@ -39,8 +39,8 @@ describe('formatSource', () => {
       );
     });
 
-    it('formats inverted sections', () => {
-      const result = formatSource(
+    it('formats inverted sections', async () => {
+      const result = await formatSource(
         '<div>{{^items}}<p>No items</p>{{/items}}</div>',
         defaultOptions,
       );
@@ -49,23 +49,23 @@ describe('formatSource', () => {
       );
     });
 
-    it('formats mustache variables inline', () => {
-      const result = formatSource('<p>Hello {{name}}</p>', defaultOptions);
+    it('formats mustache variables inline', async () => {
+      const result = await formatSource('<p>Hello {{name}}</p>', defaultOptions);
       expect(result).toBe('<p>Hello {{name}}</p>\n');
     });
   });
 
   describe('options', () => {
-    it('respects indent-size', () => {
-      const result = formatSource(
+    it('respects indent-size', async () => {
+      const result = await formatSource(
         '<div><p>hello</p></div>',
         { tabSize: 4, insertSpaces: true },
       );
       expect(result).toBe('<div>\n    <p>hello</p>\n</div>\n');
     });
 
-    it('respects mustache-spaces', () => {
-      const result = formatSource(
+    it('respects mustache-spaces', async () => {
+      const result = await formatSource(
         '<p>{{name}}</p>',
         defaultOptions,
         { mustacheSpaces: true },
@@ -73,8 +73,8 @@ describe('formatSource', () => {
       expect(result).toBe('<p>{{ name }}</p>\n');
     });
 
-    it('respects print-width', () => {
-      const result = formatSource(
+    it('respects print-width', async () => {
+      const result = await formatSource(
         '<p>Some text that is short</p>',
         defaultOptions,
         { printWidth: 20 },
@@ -86,23 +86,23 @@ describe('formatSource', () => {
   });
 
   describe('idempotency', () => {
-    it('formatting already-formatted content produces same output', () => {
+    it('formatting already-formatted content produces same output', async () => {
       const input = '<div>\n  <p>hello</p>\n</div>\n';
-      const first = formatSource(input, defaultOptions);
-      const second = formatSource(first, defaultOptions);
+      const first = await formatSource(input, defaultOptions);
+      const second = await formatSource(first, defaultOptions);
       expect(second).toBe(first);
     });
 
-    it('double-format of mustache content is stable', () => {
+    it('double-format of mustache content is stable', async () => {
       const input = '<div>\n  {{#items}}\n    <p>{{name}}</p>\n  {{/items}}\n</div>\n';
-      const first = formatSource(input, defaultOptions);
-      const second = formatSource(first, defaultOptions);
+      const first = await formatSource(input, defaultOptions);
+      const second = await formatSource(first, defaultOptions);
       expect(second).toBe(first);
     });
   });
 
   describe('script and style in mustache conditionals', () => {
-    it('re-indents script content inside mustache section', () => {
+    it('re-indents script content inside mustache section', async () => {
       const input = [
         '{{#show}}',
         '<script>',
@@ -111,7 +111,7 @@ describe('formatSource', () => {
         '</script>',
         '{{/show}}',
       ].join('\n');
-      const result = formatSource(input, defaultOptions);
+      const result = await formatSource(input, defaultOptions);
       expect(result).toBe(
         [
           '{{#show}}',
@@ -125,7 +125,7 @@ describe('formatSource', () => {
       );
     });
 
-    it('re-indents style content inside mustache section', () => {
+    it('re-indents style content inside mustache section', async () => {
       const input = [
         '{{#show}}',
         '<style>',
@@ -134,13 +134,18 @@ describe('formatSource', () => {
         '</style>',
         '{{/show}}',
       ].join('\n');
-      const result = formatSource(input, defaultOptions);
+      const result = await formatSource(input, defaultOptions);
+      // Prettier formats the CSS (expanding declarations to multiline)
       expect(result).toBe(
         [
           '{{#show}}',
           '  <style>',
-          '    .foo { color: red; }',
-          '    .bar { color: blue; }',
+          '    .foo {',
+          '      color: red;',
+          '    }',
+          '    .bar {',
+          '      color: blue;',
+          '    }',
           '  </style>',
           '{{/show}}',
           '',
@@ -149,10 +154,54 @@ describe('formatSource', () => {
     });
   });
 
+  describe('embedded formatting with prettier', () => {
+    afterEach(() => {
+      _setPrettierForTesting(undefined);
+    });
+
+    it('formats javascript inside script tags', async () => {
+      const input = [
+        '<script>',
+        'const   x=1;const y =  2;',
+        '</script>',
+      ].join('\n');
+      const result = await formatSource(input, defaultOptions);
+      expect(result).toBe(
+        [
+          '<script>',
+          '  const x = 1;',
+          '  const y = 2;',
+          '</script>',
+          '',
+        ].join('\n')
+      );
+    });
+
+    it('falls back to re-indent when prettier is unavailable', async () => {
+      _setPrettierForTesting(null);
+
+      const input = [
+        '<script>',
+        'const   x=1;const y =  2;',
+        '</script>',
+      ].join('\n');
+      const result = await formatSource(input, defaultOptions);
+      // Without prettier, content is re-indented but not reformatted
+      expect(result).toBe(
+        [
+          '<script>',
+          '  const   x=1;const y =  2;',
+          '</script>',
+          '',
+        ].join('\n')
+      );
+    });
+  });
+
   describe('config file integration', () => {
-    it('applies config file settings via configFile param', () => {
+    it('applies config file settings via configFile param', async () => {
       const config: HtmlMustacheConfig = { indentSize: 4 };
-      const result = formatSource(
+      const result = await formatSource(
         '<div><p>hello</p></div>',
         defaultOptions,
         { configFile: config },
@@ -160,11 +209,11 @@ describe('formatSource', () => {
       expect(result).toBe('<div>\n    <p>hello</p>\n</div>\n');
     });
 
-    it('applies mustacheSpaces from config file via caller', () => {
+    it('applies mustacheSpaces from config file via caller', async () => {
       // Config file mustacheSpaces is resolved by the caller (resolveSettings),
       // not by formatDocument itself. The configFile param only affects indentation.
       const config: HtmlMustacheConfig = { mustacheSpaces: true };
-      const result = formatSource(
+      const result = await formatSource(
         '<p>{{name}}</p>',
         defaultOptions,
         { mustacheSpaces: config.mustacheSpaces, configFile: config },
@@ -172,11 +221,11 @@ describe('formatSource', () => {
       expect(result).toBe('<p>{{ name }}</p>\n');
     });
 
-    it('CLI flags override config file', () => {
+    it('CLI flags override config file', async () => {
       // Config says indentSize 4, but we pass options with tabSize 2
       const config: HtmlMustacheConfig = { indentSize: 4 };
       // The options param represents already-resolved settings (CLI flags win)
-      const result = formatSource(
+      const result = await formatSource(
         '<div><p>hello</p></div>',
         { tabSize: 2, insertSpaces: true },
         { configFile: config },

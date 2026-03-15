@@ -10,6 +10,7 @@ import { getEditorConfigOptions } from '../../lsp/server/src/formatting/editorco
 import { loadConfigFileForPath } from '../../lsp/server/src/configFile';
 import type { NoBreakDelimiter } from '../../lsp/server/src/configFile';
 import type { CustomCodeTagConfig } from '../../lsp/server/src/customCodeTags';
+import { collectEmbeddedRegions } from '../../lsp/server/src/embeddedRegions';
 import { initializeParser, parseDocument } from './wasm';
 import { resolveFiles } from './check';
 
@@ -148,14 +149,73 @@ function resolveSettings(flags: FormatFlags, filePath?: string): {
   };
 }
 
-export function formatSource(
+const LANGUAGE_TO_PRETTIER_PARSER: Record<string, string> = {
+  javascript: 'babel',
+  typescript: 'typescript',
+  css: 'css',
+};
+
+let prettierModule: typeof import('prettier') | null | undefined;
+
+async function getPrettier(): Promise<typeof import('prettier') | null> {
+  if (prettierModule !== undefined) return prettierModule;
+  try {
+    prettierModule = await import('prettier');
+    return prettierModule;
+  } catch {
+    prettierModule = null;
+    return null;
+  }
+}
+
+/** @internal Override the cached prettier module (for testing). Pass undefined to reset. */
+export function _setPrettierForTesting(value: typeof import('prettier') | null | undefined) {
+  prettierModule = value;
+}
+
+async function formatEmbeddedRegions(
+  tree: ReturnType<typeof parseDocument>,
+  options: FormattingOptions,
+): Promise<Map<number, string>> {
+  const result = new Map<number, string>();
+  const prettier = await getPrettier();
+  if (!prettier) return result;
+
+  const regions = collectEmbeddedRegions(tree.rootNode);
+  if (regions.length === 0) return result;
+
+  await Promise.all(
+    regions.map(async (region) => {
+      const parser = LANGUAGE_TO_PRETTIER_PARSER[region.languageId];
+      if (!parser) return;
+      try {
+        const formatted = await prettier.format(region.content, {
+          parser,
+          tabWidth: options.tabSize,
+          useTabs: !options.insertSpaces,
+        });
+        result.set(region.startIndex, formatted);
+      } catch {
+        // Formatting failed (e.g. syntax error in snippet) — skip
+      }
+    })
+  );
+
+  return result;
+}
+
+export async function formatSource(
   source: string,
   options: FormattingOptions,
   params: FormatDocumentParams = {},
-): string {
+): Promise<string> {
   const tree = parseDocument(source);
+  const embeddedFormatted = await formatEmbeddedRegions(tree, options);
   const document = TextDocument.create('file:///stdin', 'htmlmustache', 1, source);
-  const edits = formatDocument(tree, document, options, params);
+  const edits = formatDocument(tree, document, options, {
+    ...params,
+    embeddedFormatted: embeddedFormatted.size > 0 ? embeddedFormatted : undefined,
+  });
   if (edits.length === 0) return source;
   return edits[0].newText;
 }
@@ -177,7 +237,7 @@ export async function run(args: string[]): Promise<number> {
     await initializeParser();
     const { options, ...params } = resolveSettings(flags);
     const source = fs.readFileSync(0, 'utf-8');
-    const formatted = formatSource(source, options, params);
+    const formatted = await formatSource(source, options, params);
     process.stdout.write(formatted);
     return 0;
   }
@@ -207,7 +267,7 @@ export async function run(args: string[]): Promise<number> {
     const displayPath = path.relative(cwd, file) || file;
     const source = fs.readFileSync(file, 'utf-8');
     const { options, ...params } = resolveSettings(flags, file);
-    const formatted = formatSource(source, options, params);
+    const formatted = await formatSource(source, options, params);
     const changed = formatted !== source;
 
     if (changed) changedCount++;
