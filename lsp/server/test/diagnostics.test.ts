@@ -114,6 +114,24 @@ describe('Diagnostics', () => {
       expect(diagnostics.length).toBeGreaterThan(0);
     });
 
+    it('allows cross-boundary conditional wrapping inside outer element', () => {
+      const tree = parseText(
+        '<div class="input-group">\n' +
+        '  {{#bad_section}}\n' +
+        '  <h1>Hello there</h1>\n' +
+        '  <div>\n' +
+        '  {{/bad_section}}\n' +
+        '  <h2>Hello there</h2>\n' +
+        '  {{#bad_section}}\n' +
+        '  </div>\n' +
+        '  {{/bad_section}}\n' +
+        '</div>',
+      );
+      const diagnostics = getDiagnostics(tree);
+
+      expect(diagnostics.length).toBe(0);
+    });
+
     it('detects orphan close tag in section', () => {
       const tree = parseText('{{#s}}</span>{{/s}}');
       const diagnostics = getDiagnostics(tree);

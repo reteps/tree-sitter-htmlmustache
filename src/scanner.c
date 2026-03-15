@@ -386,6 +386,17 @@ static bool scan_end_tag_name(Scanner *scanner, TSLexer *lexer) {
 
     Tag tag = tag_for_name(tag_name);
     if (scanner->tags.size > 0 && tag_eq(array_back(&scanner->tags), &tag)) {
+        // Don't close HTML tags that were opened before the current mustache section.
+        // This prevents e.g. </div> inside {{#section}}...{{/section}} from closing
+        // an outer <div> that was opened before the section started.
+        if (scanner->mustache_tags.size > 0) {
+            MustacheTag *current_mustache_tag = array_back(&scanner->mustache_tags);
+            if (scanner->tags.size <= current_mustache_tag->html_tag_stack_size) {
+                lexer->result_symbol = HTML_ERRONEOUS_END_TAG_NAME;
+                tag_free(&tag);
+                return true;
+            }
+        }
         pop_html_tag(scanner);
         lexer->result_symbol = HTML_END_TAG_NAME;
     } else {

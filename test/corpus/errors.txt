@@ -173,6 +173,60 @@ Error recovery: error inside nested mustache and HTML
       (mustache_tag_name))))
 
 ===
+Cross-boundary conditional wrapping inside outer element
+===
+<div class="input-group">
+  {{#bad_section}}
+  <h1>Hello there</h1>
+  <div>
+  {{/bad_section}}
+  <h2>Hello there</h2>
+  {{#bad_section}}
+  </div>
+  {{/bad_section}}
+</div>
+---
+
+(document
+  (html_element
+    (html_start_tag
+      (html_tag_name)
+      (html_attribute
+        (html_attribute_name)
+        (html_quoted_attribute_value
+          (html_attribute_value))))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_element
+        (html_start_tag
+          (html_tag_name))
+        (text)
+        (html_end_tag
+          (html_tag_name)))
+      (html_element
+        (html_start_tag
+          (html_tag_name))
+        (html_forced_end_tag))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (html_element
+      (html_start_tag
+        (html_tag_name))
+      (text)
+      (html_end_tag
+        (html_tag_name)))
+    (mustache_section
+      (mustache_section_begin
+        (mustache_tag_name))
+      (html_erroneous_end_tag
+        (html_erroneous_end_tag_name))
+      (mustache_section_end
+        (mustache_tag_name)))
+    (html_end_tag
+      (html_tag_name))))
+
+===
 Implicit end tag from closing mustache context
 ===
 <div>
