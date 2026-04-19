@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://github.com/reteps/tree-sitter-htmlmustache/actions/workflows/lint.yml"><img src="https://img.shields.io/github/actions/workflow/status/reteps/tree-sitter-htmlmustache/lint.yml?logo=github&label=Lint" alt="Lint"></a>
   <a href="https://github.com/reteps/tree-sitter-htmlmustache/actions/workflows/lsp.yml"><img src="https://img.shields.io/github/actions/workflow/status/reteps/tree-sitter-htmlmustache/lsp.yml?logo=github&label=LSP" alt="LSP"></a>
-  <a href="https://marketplace.visualstudio.com/items?itemName=reteps.htmlmustache-lsp"><img src="https://img.shields.io/visual-studio-marketplace/v/reteps.htmlmustache-lsp?logo=visualstudiocode&label=VS%20Code" alt="VS Code Marketplace"></a>
+  <a href="https://open-vsx.org/extension/reteps/htmlmustache-lsp"><img src="https://img.shields.io/open-vsx/v/reteps/htmlmustache-lsp?logo=visualstudiocode&label=VS%20Code" alt="Open VSX"></a>
 </p>
 
 ---
