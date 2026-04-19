@@ -21,6 +21,11 @@ jobs:
         with:
           node-version: 22
 
+      # Pin npm to a known-good version: 11.5.2+ adds Trusted Publishing (OIDC)
+      # support; 11.12.1 ships broken (missing `promise-retry`), so don't
+      # blindly install latest.
+      - run: npm install -g npm@11.11.1
+
       - run: npm install
 
       - run: npm publish --provenance --access public
