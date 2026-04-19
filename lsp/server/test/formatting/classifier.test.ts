@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseText } from '../setup';
+import { parseText } from '../setup.js';
 import {
   isBlockLevel,
   isInlineElement,
@@ -12,8 +12,8 @@ import {
   getCSSDisplay,
   INLINE_ELEMENTS,
   PRESERVE_CONTENT_ELEMENTS,
-} from '../../src/formatting/classifier';
-import type { CustomCodeTagConfig } from '../../src/customCodeTags';
+} from '../../src/formatting/classifier.js';
+import type { CustomCodeTagConfig } from '../../src/customCodeTags.js';
 
 describe('Classifier', () => {
   describe('INLINE_ELEMENTS', () => {

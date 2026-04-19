@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { FoldingRangeKind } from 'vscode-languageserver/node';
-import { parseText } from './setup';
-import { getFoldingRanges } from '../src/folding';
+import { parseText } from './setup.js';
+import { getFoldingRanges } from '../src/folding.js';
 
 describe('Folding Ranges', () => {
   function getRanges(content: string) {

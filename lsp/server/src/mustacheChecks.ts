@@ -1,6 +1,6 @@
-import type { BalanceNode, BalanceError } from './htmlBalanceChecker';
-import { getSectionName } from './htmlBalanceChecker';
-import { isMustacheSection } from './nodeHelpers';
+import type { BalanceNode, BalanceError } from './htmlBalanceChecker.js';
+import { getSectionName } from './htmlBalanceChecker.js';
+import { isMustacheSection } from './nodeHelpers.js';
 
 export interface TextReplacement {
   startIndex: number;

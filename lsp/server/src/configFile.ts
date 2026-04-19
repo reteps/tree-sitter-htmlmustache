@@ -1,9 +1,9 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
-import type { CustomCodeTagConfig, CustomCodeTagIndentMode } from './customCodeTags';
-import type { CSSDisplay } from './formatting/classifier';
-import { KNOWN_RULE_NAMES } from './ruleMetadata';
+import type { CustomCodeTagConfig, CustomCodeTagIndentMode } from './customCodeTags.js';
+import type { CSSDisplay } from './formatting/classifier.js';
+import { KNOWN_RULE_NAMES } from './ruleMetadata.js';
 
 const VALID_CSS_DISPLAY_VALUES = new Set<string>([
   'block', 'inline', 'inline-block', 'table-row', 'table-cell', 'table',

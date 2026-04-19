@@ -250,7 +250,7 @@ Additionally, the following rules are configurable. Set their severities (`"erro
 
 ### Custom Rules
 
-Define project-specific lint rules using CSS-like selectors to match HTML elements and Mustache sections:
+Define project-specific lint rules using CSS-like selectors. Mustache constructs are written literally — `{{foo}}`, `{{{foo}}}`, `{{#section}}`, `{{^inverted}}`, `{{!comment}}`, `{{>partial}}`:
 
 ```jsonc
 {
@@ -261,20 +261,30 @@ Define project-specific lint rules using CSS-like selectors to match HTML elemen
       "message": "The <font> tag is deprecated. Use CSS instead.",
     },
     {
-      "id": "no-inline-styles",
-      "selector": "[style]",
-      "message": "Avoid inline styles",
-      "severity": "warning",
-    },
-    {
       "id": "images-need-alt",
       "selector": "img:not([alt])",
       "message": "Images must have alt text for accessibility",
     },
     {
       "id": "no-hidden-inputs-in-list",
-      "selector": "#items > input[type=hidden]",
+      "selector": "{{#items}} > input[type=hidden]",
       "message": "Hidden inputs inside {{#items}} sections are usually a mistake",
+    },
+    {
+      "id": "no-relative-client-files-question",
+      "selector": "[src^=\"clientFilesQuestion/\"], [href^=\"clientFilesQuestion/\"]",
+      "message": "Use {{options.client_files_question_url}}/... instead of a relative clientFilesQuestion/... path.",
+      "severity": "warning",
+    },
+    {
+      "id": "no-deprecated-param",
+      "selector": "{{data.deprecated_param}}",
+      "message": "data.deprecated_param was removed.",
+    },
+    {
+      "id": "no-raw-user-input",
+      "selector": "{{{user_input}}}",
+      "message": "Never emit user text unescaped.",
     },
   ],
 }
@@ -284,20 +294,40 @@ Each custom rule requires an `id`, `selector`, and `message`. The `severity` def
 
 **Selector syntax:**
 
-| Selector             | Matches                                  |
-| -------------------- | ---------------------------------------- |
-| `div`                | HTML elements by tag name                |
-| `#items`             | Mustache sections by name (`{{#items}}`) |
-| `*`                  | Any HTML element                         |
-| `#`                  | Any Mustache section                     |
-| `div span`           | Descendant (span anywhere inside div)    |
-| `div > span`         | Direct child (span directly inside div)  |
-| `[style]`            | Attribute presence                       |
-| `input[type=hidden]` | Attribute value                          |
-| `img:not([alt])`     | Negated attribute                        |
-| `div, span`          | Comma-separated alternatives             |
+| Selector                                  | Matches                                       |
+| ----------------------------------------- | --------------------------------------------- |
+| `div`                                     | HTML elements by tag name                     |
+| `*`                                       | Any HTML element                              |
+| `#main`                                   | ID (shorthand for `[id="main"]`)              |
+| `.panel`                                  | Class (shorthand for `[class~="panel"]`)      |
+| `div span`                                | Descendant (span anywhere inside div)         |
+| `div > span`                              | Direct child                                  |
+| `[style]`                                 | Attribute presence                            |
+| `input[type=hidden]`                      | Attribute value (exact)                       |
+| `[src^="prefix/"]`                        | Attribute starts with                         |
+| `[href*="substring"]`                     | Attribute contains                            |
+| `[src$=".png"]`                           | Attribute ends with                           |
+| `[class~="warning"]`                      | Attribute contains whitespace-token           |
+| `img:not([alt])`                          | Negated attribute / class / id                |
+| `{{foo}}`                                 | Escaped variable `{{foo}}`                    |
+| `{{data.foo}}`                            | Variable with a dotted path                   |
+| `{{{foo}}}`                               | Triple / unescaped variable                   |
+| `{{options.*}}`                           | Variable path prefix match                    |
+| `{{*.deprecated}}`                        | Variable path suffix match                    |
+| `{{*}}`                                   | Any escaped variable                          |
+| `{{{*}}}`                                 | Any triple                                    |
+| `{{#items}}`                              | Section `{{#items}}...{{/items}}`             |
+| `{{^items}}`                              | Inverted section `{{^items}}...{{/items}}`    |
+| `{{#items}} > li`                         | Direct child inside a section                 |
+| `{{!TODO}}`                               | Comment with exact content                    |
+| `{{!*TODO*}}`                             | Comment containing "TODO"                     |
+| `{{>header}}`                             | Partial invocation                            |
+| `{{>legacy_*}}`                           | Partial name prefix                           |
+| `pl-multiple-choice:has({{foo}})`         | Element containing a given variable           |
+| `pl-multiple-choice:not(:has(pl-answer))` | Element missing a required descendant         |
+| `div, span`                               | Comma-separated alternatives                  |
 
-The `>` (child) combinator is kind-transparent: `div > span` matches even if a Mustache section sits between them (e.g. `<div>{{#show}}<span>{{/show}}</div>`), and `#a > #b` matches across intervening HTML elements.
+The `>` (child) combinator is kind-transparent: `div > span` matches even if a Mustache section sits between them (e.g. `<div>{{#show}}<span>{{/show}}</div>`), and `{{#a}} > {{#b}}` matches across intervening HTML elements. `{{#foo}}` matches only positive sections — to target inverted sections use `{{^foo}}`.
 
 ### Disabling Lint Rules
 

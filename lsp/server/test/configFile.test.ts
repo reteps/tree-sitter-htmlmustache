@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { pathToFileURL } from 'node:url';
 
-import { parseJsonc, findConfigFile, validateConfig, loadConfigFile, loadConfigFileForPath } from '../src/configFile';
+import { parseJsonc, findConfigFile, validateConfig, loadConfigFile, loadConfigFileForPath } from '../src/configFile.js';
 
 describe('parseJsonc', () => {
   it('parses plain JSON', () => {

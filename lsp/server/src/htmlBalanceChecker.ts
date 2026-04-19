@@ -2,7 +2,7 @@ import {
   getTagName,
   getSectionName,
   getErroneousEndTagName,
-} from './nodeHelpers';
+} from './nodeHelpers.js';
 
 // Minimal syntax node interface for balance checking.
 // Compatible with web-tree-sitter's SyntaxNode.
@@ -41,7 +41,7 @@ type PathItem = TagEvent | ConditionalFork;
 // --- Phase 1: Extract tag events from parse tree ---
 
 // Re-export for consumers that import from this module
-export { getSectionName } from './nodeHelpers';
+export { getSectionName } from './nodeHelpers.js';
 
 function getTagNameLower(element: BalanceNode): string | null {
   return getTagName(element)?.toLowerCase() ?? null;

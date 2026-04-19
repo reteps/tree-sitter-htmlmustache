@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parseText, createTestQuery } from './setup';
-import { buildSemanticTokens, HIGHLIGHT_QUERY, RAW_TEXT_QUERY } from '../src/semanticTokens';
+import { parseText, createTestQuery } from './setup.js';
+import { buildSemanticTokens, HIGHLIGHT_QUERY, RAW_TEXT_QUERY } from '../src/semanticTokens.js';
 
 describe('Semantic Tokens', () => {
   function getTokens(text: string) {

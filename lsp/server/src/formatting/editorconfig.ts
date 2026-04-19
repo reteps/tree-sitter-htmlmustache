@@ -2,8 +2,8 @@
  * EditorConfig integration for formatting options.
  */
 
-import type { FormattingOptions } from './index';
-import type { HtmlMustacheConfig } from '../configFile';
+import type { FormattingOptions } from './index.js';
+import type { HtmlMustacheConfig } from '../configFile.js';
 import { parseSync as parseEditorConfig, Props as EditorConfigProps } from 'editorconfig';
 import { fileURLToPath } from 'url';
 

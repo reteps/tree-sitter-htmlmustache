@@ -23,7 +23,7 @@ import {
   empty,
   ifBreak,
   isLine,
-} from './ir';
+} from './ir.js';
 import {
   isBlockLevel,
   shouldPreserveContent,
@@ -32,12 +32,12 @@ import {
   shouldTreatAsBlock,
   getCSSDisplay,
   isWhitespaceInsensitive,
-} from './classifier';
-import { normalizeText, getVisibleChildren, normalizeMustacheWhitespace, normalizeMustacheWhitespaceAll, getIgnoreDirective, getTagName } from './utils';
-import type { CustomCodeTagConfig } from '../customCodeTags';
-import { getAttributeValue } from '../customCodeTags';
-import { isRawContentElement } from '../nodeHelpers';
-import type { NoBreakDelimiter } from '../configFile';
+} from './classifier.js';
+import { normalizeText, getVisibleChildren, normalizeMustacheWhitespace, normalizeMustacheWhitespaceAll, getIgnoreDirective, getTagName } from './utils.js';
+import type { CustomCodeTagConfig } from '../customCodeTags.js';
+import { getAttributeValue } from '../customCodeTags.js';
+import { isRawContentElement } from '../nodeHelpers.js';
+import type { NoBreakDelimiter } from '../configFile.js';
 
 export interface FormatterContext {
   document: TextDocument;

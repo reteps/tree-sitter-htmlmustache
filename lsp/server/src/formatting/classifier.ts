@@ -6,10 +6,10 @@
  */
 
 import type { Node as SyntaxNode } from 'web-tree-sitter';
-import { getTagName } from './utils';
-import { isMustacheSection, isRawContentElement, isHtmlElementType } from '../nodeHelpers';
-import type { CustomCodeTagConfig } from '../customCodeTags';
-import { isCodeTag } from '../customCodeTags';
+import { getTagName } from './utils.js';
+import { isMustacheSection, isRawContentElement, isHtmlElementType } from '../nodeHelpers.js';
+import type { CustomCodeTagConfig } from '../customCodeTags.js';
+import { isCodeTag } from '../customCodeTags.js';
 
 const EMPTY_MAP: Map<string, CustomCodeTagConfig> = new Map();
 

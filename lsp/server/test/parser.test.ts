@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseText, getTestLanguage } from './setup';
+import { parseText, getTestLanguage } from './setup.js';
 
 describe('Parser', () => {
   describe('initialization', () => {

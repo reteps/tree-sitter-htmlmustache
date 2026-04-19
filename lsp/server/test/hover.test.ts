@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { MarkupKind } from 'vscode-languageserver/node';
-import { parseText, createMockDocument } from './setup';
-import { getHoverInfo } from '../src/hover';
+import { parseText, createMockDocument } from './setup.js';
+import { getHoverInfo } from '../src/hover.js';
 
 describe('Hover', () => {
   function getHover(content: string, line: number, character: number) {

@@ -1,6 +1,6 @@
-import { SemanticTokensBuilder } from 'vscode-languageserver/node';
-import type { Tree, Query } from './parser';
-import { tokenTypeIndex } from './tokenLegend';
+import { SemanticTokensBuilder } from 'vscode-languageserver/node.js';
+import type { Tree, Query } from './parser.js';
+import { tokenTypeIndex } from './tokenLegend.js';
 
 /**
  * Highlight query source - kept in sync with queries/highlights.scm

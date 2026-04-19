@@ -2,6 +2,7 @@
   "name": "htmlmustache-lsp-server",
   "version": "0.2.0",
   "private": true,
+  "type": "module",
   "main": "./out/server.js",
   "scripts": {
     "build": "tsc -b",
@@ -11,6 +12,7 @@
   },
   "dependencies": {
     "editorconfig": "^3.0.1",
+    "parsel-js": "^1.2.2",
     "vscode-languageserver": "^9.0.1",
     "vscode-languageserver-textdocument": "^1.0.12",
     "vscode-oniguruma": "^2.0.1",

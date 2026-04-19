@@ -5,7 +5,7 @@
  * indentation and line breaks.
  */
 
-import type { Doc } from './ir';
+import type { Doc } from './ir.js';
 
 export interface PrinterOptions {
   /** The indentation string (e.g., '  ' for 2 spaces or '\t' for tab) */

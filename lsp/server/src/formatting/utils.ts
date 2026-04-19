@@ -5,7 +5,7 @@
 import type { Node as SyntaxNode } from 'web-tree-sitter';
 
 // Re-export getTagName from the canonical location
-export { getTagName } from '../nodeHelpers';
+export { getTagName } from '../nodeHelpers.js';
 
 /**
  * Normalize text content - collapse horizontal whitespace while preserving line breaks.

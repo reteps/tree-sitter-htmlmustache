@@ -6,8 +6,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { FormattingOptions } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { parseText, createMockDocument } from '../setup';
-import { formatDocument, formatDocumentRange } from '../../src/formatting';
+import { parseText, createMockDocument } from '../setup.js';
+import { formatDocument, formatDocumentRange } from '../../src/formatting/index.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';

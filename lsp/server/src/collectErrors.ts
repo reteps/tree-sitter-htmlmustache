@@ -3,8 +3,8 @@
  * and the CLI linter.
  */
 
-import type { BalanceNode } from './htmlBalanceChecker';
-import { checkHtmlBalance, checkUnclosedTags } from './htmlBalanceChecker';
+import type { BalanceNode } from './htmlBalanceChecker.js';
+import { checkHtmlBalance, checkUnclosedTags } from './htmlBalanceChecker.js';
 import {
   checkNestedSameNameSections,
   checkUnquotedMustacheAttributes,
@@ -14,11 +14,11 @@ import {
   checkUnescapedEntities,
   checkHtmlComments,
   checkUnrecognizedHtmlTags,
-} from './mustacheChecks';
-import type { TextReplacement } from './mustacheChecks';
-import type { RulesConfig, RuleSeverity, CustomRule } from './configFile';
-import { RULE_DEFAULTS, KNOWN_RULE_NAMES } from './ruleMetadata';
-import { parseSelector, matchSelector } from './selectorMatcher';
+} from './mustacheChecks.js';
+import type { TextReplacement } from './mustacheChecks.js';
+import type { RulesConfig, RuleSeverity, CustomRule } from './configFile.js';
+import { RULE_DEFAULTS, KNOWN_RULE_NAMES } from './ruleMetadata.js';
+import { parseSelector, matchSelector } from './selectorMatcher.js';
 
 /** A tree that provides walk() and rootNode, compatible with both web-tree-sitter and CLI wasm. */
 export interface WalkableTree {
@@ -150,7 +150,7 @@ export function collectErrors(tree: WalkableTree, rules?: RulesConfig, customTag
   // Configurable lint checks
   const sourceText = tree.rootNode.text;
 
-  const ruleChecks: { rule: keyof RulesConfig; errors: () => import('./mustacheChecks').FixableError[] }[] = [
+  const ruleChecks: { rule: keyof RulesConfig; errors: () => import('./mustacheChecks.js').FixableError[] }[] = [
     { rule: 'nestedDuplicateSections', errors: () => checkNestedSameNameSections(tree.rootNode) },
     { rule: 'unquotedMustacheAttributes', errors: () => checkUnquotedMustacheAttributes(tree.rootNode) },
     { rule: 'consecutiveDuplicateSections', errors: () => checkConsecutiveSameNameSections(tree.rootNode, sourceText) },

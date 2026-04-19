@@ -10,7 +10,7 @@
  */
 
 import type { Node as SyntaxNode } from 'web-tree-sitter';
-import type { Tree } from '../parser';
+import type { Tree } from '../parser.js';
 import type { TextDocument } from 'vscode-languageserver-textdocument';
 
 /** Formatting options (structurally compatible with LSP FormattingOptions). */
@@ -37,13 +37,13 @@ export interface TextEdit {
   newText: string;
 }
 
-import { print } from './printer';
-import { formatDocument as formatDocumentToDoc, FormatterContext } from './formatters';
-import { mergeOptions, createIndentUnit } from './editorconfig';
-import type { HtmlMustacheConfig, NoBreakDelimiter } from '../configFile';
-import { findContainingNode, calculateIndentLevel } from './utils';
-import { isBlockLevel, getContentNodes, hasImplicitEndTags } from './classifier';
-import type { CustomCodeTagConfig } from '../customCodeTags';
+import { print } from './printer.js';
+import { formatDocument as formatDocumentToDoc, FormatterContext } from './formatters.js';
+import { mergeOptions, createIndentUnit } from './editorconfig.js';
+import type { HtmlMustacheConfig, NoBreakDelimiter } from '../configFile.js';
+import { findContainingNode, calculateIndentLevel } from './utils.js';
+import { isBlockLevel, getContentNodes, hasImplicitEndTags } from './classifier.js';
+import type { CustomCodeTagConfig } from '../customCodeTags.js';
 
 export interface FormatDocumentParams {
   customTags?: CustomCodeTagConfig[];
@@ -182,12 +182,12 @@ export function formatDocumentRange(
 /**
  * Format a single node for range formatting (without the document wrapper).
  */
-import { formatNode } from './formatters';
+import { formatNode } from './formatters.js';
 
 function formatNodeForRange(
   node: SyntaxNode,
   context: FormatterContext
-): import('./ir').Doc {
+): import('./ir.js').Doc {
   return formatNode(node, context);
 }
 

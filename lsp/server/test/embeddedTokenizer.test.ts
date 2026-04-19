@@ -6,11 +6,11 @@ import {
   initializeTextMateRegistry,
   isTextMateReady,
   tokenizeEmbeddedContent,
-} from '../src/embeddedTokenizer';
-import { buildSemanticTokens, HIGHLIGHT_QUERY, RAW_TEXT_QUERY } from '../src/semanticTokens';
-import type { TokenInfo } from '../src/semanticTokens';
-import { tokenTypeIndex } from '../src/tokenLegend';
-import { parseText, createTestQuery } from './setup';
+} from '../src/embeddedTokenizer.js';
+import { buildSemanticTokens, HIGHLIGHT_QUERY, RAW_TEXT_QUERY } from '../src/semanticTokens.js';
+import type { TokenInfo } from '../src/semanticTokens.js';
+import { tokenTypeIndex } from '../src/tokenLegend.js';
+import { parseText, createTestQuery } from './setup.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

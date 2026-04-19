@@ -1,7 +1,7 @@
 import { Node as SyntaxNode } from 'web-tree-sitter';
-import type { Tree } from './parser';
+import type { Tree } from './parser.js';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { Hover, Position, MarkupKind } from 'vscode-languageserver/node';
+import { Hover, Position, MarkupKind } from 'vscode-languageserver/node.js';
 
 /**
  * Provide hover information for nodes in the document.

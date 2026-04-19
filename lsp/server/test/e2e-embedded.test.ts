@@ -11,17 +11,17 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseText, createTestQuery } from './setup';
-import { findCustomCodeTagContent } from '../src/customCodeTags';
-import type { CustomCodeTagConfig } from '../src/customCodeTags';
+import { parseText, createTestQuery } from './setup.js';
+import { findCustomCodeTagContent } from '../src/customCodeTags.js';
+import type { CustomCodeTagConfig } from '../src/customCodeTags.js';
 import {
   initializeTextMateRegistry,
   isTextMateReady,
   tokenizeEmbeddedContent,
-} from '../src/embeddedTokenizer';
-import { buildSemanticTokens, HIGHLIGHT_QUERY, RAW_TEXT_QUERY } from '../src/semanticTokens';
-import type { TokenInfo } from '../src/semanticTokens';
-import { tokenTypesLegend, tokenTypeIndex } from '../src/tokenLegend';
+} from '../src/embeddedTokenizer.js';
+import { buildSemanticTokens, HIGHLIGHT_QUERY, RAW_TEXT_QUERY } from '../src/semanticTokens.js';
+import type { TokenInfo } from '../src/semanticTokens.js';
+import { tokenTypesLegend, tokenTypeIndex } from '../src/tokenLegend.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 

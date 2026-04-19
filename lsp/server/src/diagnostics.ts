@@ -1,7 +1,7 @@
 import { Diagnostic, DiagnosticSeverity } from 'vscode-languageserver';
-import type { Tree } from './parser';
-import { collectErrors } from './collectErrors';
-import type { RulesConfig, CustomRule } from './configFile';
+import type { Tree } from './parser.js';
+import { collectErrors } from './collectErrors.js';
+import type { RulesConfig, CustomRule } from './configFile.js';
 
 export function getDiagnostics(tree: Tree, rules?: RulesConfig, customTagNames?: string[], customRules?: CustomRule[]): Diagnostic[] {
   const errors = collectErrors(tree, rules, customTagNames, customRules);

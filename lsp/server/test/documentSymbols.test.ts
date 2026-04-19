@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { SymbolKind } from 'vscode-languageserver/node';
-import { parseText, createMockDocument } from './setup';
-import { getDocumentSymbols } from '../src/documentSymbols';
+import { parseText, createMockDocument } from './setup.js';
+import { getDocumentSymbols } from '../src/documentSymbols.js';
 
 describe('Document Symbols', () => {
   function getSymbols(content: string) {

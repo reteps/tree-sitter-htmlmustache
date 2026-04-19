@@ -1,5 +1,5 @@
 import type { Node as SyntaxNode } from 'web-tree-sitter';
-import type { CSSDisplay } from './formatting/classifier';
+import type { CSSDisplay } from './formatting/classifier.js';
 
 export type CustomCodeTagIndentMode = 'never' | 'always' | 'attribute';
 

@@ -1,6 +1,9 @@
-import * as path from 'path';
-import * as fs from 'fs';
+import * as path from 'node:path';
+import * as fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { Parser, Language, Query, Tree } from 'web-tree-sitter';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let parser: Parser | null = null;
 let language: Language | null = null;

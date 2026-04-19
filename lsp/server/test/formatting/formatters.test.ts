@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { parseText, createMockDocument } from '../setup';
-import { print } from '../../src/formatting/printer';
+import { parseText, createMockDocument } from '../setup.js';
+import { print } from '../../src/formatting/printer.js';
 import {
   formatDocument,
   formatNode,
@@ -8,7 +8,7 @@ import {
   formatEndTag,
   formatAttribute,
   FormatterContext,
-} from '../../src/formatting/formatters';
+} from '../../src/formatting/formatters.js';
 
 const defaultPrinterOptions = { indentUnit: '  ', printWidth: 80 };
 

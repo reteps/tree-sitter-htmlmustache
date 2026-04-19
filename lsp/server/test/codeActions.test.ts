@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { CodeActionKind } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { parseText, createMockDocument } from './setup';
-import { getDiagnostics } from '../src/diagnostics';
-import { getCodeActions } from '../src/codeActions';
+import { parseText, createMockDocument } from './setup.js';
+import { getDiagnostics } from '../src/diagnostics.js';
+import { getCodeActions } from '../src/codeActions.js';
 
 function makeParams(document: TextDocument, diagnostics: ReturnType<typeof getDiagnostics>) {
   return {

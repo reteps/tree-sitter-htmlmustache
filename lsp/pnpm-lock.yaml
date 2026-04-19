@@ -45,6 +45,9 @@ importers:
       editorconfig:
         specifier: ^3.0.1
         version: 3.0.1
+      parsel-js:
+        specifier: ^1.2.2
+        version: 1.2.2
       vscode-languageserver:
         specifier: ^9.0.1
         version: 9.0.1
@@ -847,6 +850,9 @@ packages:
   parent-module@1.0.1:
     resolution: {integrity: sha512-GQ2EWRpQV8/o+Aw8YqtfZZPfNRWZYkbidE9k5rpl/hC3vtHHBfGm2Ifi6qWV+coDGkrUKZAxE3Lot5kcsRlh+g==}
     engines: {node: '>=6'}
+
+  parsel-js@1.2.2:
+    resolution: {integrity: sha512-AVJMlwQ4bL2Y0VvYJGk+Fp7eX4SCH2uFoNApmn4yKWACUewZ+alwW3tyoe1r5Z3aLYQTuAuPZIyGghMfO/Tlxw==}
 
   path-exists@4.0.0:
     resolution: {integrity: sha512-ak9Qy5Q7jYb2Wwcey5Fpvg2KoAc/ZIhLSLOSBmRmygPsGwkVVt0fZa0qrtMz+m6tJTAHfZQ8FnmB4MG4LWy7/w==}
@@ -1833,6 +1839,8 @@ snapshots:
   parent-module@1.0.1:
     dependencies:
       callsites: 3.1.0
+
+  parsel-js@1.2.2: {}
 
   path-exists@4.0.0: {}
 

@@ -6,26 +6,29 @@ import {
   InitializeResult,
   TextDocumentSyncKind,
   CodeActionKind,
-} from 'vscode-languageserver/node';
+} from 'vscode-languageserver/node.js';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import * as path from 'path';
+import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import type { Node as SyntaxNode } from 'web-tree-sitter';
-import { initializeParser, parseDocument, getLanguage, createQuery, Tree, Query, setLogger } from './parser';
-import { tokenTypesLegend, tokenModifiersLegend, getLanguageModifier } from './tokenLegend';
-import { buildSemanticTokens, HIGHLIGHT_QUERY, RAW_TEXT_QUERY } from './semanticTokens';
-import type { TokenInfo } from './semanticTokens';
-import { getDocumentSymbols } from './documentSymbols';
-import { getHoverInfo } from './hover';
-import { getFoldingRanges } from './folding';
-import { formatDocument, formatDocumentRange } from './formatting/index';
-import { getDiagnostics } from './diagnostics';
-import { getCodeActions } from './codeActions';
-import { initializeTextMateRegistry, isTextMateReady, tokenizeEmbeddedContent, setEmbeddedTokenizerLogger } from './embeddedTokenizer';
-import { findCustomCodeTagContent, isCodeTag } from './customCodeTags';
-import type { CustomCodeTagConfig } from './customCodeTags';
-import { loadConfigFile } from './configFile';
-import type { HtmlMustacheConfig, NoBreakDelimiter } from './configFile';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { initializeParser, parseDocument, getLanguage, createQuery, Tree, Query, setLogger } from './parser.js';
+import { tokenTypesLegend, tokenModifiersLegend, getLanguageModifier } from './tokenLegend.js';
+import { buildSemanticTokens, HIGHLIGHT_QUERY, RAW_TEXT_QUERY } from './semanticTokens.js';
+import type { TokenInfo } from './semanticTokens.js';
+import { getDocumentSymbols } from './documentSymbols.js';
+import { getHoverInfo } from './hover.js';
+import { getFoldingRanges } from './folding.js';
+import { formatDocument, formatDocumentRange } from './formatting/index.js';
+import { getDiagnostics } from './diagnostics.js';
+import { getCodeActions } from './codeActions.js';
+import { initializeTextMateRegistry, isTextMateReady, tokenizeEmbeddedContent, setEmbeddedTokenizerLogger } from './embeddedTokenizer.js';
+import { findCustomCodeTagContent, isCodeTag } from './customCodeTags.js';
+import type { CustomCodeTagConfig } from './customCodeTags.js';
+import { loadConfigFile } from './configFile.js';
+import type { HtmlMustacheConfig, NoBreakDelimiter } from './configFile.js';
 
 // Create connection and document manager
 const connection = createConnection(ProposedFeatures.all);
@@ -345,7 +348,7 @@ connection.onCodeAction((params) => {
 
 // Embedded script/style formatting helpers
 
-import { collectEmbeddedRegions } from './embeddedRegions';
+import { collectEmbeddedRegions } from './embeddedRegions.js';
 
 /**
  * Send embedded regions to the client for formatting via custom request.

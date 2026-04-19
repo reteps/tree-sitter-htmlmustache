@@ -2,7 +2,7 @@ import type { IGrammar, IRawGrammar, IOnigLib, RegistryOptions } from 'vscode-te
 import { Registry, parseRawGrammar, INITIAL } from 'vscode-textmate';
 import { createOnigScanner, createOnigString, loadWASM } from 'vscode-oniguruma';
 import * as fs from 'fs';
-import { scopeMatchTable } from './tokenLegend';
+import { scopeMatchTable } from './tokenLegend.js';
 
 /**
  * Decode HTML entities in text and build a mapping from decoded positions

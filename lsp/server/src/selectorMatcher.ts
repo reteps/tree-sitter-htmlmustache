@@ -1,217 +1,451 @@
 /**
  * CSS-like selector parser and tree matcher for custom lint rules.
  *
- * Supports: tag, *, #name, #, ancestor descendant, parent > child,
- * [attr], [attr=value], :not([attr]), and combinations thereof.
+ * Mustache constructs are written literally in selectors — `{{foo}}`,
+ * `{{{foo}}}`, `{{#foo}}`, `{{^foo}}`, `{{!foo}}`, `{{>foo}}`. A preprocessor
+ * substitutes each form into an internal `:m-*` pseudo-class marker, then the
+ * rewritten string is handed to parsel-js. This keeps users in Mustache
+ * vocabulary without reinventing a selector parser.
+ *
+ * Supported user-facing syntax:
+ *   - Tag names (`div`), universal (`*`), classes (`.foo`), ids (`#foo`)
+ *   - Attributes: `[attr]`, `[attr=v]`, `[attr^=v]`, `[attr*=v]`, `[attr$=v]`, `[attr~=v]`
+ *   - Descendant (space) and child (`>`) combinators
+ *   - Mustache variables: `{{path}}` and `{{{path}}}` (raw)
+ *   - Mustache sections: `{{#name}}` and `{{^name}}` (inverted)
+ *   - Mustache comments: `{{!content}}`
+ *   - Mustache partials: `{{>name}}`
+ *   - Glob wildcard `*` inside the argument: `{{options.*}}`, `{{*.deprecated}}`, `{{*}}`
+ *   - `:has(selector)` — element has a matching descendant
+ *   - `:not(...)` over any attribute/class/id/:has form
+ *   - Comma-separated alternatives
+ *
+ * Unsupported (parseSelector returns null, rule is skipped):
+ *   - Sibling combinators (`+`, `~`)
+ *   - `[attr|=v]`, case-insensitive `i` flag
+ *   - Mixed HTML + Mustache kinds in one compound (e.g. `img{{foo}}`)
+ *   - `{{/end}}` (end tags aren't standalone nodes)
+ *   - `{{=<% %>=}}` (delimiter changes aren't grammar-tracked)
+ *   - Mustache literals inside `:not(...)` (only attribute/class/id/:has)
  */
 
-import type { BalanceNode } from './htmlBalanceChecker';
-import { getTagName, getSectionName, MUSTACHE_SECTION_TYPES, HTML_ELEMENT_TYPES } from './nodeHelpers';
+import { parse as parselParse, type AST, type Token, type AttributeToken, type ClassToken, type IdToken } from 'parsel-js';
+import type { BalanceNode } from './htmlBalanceChecker.js';
+import {
+  getTagName,
+  getSectionName,
+  getInterpolationPath,
+  getCommentContent,
+  getPartialName,
+  HTML_ELEMENT_TYPES,
+} from './nodeHelpers.js';
 
 // --- Types ---
 
+export type AttributeOperator = '=' | '^=' | '*=' | '$=' | '~=';
+
+export type SegmentKind =
+  | 'html'
+  | 'section'
+  | 'inverted'
+  | 'variable'
+  | 'raw'
+  | 'comment'
+  | 'partial';
+
 export interface AttributeConstraint {
-  name: string;       // lowercased
-  value?: string;     // exact match value
-  negated: boolean;   // true when inside :not()
+  name: string;               // lowercased
+  op: AttributeOperator;      // meaningful only when value !== undefined
+  value?: string;             // quotes stripped; undefined => presence check
+  negated: boolean;           // true when inside :not()
 }
 
-export interface SelectorSegment {
-  kind: 'html' | 'mustache';
-  name: string | null;  // lowercased tag/section name, null = wildcard
+export interface DescendantCheck {
+  selector: ParsedSelector;   // :has(selector) — must match a descendant
+  negated: boolean;           // true for :not(:has(...))
+}
+
+export interface Segment {
+  kind: SegmentKind;
+  name: string | null;        // lowercased identifier/path, null = wildcard
+  pathRegex?: RegExp;         // compiled glob when `name` contains `*`
   attributes: AttributeConstraint[];
-  combinator: 'descendant' | 'child'; // relation to the PREVIOUS segment
+  descendantChecks: DescendantCheck[];
+  combinator: 'descendant' | 'child';
 }
 
-export interface SelectorAlternative {
-  segments: SelectorSegment[];
-}
+/** A parsed selector is a list of alternatives (from comma-separated parts). */
+export type ParsedSelector = Segment[][];
 
-export interface ParsedSelector {
-  alternatives: SelectorAlternative[];
-}
+// --- Mustache preprocessor ---
 
-// --- Selector Parsing ---
+const MUSTACHE_KIND_PSEUDO = new Set([
+  'm-section', 'm-inverted', 'm-variable', 'm-raw', 'm-comment', 'm-partial',
+]);
 
-function isNameChar(ch: string): boolean {
-  return /[a-zA-Z0-9\-_]/.test(ch);
-}
-
-function parseAttributes(raw: string, pos: { i: number }): AttributeConstraint[] {
-  const attrs: AttributeConstraint[] = [];
-  while (pos.i < raw.length) {
-    // Check for :not([...])
-    if (raw[pos.i] === ':') {
-      if (raw.slice(pos.i, pos.i + 6).toLowerCase() !== ':not([') return attrs;
-      pos.i += 6; // skip :not([
-      const attr = parseOneAttribute(raw, pos, true);
-      if (!attr) return attrs;
-      // expect ])
-      if (raw[pos.i] !== ']' || raw[pos.i + 1] !== ')') return attrs;
-      pos.i += 2;
-      attrs.push(attr);
-    } else if (raw[pos.i] === '[') {
-      pos.i++; // skip [
-      const attr = parseOneAttribute(raw, pos, false);
-      if (!attr) return attrs;
-      // expect ]
-      if (raw[pos.i] !== ']') return attrs;
-      pos.i++;
-      attrs.push(attr);
-    } else {
-      break;
-    }
-  }
-  return attrs;
-}
-
-function parseOneAttribute(raw: string, pos: { i: number }, negated: boolean): AttributeConstraint | null {
-  let name = '';
-  while (pos.i < raw.length && isNameChar(raw[pos.i])) {
-    name += raw[pos.i];
-    pos.i++;
-  }
-  if (name.length === 0) return null;
-
-  let value: string | undefined;
-  if (raw[pos.i] === '=') {
-    pos.i++; // skip =
-    value = '';
-    // Value can be quoted or unquoted
-    if (raw[pos.i] === '"' || raw[pos.i] === "'") {
-      const quote = raw[pos.i];
-      pos.i++;
-      while (pos.i < raw.length && raw[pos.i] !== quote) {
-        value += raw[pos.i];
-        pos.i++;
-      }
-      if (pos.i < raw.length) pos.i++; // skip closing quote
-    } else {
-      while (pos.i < raw.length && raw[pos.i] !== ']') {
-        value += raw[pos.i];
-        pos.i++;
-      }
-    }
-  }
-
-  return { name: name.toLowerCase(), value, negated };
-}
-
-export function parseSelector(raw: string): ParsedSelector | null {
-  const trimmed = raw.trim();
-  if (trimmed.length === 0) return null;
-
-  // Split on commas for selector lists (e.g. "div, span")
-  const parts = trimmed.split(',').map(s => s.trim()).filter(s => s.length > 0);
-  if (parts.length === 0) return null;
-
-  const alternatives: SelectorAlternative[] = [];
-  for (const part of parts) {
-    const alt = parseSingleSelector(part);
-    if (!alt) return null;
-    alternatives.push(alt);
-  }
-
-  return { alternatives };
-}
-
-function parseSingleSelector(raw: string): SelectorAlternative | null {
-  const segments: SelectorSegment[] = [];
+/**
+ * Rewrite Mustache-literal tokens (`{{...}}` forms) in the selector string into
+ * internal `:m-*` pseudo-class markers so parsel-js can handle them. Returns
+ * null if the string contains an unsupported or malformed Mustache token.
+ *
+ * Skips content inside `"..."` and `'...'` so that literal `{{...}}` embedded
+ * in CSS attribute-value strings is preserved unchanged.
+ */
+export function preprocessMustacheLiterals(raw: string): string | null {
+  let out = '';
   let i = 0;
-  let nextCombinator: 'descendant' | 'child' = 'descendant';
+  const len = raw.length;
 
-  while (i < raw.length) {
-    // Skip whitespace
-    while (i < raw.length && raw[i] === ' ') i++;
-    if (i >= raw.length) break;
+  while (i < len) {
+    const ch = raw[i];
 
-    // Check for > combinator
-    if (raw[i] === '>') {
-      if (segments.length === 0) return null; // leading >
-      nextCombinator = 'child';
+    // Pass through quoted strings verbatim.
+    if (ch === '"' || ch === "'") {
+      out += ch;
       i++;
-      // skip whitespace after >
-      while (i < raw.length && raw[i] === ' ') i++;
-      if (i >= raw.length) return null; // trailing >
+      while (i < len && raw[i] !== ch) {
+        if (raw[i] === '\\' && i + 1 < len) {
+          out += raw[i] + raw[i + 1];
+          i += 2;
+        } else {
+          out += raw[i];
+          i++;
+        }
+      }
+      if (i < len) {
+        out += raw[i]; // closing quote
+        i++;
+      }
       continue;
     }
 
-    const pos = { i };
-    const segment = parseOneSegment(raw, pos);
-    if (!segment) return null;
-    i = pos.i;
-
-    segment.combinator = nextCombinator;
-    nextCombinator = 'descendant';
-    segments.push(segment);
-  }
-
-  if (segments.length === 0) return null;
-  return { segments };
-}
-
-function parseOneSegment(raw: string, pos: { i: number }): SelectorSegment | null {
-  let kind: 'html' | 'mustache';
-  let name: string | null;
-
-  if (raw[pos.i] === '#') {
-    // Mustache section
-    kind = 'mustache';
-    pos.i++; // skip #
-    name = '';
-    while (pos.i < raw.length && isNameChar(raw[pos.i])) {
-      name += raw[pos.i];
-      pos.i++;
+    if (ch !== '{' || raw[i + 1] !== '{') {
+      out += ch;
+      i++;
+      continue;
     }
-    if (name.length === 0) name = null; // bare # = wildcard
-    else name = name.toLowerCase();
-    return { kind, name, attributes: [], combinator: 'descendant' };
+
+    // Triple-brace: {{{path}}}
+    if (raw[i + 2] === '{') {
+      const end = raw.indexOf('}}}', i + 3);
+      if (end < 0) return null;
+      const inner = raw.slice(i + 3, end).trim();
+      if (inner.length === 0) return null;
+      out += `:m-raw(${inner})`;
+      i = end + 3;
+      continue;
+    }
+
+    // Double-brace: {{...}}
+    const end = raw.indexOf('}}', i + 2);
+    if (end < 0) return null;
+    const body = raw.slice(i + 2, end);
+    i = end + 2;
+
+    const sigil = body.trimStart()[0];
+    const content = body.replace(/^\s*[#^!>/]\s*/, '').replace(/^\s+|\s+$/g, '');
+
+    switch (sigil) {
+      case '#':
+        if (content.length === 0) return null;
+        out += `:m-section(${content})`;
+        break;
+      case '^':
+        if (content.length === 0) return null;
+        out += `:m-inverted(${content})`;
+        break;
+      case '!':
+        if (content.length === 0) return null;
+        out += `:m-comment(${content})`;
+        break;
+      case '>':
+        if (content.length === 0) return null;
+        out += `:m-partial(${content})`;
+        break;
+      case '/':
+        // Standalone end tags are not a selectable node.
+        return null;
+      case '=':
+        // Delimiter changes are not a grammar-tracked node.
+        return null;
+      default: {
+        const path = body.trim();
+        if (path.length === 0) return null;
+        out += `:m-variable(${path})`;
+        break;
+      }
+    }
   }
 
-  if (raw[pos.i] === '*') {
-    // Wildcard HTML element
-    kind = 'html';
-    name = null;
-    pos.i++;
-    const attrs = parseAttributes(raw, pos);
-    return { kind, name, attributes: attrs, combinator: 'descendant' };
-  }
-
-  if (raw[pos.i] === '[' || raw[pos.i] === ':') {
-    // Attribute-only selector (no tag name) — matches any HTML element
-    kind = 'html';
-    name = null;
-    const attrs = parseAttributes(raw, pos);
-    if (attrs.length === 0) return null;
-    return { kind, name, attributes: attrs, combinator: 'descendant' };
-  }
-
-  // HTML tag name
-  if (!isNameChar(raw[pos.i])) return null;
-  kind = 'html';
-  name = '';
-  while (pos.i < raw.length && isNameChar(raw[pos.i])) {
-    name += raw[pos.i];
-    pos.i++;
-  }
-  name = name.toLowerCase();
-
-  // Parse trailing attributes
-  const attrs = parseAttributes(raw, pos);
-
-  return { kind, name, attributes: attrs, combinator: 'descendant' };
+  return out;
 }
 
-// --- Tree Matching ---
+// --- Selector parsing ---
+
+export function parseSelector(raw: string): ParsedSelector | null {
+  if (typeof raw !== 'string' || raw.trim() === '') return null;
+
+  const preprocessed = preprocessMustacheLiterals(raw);
+  if (preprocessed === null) return null;
+
+  let ast: AST | undefined;
+  try {
+    ast = parselParse(preprocessed);
+  } catch {
+    return null;
+  }
+  if (!ast) return null;
+
+  const tops = ast.type === 'list' ? ast.list : [ast];
+  const alts: Segment[][] = [];
+  for (const top of tops) {
+    const segments: Segment[] = [];
+    if (!collectSegments(top, 'descendant', segments)) return null;
+    if (segments.length === 0) return null;
+    alts.push(segments);
+  }
+  return alts.length > 0 ? alts : null;
+}
+
+function collectSegments(
+  ast: AST,
+  combinator: 'descendant' | 'child',
+  out: Segment[],
+): boolean {
+  if (ast.type === 'complex') {
+    const mapped = mapCombinator(ast.combinator);
+    if (!mapped) return false;
+    return collectSegments(ast.left, 'descendant', out)
+        && collectSegments(ast.right, mapped, out);
+  }
+  if (ast.type === 'list' || ast.type === 'relative') return false;
+
+  const segment = segmentFromCompound(ast);
+  if (!segment) return false;
+  segment.combinator = combinator;
+  out.push(segment);
+  return true;
+}
+
+function mapCombinator(c: string): 'descendant' | 'child' | null {
+  const trimmed = c.trim();
+  if (trimmed === '') return 'descendant';
+  if (trimmed === '>') return 'child';
+  return null;
+}
+
+function segmentFromCompound(ast: AST): Segment | null {
+  const tokens: Token[] = ast.type === 'compound' ? ast.list : [ast as Token];
+
+  let kind: SegmentKind | undefined;
+  let name: string | null = null;
+  let pathRegex: RegExp | undefined;
+  const attributes: AttributeConstraint[] = [];
+  const descendantChecks: DescendantCheck[] = [];
+
+  // Once a Mustache kind is picked, no other kind tokens may appear.
+  const forbidChange = (requested: SegmentKind): boolean => {
+    if (kind === undefined) return false;
+    if (kind === requested) return false;
+    // html and Mustache kinds never mix
+    return true;
+  };
+
+  for (const token of tokens) {
+    switch (token.type) {
+      case 'type':
+        if (forbidChange('html')) return null;
+        kind = 'html';
+        name = token.name.toLowerCase();
+        break;
+      case 'universal':
+        if (forbidChange('html')) return null;
+        kind = 'html';
+        name = null;
+        break;
+      case 'class':
+        if (forbidChange('html')) return null;
+        kind = 'html';
+        attributes.push(classConstraint(token, false));
+        break;
+      case 'id':
+        if (forbidChange('html')) return null;
+        kind = 'html';
+        attributes.push(idConstraint(token, false));
+        break;
+      case 'attribute': {
+        // Attribute selectors only apply to HTML segments.
+        if (forbidChange('html')) return null;
+        if (kind === undefined) kind = 'html';
+        const c = attributeConstraint(token, false);
+        if (!c) return null;
+        attributes.push(c);
+        break;
+      }
+      case 'pseudo-class': {
+        if (MUSTACHE_KIND_PSEUDO.has(token.name)) {
+          const mustacheKind = mustacheKindFromMarker(token.name);
+          if (mustacheKind === null) return null;
+          if (forbidChange(mustacheKind)) return null;
+          kind = mustacheKind;
+          const glob = parseGlob(token.argument ?? '');
+          name = glob.name;
+          pathRegex = glob.pathRegex;
+          break;
+        }
+        if (token.name === 'has') {
+          const sel = subtreeToSelector(token.subtree);
+          if (!sel) return null;
+          descendantChecks.push({ selector: sel, negated: false });
+          break;
+        }
+        if (token.name === 'not') {
+          if (!applyNegatedSubtree(token.subtree, attributes, descendantChecks)) return null;
+          break;
+        }
+        return null;
+      }
+      default:
+        // pseudo-element, comma, combinator, unknown → unsupported
+        return null;
+    }
+  }
+
+  if (kind === undefined) {
+    kind = 'html';
+  }
+
+  const isHtml = kind === 'html';
+  const finalAttrs = isHtml ? attributes : [];
+  return { kind, name, pathRegex, attributes: finalAttrs, descendantChecks, combinator: 'descendant' };
+}
+
+function mustacheKindFromMarker(name: string): SegmentKind | null {
+  switch (name) {
+    case 'm-section':  return 'section';
+    case 'm-inverted': return 'inverted';
+    case 'm-variable': return 'variable';
+    case 'm-raw':      return 'raw';
+    case 'm-comment':  return 'comment';
+    case 'm-partial':  return 'partial';
+    default: return null;
+  }
+}
+
+/**
+ * Parse a Mustache-literal argument into an exact name or a compiled glob.
+ * The '*' character is the only wildcard. Bare '*' or empty string returns
+ * { name: null } — a wildcard that matches any value.
+ */
+function parseGlob(arg: string): { name: string | null; pathRegex?: RegExp } {
+  const trimmed = arg.trim();
+  if (trimmed === '' || trimmed === '*') {
+    return { name: null }; // wildcard — matches anything
+  }
+  if (!trimmed.includes('*')) {
+    return { name: trimmed.toLowerCase() };
+  }
+  // Escape regex metacharacters except `*`, then substitute `*` → `.*`.
+  const escaped = trimmed.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+  const pathRegex = new RegExp(`^${escaped}$`, 'i');
+  return { name: trimmed.toLowerCase(), pathRegex };
+}
+
+function attributeConstraint(token: AttributeToken, negated: boolean): AttributeConstraint | null {
+  const name = token.name.toLowerCase();
+  if (token.operator === undefined) {
+    return { name, op: '=', value: undefined, negated };
+  }
+  let op: AttributeOperator;
+  switch (token.operator) {
+    case '=':  op = '=';  break;
+    case '^=': op = '^='; break;
+    case '*=': op = '*='; break;
+    case '$=': op = '$='; break;
+    case '~=': op = '~='; break;
+    default: return null;
+  }
+  return { name, op, value: stripQuotes(token.value ?? ''), negated };
+}
+
+function classConstraint(token: ClassToken, negated: boolean): AttributeConstraint {
+  return { name: 'class', op: '~=', value: token.name, negated };
+}
+
+function idConstraint(token: IdToken, negated: boolean): AttributeConstraint {
+  return { name: 'id', op: '=', value: token.name, negated };
+}
+
+function applyNegatedSubtree(
+  subtree: AST | undefined,
+  attributes: AttributeConstraint[],
+  descendantChecks: DescendantCheck[],
+): boolean {
+  if (!subtree) return false;
+  if (subtree.type === 'attribute') {
+    const c = attributeConstraint(subtree, true);
+    if (!c) return false;
+    attributes.push(c);
+    return true;
+  }
+  if (subtree.type === 'class') {
+    attributes.push(classConstraint(subtree, true));
+    return true;
+  }
+  if (subtree.type === 'id') {
+    attributes.push(idConstraint(subtree, true));
+    return true;
+  }
+  if (subtree.type === 'pseudo-class' && subtree.name === 'has') {
+    const sel = subtreeToSelector(subtree.subtree);
+    if (!sel) return false;
+    descendantChecks.push({ selector: sel, negated: true });
+    return true;
+  }
+  return false;
+}
+
+function subtreeToSelector(subtree: AST | undefined): ParsedSelector | null {
+  if (!subtree) return null;
+  const tops = subtree.type === 'list' ? subtree.list : [subtree];
+  const alts: Segment[][] = [];
+  for (const top of tops) {
+    const segments: Segment[] = [];
+    if (!collectSegments(top, 'descendant', segments)) return null;
+    if (segments.length === 0) return null;
+    alts.push(segments);
+  }
+  return alts.length > 0 ? alts : null;
+}
+
+function stripQuotes(raw: string): string {
+  if (raw.length < 2) return raw;
+  const first = raw[0];
+  const last = raw[raw.length - 1];
+  if ((first === '"' || first === "'") && first === last) {
+    return raw.slice(1, -1);
+  }
+  return raw;
+}
+
+// --- Tree matching ---
 
 interface AncestorEntry {
-  kind: 'html' | 'mustache';
+  kind: AncestorKind;
   name: string; // lowercased
   node: BalanceNode;
 }
 
-function getNodeAttributes(node: BalanceNode): { name: string; value?: string }[] {
-  // node is the element; find the start tag
+type AncestorKind = 'html' | 'section' | 'inverted';
+
+function ancestorKindForNode(node: BalanceNode): AncestorKind | null {
+  if (HTML_ELEMENT_TYPES.has(node.type)) return 'html';
+  if (node.type === 'mustache_section') return 'section';
+  if (node.type === 'mustache_inverted_section') return 'inverted';
+  return null;
+}
+
+function getHtmlAttributes(node: BalanceNode): { name: string; value?: string }[] {
   const startTag = node.children.find(
     c => c.type === 'html_start_tag' || c.type === 'html_self_closing_tag',
   );
@@ -219,105 +453,158 @@ function getNodeAttributes(node: BalanceNode): { name: string; value?: string }[
 
   const attrs: { name: string; value?: string }[] = [];
   for (const child of startTag.children) {
-    if (child.type === 'html_attribute') {
-      let attrName = '';
-      let attrValue: string | undefined;
-      for (const part of child.children) {
-        if (part.type === 'html_attribute_name') {
-          attrName = part.text.toLowerCase();
-        } else if (part.type === 'html_quoted_attribute_value') {
-          attrValue = part.text.replace(/^["']|["']$/g, '');
-        } else if (part.type === 'html_attribute_value') {
-          attrValue = part.text;
-        }
+    if (child.type !== 'html_attribute') continue;
+    let attrName = '';
+    let attrValue: string | undefined;
+    for (const part of child.children) {
+      if (part.type === 'html_attribute_name') {
+        attrName = part.text.toLowerCase();
+      } else if (part.type === 'html_quoted_attribute_value') {
+        attrValue = part.text.replace(/^["']|["']$/g, '');
+      } else if (part.type === 'html_attribute_value') {
+        attrValue = part.text;
       }
-      if (attrName) attrs.push({ name: attrName, value: attrValue });
     }
+    if (attrName) attrs.push({ name: attrName, value: attrValue });
   }
   return attrs;
 }
 
+function matchesAttributeValue(has: string | undefined, c: AttributeConstraint): boolean {
+  if (has === undefined || c.value === undefined) return false;
+  const v = c.value;
+  if (v === '') return false;
+  switch (c.op) {
+    case '=':  return has === v;
+    case '^=': return has.startsWith(v);
+    case '*=': return has.includes(v);
+    case '$=': return has.endsWith(v);
+    case '~=': return has.split(/\s+/).includes(v);
+  }
+}
+
 function checkAttributes(node: BalanceNode, constraints: AttributeConstraint[]): boolean {
   if (constraints.length === 0) return true;
-  const nodeAttrs = getNodeAttributes(node);
-  for (const constraint of constraints) {
-    const found = nodeAttrs.find(a => a.name === constraint.name);
-    if (constraint.negated) {
-      // :not([attr]) — attribute must NOT exist
-      if (found) return false;
-    } else if (constraint.value !== undefined) {
-      // [attr=value] — attribute must exist with exact value
-      if (!found || found.value !== constraint.value) return false;
-    } else {
-      // [attr] — attribute must exist
+  const nodeAttrs = getHtmlAttributes(node);
+  for (const c of constraints) {
+    const found = nodeAttrs.find(a => a.name === c.name);
+    if (c.negated) {
+      if (!found) continue;
+      if (c.value === undefined) return false;
+      if (matchesAttributeValue(found.value, c)) return false;
+      continue;
+    }
+    if (c.value === undefined) {
       if (!found) return false;
+      continue;
     }
+    if (!found || !matchesAttributeValue(found.value, c)) return false;
   }
   return true;
 }
 
-function nodeMatchesSegment(node: BalanceNode, segment: SelectorSegment): boolean {
-  if (segment.kind === 'html') {
-    if (!HTML_ELEMENT_TYPES.has(node.type)) return false;
-    if (segment.name !== null) {
-      const tagName = getTagName(node)?.toLowerCase();
-      if (tagName !== segment.name) return false;
-    }
-    return checkAttributes(node, segment.attributes);
-  }
-  // mustache
-  if (!MUSTACHE_SECTION_TYPES.has(node.type)) return false;
-  if (segment.name !== null) {
-    const sectionName = getSectionName(node)?.toLowerCase();
-    if (sectionName !== segment.name) return false;
+function checkDescendants(node: BalanceNode, checks: DescendantCheck[]): boolean {
+  if (checks.length === 0) return true;
+  for (const check of checks) {
+    const present = hasDescendantMatch(node, check.selector);
+    if (check.negated ? present : !present) return false;
   }
   return true;
 }
 
-/**
- * Check if the ancestor stack satisfies the remaining selector segments.
- * `childCombinator` is the combinator between segment[segIdx] and the
- * already-matched segment to its right (i.e. the combinator of segment[segIdx+1]).
- */
+function hasDescendantMatch(node: BalanceNode, selector: ParsedSelector): boolean {
+  for (const child of node.children) {
+    if (matchSelector(child, selector).length > 0) return true;
+  }
+  return false;
+}
+
+function matchesName(actual: string | null, segment: Segment): boolean {
+  if (segment.name === null) return true; // wildcard
+  if (actual === null) return false;
+  if (segment.pathRegex) return segment.pathRegex.test(actual);
+  return actual === segment.name;
+}
+
+function nodeMatchesSegment(node: BalanceNode, segment: Segment): boolean {
+  switch (segment.kind) {
+    case 'html': {
+      if (!HTML_ELEMENT_TYPES.has(node.type)) return false;
+      if (segment.name !== null) {
+        const tagName = getTagName(node)?.toLowerCase();
+        if (tagName !== segment.name) return false;
+      }
+      return checkAttributes(node, segment.attributes) && checkDescendants(node, segment.descendantChecks);
+    }
+    case 'section':
+      if (node.type !== 'mustache_section') return false;
+      if (!matchesName(getSectionName(node)?.toLowerCase() ?? null, segment)) return false;
+      return checkDescendants(node, segment.descendantChecks);
+    case 'inverted':
+      if (node.type !== 'mustache_inverted_section') return false;
+      if (!matchesName(getSectionName(node)?.toLowerCase() ?? null, segment)) return false;
+      return checkDescendants(node, segment.descendantChecks);
+    case 'variable':
+      if (node.type !== 'mustache_interpolation') return false;
+      if (!matchesName(getInterpolationPath(node)?.toLowerCase() ?? null, segment)) return false;
+      return checkDescendants(node, segment.descendantChecks);
+    case 'raw':
+      if (node.type !== 'mustache_triple') return false;
+      if (!matchesName(getInterpolationPath(node)?.toLowerCase() ?? null, segment)) return false;
+      return checkDescendants(node, segment.descendantChecks);
+    case 'comment':
+      if (node.type !== 'mustache_comment') return false;
+      if (!matchesName(getCommentContent(node)?.toLowerCase() ?? null, segment)) return false;
+      return checkDescendants(node, segment.descendantChecks);
+    case 'partial':
+      if (node.type !== 'mustache_partial') return false;
+      if (!matchesName(getPartialName(node)?.toLowerCase() ?? null, segment)) return false;
+      return checkDescendants(node, segment.descendantChecks);
+  }
+}
+
+/** Does the ancestor stack satisfy remaining segments? */
 function checkAncestors(
   ancestors: AncestorEntry[],
-  segments: SelectorSegment[],
+  segments: Segment[],
   segIdx: number,
   childCombinator: 'descendant' | 'child',
 ): boolean {
-  if (segIdx < 0) return true; // all segments matched
-
+  if (segIdx < 0) return true;
   const segment = segments[segIdx];
+  const ancestorKind = ancestorKindForSegment(segment);
+  if (ancestorKind === null) return false; // variable/raw/comment/partial can't be ancestors
 
   if (childCombinator === 'child') {
-    // Walk ancestors, skip nodes of the "other kind", the first node of the matching kind must match
     for (let a = ancestors.length - 1; a >= 0; a--) {
       const entry = ancestors[a];
-      if (entry.kind !== segment.kind) continue; // skip other-kind nodes
-      // First node of matching kind must match
-      if (segment.name !== null && entry.name !== segment.name) return false;
-      // For HTML nodes, also check attributes
-      if (segment.kind === 'html' && segment.attributes.length > 0) {
-        if (!checkAttributes(entry.node, segment.attributes)) return false;
-      }
+      if (entry.kind !== ancestorKind) continue;
+      if (!matchesName(entry.name, segment)) return false;
+      if (segment.kind === 'html' && !checkAttributes(entry.node, segment.attributes)) return false;
+      if (!checkDescendants(entry.node, segment.descendantChecks)) return false;
       return checkAncestors(ancestors.slice(0, a), segments, segIdx - 1, segment.combinator);
     }
-    return false; // no ancestor of matching kind found
+    return false;
   }
 
-  // Descendant combinator: any ancestor of matching kind can satisfy
   for (let a = ancestors.length - 1; a >= 0; a--) {
     const entry = ancestors[a];
-    if (entry.kind !== segment.kind) continue;
-    if (segment.name !== null && entry.name !== segment.name) continue;
-    if (segment.kind === 'html' && segment.attributes.length > 0) {
-      if (!checkAttributes(entry.node, segment.attributes)) continue;
-    }
+    if (entry.kind !== ancestorKind) continue;
+    if (!matchesName(entry.name, segment)) continue;
+    if (segment.kind === 'html' && !checkAttributes(entry.node, segment.attributes)) continue;
+    if (!checkDescendants(entry.node, segment.descendantChecks)) continue;
     if (checkAncestors(ancestors.slice(0, a), segments, segIdx - 1, segment.combinator)) {
       return true;
     }
   }
   return false;
+}
+
+function ancestorKindForSegment(segment: Segment): AncestorKind | null {
+  if (segment.kind === 'html') return 'html';
+  if (segment.kind === 'section') return 'section';
+  if (segment.kind === 'inverted') return 'inverted';
+  return null;
 }
 
 function getReportNode(node: BalanceNode): BalanceNode {
@@ -327,7 +614,7 @@ function getReportNode(node: BalanceNode): BalanceNode {
     );
     return startTag ?? node;
   }
-  if (MUSTACHE_SECTION_TYPES.has(node.type)) {
+  if (node.type === 'mustache_section' || node.type === 'mustache_inverted_section') {
     const begin = node.children.find(
       c => c.type === 'mustache_section_begin' || c.type === 'mustache_inverted_section_begin',
     );
@@ -336,37 +623,32 @@ function getReportNode(node: BalanceNode): BalanceNode {
   return node;
 }
 
-function matchAlternative(rootNode: BalanceNode, alt: SelectorAlternative): BalanceNode[] {
+function matchAlternative(rootNode: BalanceNode, segments: Segment[]): BalanceNode[] {
   const results: BalanceNode[] = [];
-  const lastSegment = alt.segments[alt.segments.length - 1];
+  const lastSegment = segments[segments.length - 1];
 
   function walk(node: BalanceNode, ancestors: AncestorEntry[]) {
-    // Check if this node matches the last segment
     if (nodeMatchesSegment(node, lastSegment)) {
-      // Verify remaining segments against ancestors
-      if (alt.segments.length === 1 || checkAncestors(ancestors, alt.segments, alt.segments.length - 2, lastSegment.combinator)) {
+      if (
+        segments.length === 1 ||
+        checkAncestors(ancestors, segments, segments.length - 2, lastSegment.combinator)
+      ) {
         results.push(getReportNode(node));
       }
     }
 
-    // Build ancestor entry for this node if it's an HTML element or mustache section
     let newAncestors = ancestors;
-    if (HTML_ELEMENT_TYPES.has(node.type)) {
-      const tagName = getTagName(node)?.toLowerCase();
-      if (tagName) {
-        newAncestors = [...ancestors, { kind: 'html', name: tagName, node }];
-      }
-    } else if (MUSTACHE_SECTION_TYPES.has(node.type)) {
-      const sectionName = getSectionName(node)?.toLowerCase();
-      if (sectionName) {
-        newAncestors = [...ancestors, { kind: 'mustache', name: sectionName, node }];
+    const ancestorKind = ancestorKindForNode(node);
+    if (ancestorKind !== null) {
+      const name =
+        ancestorKind === 'html' ? getTagName(node)?.toLowerCase() :
+        getSectionName(node)?.toLowerCase();
+      if (name) {
+        newAncestors = [...ancestors, { kind: ancestorKind, name, node }];
       }
     }
 
-    // Recurse into children
-    for (const child of node.children) {
-      walk(child, newAncestors);
-    }
+    for (const child of node.children) walk(child, newAncestors);
   }
 
   walk(rootNode, []);
@@ -376,7 +658,7 @@ function matchAlternative(rootNode: BalanceNode, alt: SelectorAlternative): Bala
 export function matchSelector(rootNode: BalanceNode, selector: ParsedSelector): BalanceNode[] {
   const allResults: BalanceNode[] = [];
   const seen = new Set<BalanceNode>();
-  for (const alt of selector.alternatives) {
+  for (const alt of selector) {
     for (const node of matchAlternative(rootNode, alt)) {
       if (!seen.has(node)) {
         seen.add(node);

@@ -20,6 +20,11 @@ export const MUSTACHE_SECTION_TYPES = new Set([
   'mustache_inverted_section',
 ]);
 
+export const INTERPOLATION_TYPES = new Set([
+  'mustache_interpolation', // {{foo}}
+  'mustache_triple',        // {{{foo}}} — unescaped
+]);
+
 export const RAW_CONTENT_ELEMENT_TYPES = new Set([
   'html_script_element',
   'html_style_element',
@@ -84,4 +89,38 @@ export function getSectionName(node: MinimalNode): string | null {
 export function getErroneousEndTagName(node: MinimalNode): string | null {
   const nameNode = node.children.find(c => c.type === 'html_erroneous_end_tag_name');
   return nameNode?.text?.toLowerCase() ?? null;
+}
+
+/**
+ * Get the dotted path text from a mustache_interpolation or mustache_triple
+ * node — e.g. `{{data.foo}}` → `"data.foo"`. Returns `"."` for the
+ * context-marker interpolation `{{.}}`. Returns null if the node has no
+ * recognisable expression child.
+ */
+export function getInterpolationPath(node: MinimalNode): string | null {
+  for (const child of node.children) {
+    if (child.type === 'mustache_path_expression' || child.type === 'mustache_identifier') {
+      return child.text;
+    }
+    if (child.type === '.') return '.';
+  }
+  return null;
+}
+
+/**
+ * Get the content text of a mustache_comment node (`{{!foo}}` → `"foo"`).
+ * Returns null if no content child is present.
+ */
+export function getCommentContent(node: MinimalNode): string | null {
+  const child = node.children.find(c => c.type === 'mustache_comment_content');
+  return child ? child.text.trim() : null;
+}
+
+/**
+ * Get the partial name of a mustache_partial node (`{{>header}}` → `"header"`).
+ * Returns null if no content child is present.
+ */
+export function getPartialName(node: MinimalNode): string | null {
+  const child = node.children.find(c => c.type === 'mustache_partial_content');
+  return child ? child.text.trim() : null;
 }

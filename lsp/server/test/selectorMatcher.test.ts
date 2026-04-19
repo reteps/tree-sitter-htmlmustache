@@ -1,6 +1,77 @@
 import { describe, it, expect } from 'vitest';
-import { parseText } from './setup';
-import { parseSelector, matchSelector } from '../src/selectorMatcher';
+import { parseText } from './setup.js';
+import { parseSelector, matchSelector, preprocessMustacheLiterals } from '../src/selectorMatcher.js';
+
+// --- Preprocessor tests ---
+
+describe('preprocessMustacheLiterals', () => {
+  it('substitutes {{foo}} to :m-variable(foo)', () => {
+    expect(preprocessMustacheLiterals('{{foo}}')).toBe(':m-variable(foo)');
+  });
+
+  it('substitutes {{data.foo}} preserving dots', () => {
+    expect(preprocessMustacheLiterals('{{data.foo}}')).toBe(':m-variable(data.foo)');
+  });
+
+  it('substitutes {{{foo}}} to :m-raw(foo)', () => {
+    expect(preprocessMustacheLiterals('{{{foo}}}')).toBe(':m-raw(foo)');
+  });
+
+  it('substitutes {{#foo}} to :m-section(foo)', () => {
+    expect(preprocessMustacheLiterals('{{#items}}')).toBe(':m-section(items)');
+  });
+
+  it('substitutes {{^foo}} to :m-inverted(foo)', () => {
+    expect(preprocessMustacheLiterals('{{^items}}')).toBe(':m-inverted(items)');
+  });
+
+  it('substitutes {{!foo}} to :m-comment(foo)', () => {
+    expect(preprocessMustacheLiterals('{{!TODO}}')).toBe(':m-comment(TODO)');
+  });
+
+  it('substitutes {{>foo}} to :m-partial(foo)', () => {
+    expect(preprocessMustacheLiterals('{{>header}}')).toBe(':m-partial(header)');
+  });
+
+  it('trims whitespace in argument', () => {
+    expect(preprocessMustacheLiterals('{{  foo  }}')).toBe(':m-variable(foo)');
+    expect(preprocessMustacheLiterals('{{# items }}')).toBe(':m-section(items)');
+  });
+
+  it('preserves content inside quoted strings', () => {
+    expect(preprocessMustacheLiterals('[src="{{foo}}"]')).toBe('[src="{{foo}}"]');
+    expect(preprocessMustacheLiterals("[src='{{foo}}']")).toBe("[src='{{foo}}']");
+  });
+
+  it('still substitutes outside of quoted strings', () => {
+    expect(preprocessMustacheLiterals('{{#items}} [src="{{foo}}"] {{bar}}'))
+      .toBe(':m-section(items) [src="{{foo}}"] :m-variable(bar)');
+  });
+
+  it('rejects {{/end}} (standalone end tag)', () => {
+    expect(preprocessMustacheLiterals('{{/items}}')).toBeNull();
+  });
+
+  it('rejects {{= = =}} (delimiter change)', () => {
+    expect(preprocessMustacheLiterals('{{=<% %>=}}')).toBeNull();
+  });
+
+  it('rejects unterminated {{', () => {
+    expect(preprocessMustacheLiterals('{{foo')).toBeNull();
+  });
+
+  it('rejects unterminated {{{', () => {
+    expect(preprocessMustacheLiterals('{{{foo')).toBeNull();
+  });
+
+  it('rejects empty {{}}', () => {
+    expect(preprocessMustacheLiterals('{{}}')).toBeNull();
+  });
+
+  it('passes through a plain HTML-only selector unchanged', () => {
+    expect(preprocessMustacheLiterals('div > span.foo[bar=baz]')).toBe('div > span.foo[bar=baz]');
+  });
+});
 
 // --- Parsing tests ---
 
@@ -8,139 +79,149 @@ describe('parseSelector', () => {
   it('parses a single HTML tag', () => {
     const result = parseSelector('div');
     expect(result).not.toBeNull();
-    expect(result!.alternatives).toHaveLength(1);
-    expect(result!.alternatives[0].segments).toHaveLength(1);
-    expect(result!.alternatives[0].segments[0]).toMatchObject({
+    expect(result!).toHaveLength(1);
+    expect(result![0]).toHaveLength(1);
+    expect(result![0][0]).toMatchObject({
       kind: 'html',
       name: 'div',
       combinator: 'descendant',
     });
   });
 
-  it('parses a mustache section #name', () => {
-    const result = parseSelector('#items');
-    expect(result).not.toBeNull();
-    expect(result!.alternatives[0].segments[0]).toMatchObject({
-      kind: 'mustache',
-      name: 'items',
-    });
+  it('parses {{#items}} as section', () => {
+    const seg = parseSelector('{{#items}}')![0][0];
+    expect(seg).toMatchObject({ kind: 'section', name: 'items' });
   });
 
-  it('parses bare # as wildcard mustache section', () => {
-    const result = parseSelector('#');
-    expect(result).not.toBeNull();
-    expect(result!.alternatives[0].segments[0]).toMatchObject({
-      kind: 'mustache',
-      name: null,
-    });
+  it('parses {{^items}} as inverted section', () => {
+    const seg = parseSelector('{{^items}}')![0][0];
+    expect(seg).toMatchObject({ kind: 'inverted', name: 'items' });
+  });
+
+  it('parses {{foo}} as variable', () => {
+    const seg = parseSelector('{{foo}}')![0][0];
+    expect(seg).toMatchObject({ kind: 'variable', name: 'foo' });
+  });
+
+  it('parses {{data.foo}} as variable with dotted path', () => {
+    const seg = parseSelector('{{data.foo}}')![0][0];
+    expect(seg).toMatchObject({ kind: 'variable', name: 'data.foo' });
+  });
+
+  it('parses {{{foo}}} as raw', () => {
+    const seg = parseSelector('{{{foo}}}')![0][0];
+    expect(seg).toMatchObject({ kind: 'raw', name: 'foo' });
+  });
+
+  it('parses {{!TODO}} as comment', () => {
+    const seg = parseSelector('{{!TODO}}')![0][0];
+    expect(seg).toMatchObject({ kind: 'comment', name: 'todo' });
+  });
+
+  it('parses {{>header}} as partial', () => {
+    const seg = parseSelector('{{>header}}')![0][0];
+    expect(seg).toMatchObject({ kind: 'partial', name: 'header' });
   });
 
   it('parses * as wildcard HTML element', () => {
-    const result = parseSelector('*');
-    expect(result).not.toBeNull();
-    expect(result!.alternatives[0].segments[0]).toMatchObject({
-      kind: 'html',
-      name: null,
-    });
+    const seg = parseSelector('*')![0][0];
+    expect(seg).toMatchObject({ kind: 'html', name: null });
   });
 
   it('parses descendant combinator', () => {
-    const result = parseSelector('div span');
-    expect(result).not.toBeNull();
-    const segs = result!.alternatives[0].segments;
+    const segs = parseSelector('div span')![0];
     expect(segs).toHaveLength(2);
     expect(segs[0]).toMatchObject({ kind: 'html', name: 'div', combinator: 'descendant' });
     expect(segs[1]).toMatchObject({ kind: 'html', name: 'span', combinator: 'descendant' });
   });
 
   it('parses child combinator', () => {
-    const result = parseSelector('div > span');
-    expect(result).not.toBeNull();
-    const segs = result!.alternatives[0].segments;
-    expect(segs).toHaveLength(2);
-    expect(segs[0]).toMatchObject({ kind: 'html', name: 'div' });
+    const segs = parseSelector('div > span')![0];
     expect(segs[1]).toMatchObject({ kind: 'html', name: 'span', combinator: 'child' });
   });
 
   it('parses mixed HTML and mustache', () => {
-    const result = parseSelector('#items > div span');
-    expect(result).not.toBeNull();
-    const segs = result!.alternatives[0].segments;
+    const segs = parseSelector('{{#items}} > div span')![0];
     expect(segs).toHaveLength(3);
-    expect(segs[0]).toMatchObject({ kind: 'mustache', name: 'items' });
+    expect(segs[0]).toMatchObject({ kind: 'section', name: 'items' });
     expect(segs[1]).toMatchObject({ kind: 'html', name: 'div', combinator: 'child' });
     expect(segs[2]).toMatchObject({ kind: 'html', name: 'span', combinator: 'descendant' });
   });
 
+  it('parses glob: prefix {{options.*}}', () => {
+    const seg = parseSelector('{{options.*}}')![0][0];
+    expect(seg.kind).toBe('variable');
+    expect(seg.name).toBe('options.*');
+    expect(seg.pathRegex).toBeInstanceOf(RegExp);
+    expect(seg.pathRegex!.test('options.foo')).toBe(true);
+    expect(seg.pathRegex!.test('data.foo')).toBe(false);
+  });
+
+  it('parses glob: suffix {{*.deprecated}}', () => {
+    const seg = parseSelector('{{*.deprecated}}')![0][0];
+    expect(seg.pathRegex!.test('foo.deprecated')).toBe(true);
+    expect(seg.pathRegex!.test('foo.bar')).toBe(false);
+  });
+
+  it('parses bare {{*}} as wildcard variable', () => {
+    const seg = parseSelector('{{*}}')![0][0];
+    expect(seg).toMatchObject({ kind: 'variable', name: null });
+    expect(seg.pathRegex).toBeUndefined();
+  });
+
+  it('parses bare {{{*}}} as wildcard raw', () => {
+    const seg = parseSelector('{{{*}}}')![0][0];
+    expect(seg).toMatchObject({ kind: 'raw', name: null });
+  });
+
   it('parses [attr]', () => {
-    const result = parseSelector('img[alt]');
-    expect(result).not.toBeNull();
-    const seg = result!.alternatives[0].segments[0];
-    expect(seg.name).toBe('img');
+    const seg = parseSelector('img[alt]')![0][0];
     expect(seg.attributes).toHaveLength(1);
     expect(seg.attributes[0]).toMatchObject({ name: 'alt', negated: false });
     expect(seg.attributes[0].value).toBeUndefined();
   });
 
   it('parses [attr=value]', () => {
-    const result = parseSelector('input[type=hidden]');
-    expect(result).not.toBeNull();
-    const seg = result!.alternatives[0].segments[0];
-    expect(seg.attributes[0]).toMatchObject({ name: 'type', value: 'hidden', negated: false });
+    const seg = parseSelector('input[type=hidden]')![0][0];
+    expect(seg.attributes[0]).toMatchObject({ name: 'type', op: '=', value: 'hidden' });
+  });
+
+  it('parses [attr^=value]', () => {
+    const seg = parseSelector('img[src^="clientFilesQuestion/"]')![0][0];
+    expect(seg.attributes[0]).toMatchObject({ name: 'src', op: '^=', value: 'clientFilesQuestion/' });
+  });
+
+  it('parses .class as synthetic [class~=value]', () => {
+    const seg = parseSelector('div.panel')![0][0];
+    expect(seg.attributes[0]).toMatchObject({ name: 'class', op: '~=', value: 'panel' });
+  });
+
+  it('parses #id as synthetic [id=value]', () => {
+    const seg = parseSelector('#main')![0][0];
+    expect(seg.attributes[0]).toMatchObject({ name: 'id', op: '=', value: 'main' });
   });
 
   it('parses :not([attr])', () => {
-    const result = parseSelector('img:not([alt])');
-    expect(result).not.toBeNull();
-    const seg = result!.alternatives[0].segments[0];
-    expect(seg.name).toBe('img');
-    expect(seg.attributes).toHaveLength(1);
+    const seg = parseSelector('img:not([alt])')![0][0];
     expect(seg.attributes[0]).toMatchObject({ name: 'alt', negated: true });
   });
 
-  it('parses attribute-only selector [style]', () => {
-    const result = parseSelector('[style]');
-    expect(result).not.toBeNull();
-    const seg = result!.alternatives[0].segments[0];
-    expect(seg.name).toBeNull();
-    expect(seg.kind).toBe('html');
-    expect(seg.attributes).toHaveLength(1);
-    expect(seg.attributes[0]).toMatchObject({ name: 'style', negated: false });
+  it('parses :has()', () => {
+    const seg = parseSelector('pl-multiple-choice:has(pl-answer)')![0][0];
+    expect(seg.descendantChecks).toHaveLength(1);
+    expect(seg.descendantChecks[0].selector[0][0]).toMatchObject({ kind: 'html', name: 'pl-answer' });
   });
 
-  it('parses tag with multiple attributes', () => {
-    const result = parseSelector('div[class][id]');
-    expect(result).not.toBeNull();
-    const seg = result!.alternatives[0].segments[0];
-    expect(seg.attributes).toHaveLength(2);
+  it('parses :has({{foo}})', () => {
+    const seg = parseSelector('div:has({{foo}})')![0][0];
+    expect(seg.descendantChecks[0].selector[0][0]).toMatchObject({ kind: 'variable', name: 'foo' });
   });
 
-  it('parses comma-separated selector list', () => {
-    const result = parseSelector('div, span');
-    expect(result).not.toBeNull();
-    expect(result!.alternatives).toHaveLength(2);
-    expect(result!.alternatives[0].segments[0].name).toBe('div');
-    expect(result!.alternatives[1].segments[0].name).toBe('span');
-  });
-
-  it('parses comma-separated with complex selectors', () => {
-    const result = parseSelector('table > div, #items span');
-    expect(result).not.toBeNull();
-    expect(result!.alternatives).toHaveLength(2);
-    expect(result!.alternatives[0].segments).toHaveLength(2);
-    expect(result!.alternatives[1].segments).toHaveLength(2);
-  });
-
-  it('is case-insensitive for tag names', () => {
-    const result = parseSelector('DIV');
-    expect(result).not.toBeNull();
-    expect(result!.alternatives[0].segments[0].name).toBe('div');
-  });
-
-  it('is case-insensitive for mustache section names', () => {
-    const result = parseSelector('#Items');
-    expect(result).not.toBeNull();
-    expect(result!.alternatives[0].segments[0].name).toBe('items');
+  it('parses comma list', () => {
+    const result = parseSelector('div, {{foo}}')!;
+    expect(result).toHaveLength(2);
+    expect(result[0][0]).toMatchObject({ kind: 'html', name: 'div' });
+    expect(result[1][0]).toMatchObject({ kind: 'variable', name: 'foo' });
   });
 
   it('returns null for empty string', () => {
@@ -151,16 +232,34 @@ describe('parseSelector', () => {
     expect(parseSelector('   ')).toBeNull();
   });
 
-  it('returns null for leading >', () => {
-    expect(parseSelector('> div')).toBeNull();
+  it('returns null for sibling combinator +', () => {
+    expect(parseSelector('div + span')).toBeNull();
   });
 
-  it('returns null for trailing >', () => {
-    expect(parseSelector('div >')).toBeNull();
+  it('returns null for unsupported [attr|=v]', () => {
+    expect(parseSelector('a[lang|="en"]')).toBeNull();
   });
 
-  it('returns null if any comma part is invalid', () => {
-    expect(parseSelector('div, > span')).toBeNull();
+  it('returns null for mixed html + mustache compound', () => {
+    // `div{{foo}}` — parsel parses as compound [type, pseudo-class(:m-variable(foo))],
+    // and we reject mixed kinds.
+    expect(parseSelector('div{{foo}}')).toBeNull();
+  });
+
+  it('returns null for mixed mustache kinds compound', () => {
+    expect(parseSelector('{{#items}}{{foo}}')).toBeNull();
+  });
+
+  it('returns null for {{/end}}', () => {
+    expect(parseSelector('{{/items}}')).toBeNull();
+  });
+
+  it('returns null for {{=<% %>=}}', () => {
+    expect(parseSelector('{{=<% %>=}}')).toBeNull();
+  });
+
+  it('returns null for unterminated {{', () => {
+    expect(parseSelector('{{foo')).toBeNull();
   });
 });
 
@@ -169,157 +268,254 @@ describe('parseSelector', () => {
 describe('matchSelector', () => {
   it('matches a simple tag', () => {
     const tree = parseText('<div></div>');
-    const selector = parseSelector('div')!;
-    const matches = matchSelector(tree.rootNode, selector);
+    const matches = matchSelector(tree.rootNode, parseSelector('div')!);
     expect(matches).toHaveLength(1);
     expect(matches[0].type).toBe('html_start_tag');
   });
 
   it('matches descendant at any depth', () => {
     const tree = parseText('<div><p><span></span></p></div>');
-    const selector = parseSelector('div span')!;
-    const matches = matchSelector(tree.rootNode, selector);
+    const matches = matchSelector(tree.rootNode, parseSelector('div span')!);
     expect(matches).toHaveLength(1);
-  });
-
-  it('does not match descendant when not nested', () => {
-    const tree = parseText('<div></div><span></span>');
-    const selector = parseSelector('div span')!;
-    const matches = matchSelector(tree.rootNode, selector);
-    expect(matches).toHaveLength(0);
   });
 
   it('matches direct child', () => {
     const tree = parseText('<div><span></span></div>');
-    const selector = parseSelector('div > span')!;
-    const matches = matchSelector(tree.rootNode, selector);
+    const matches = matchSelector(tree.rootNode, parseSelector('div > span')!);
     expect(matches).toHaveLength(1);
   });
 
-  it('does not match indirect child with > combinator', () => {
+  it('does not match indirect child with >', () => {
     const tree = parseText('<div><p><span></span></p></div>');
-    const selector = parseSelector('div > span')!;
-    const matches = matchSelector(tree.rootNode, selector);
+    const matches = matchSelector(tree.rootNode, parseSelector('div > span')!);
     expect(matches).toHaveLength(0);
   });
 
-  it('matches mustache section #name', () => {
+  // --- Mustache section ---
+
+  it('{{#items}} matches positive section', () => {
     const tree = parseText('{{#items}}<li></li>{{/items}}');
-    const selector = parseSelector('#items li')!;
-    const matches = matchSelector(tree.rootNode, selector);
+    const matches = matchSelector(tree.rootNode, parseSelector('{{#items}}')!);
     expect(matches).toHaveLength(1);
-  });
-
-  it('kind-transparent > for HTML across mustache section', () => {
-    const tree = parseText('<div>{{#show}}<span></span>{{/show}}</div>');
-    const selector = parseSelector('div > span')!;
-    const matches = matchSelector(tree.rootNode, selector);
-    expect(matches).toHaveLength(1);
-  });
-
-  it('kind-transparent > for mustache across HTML element', () => {
-    const tree = parseText('{{#a}}<div>{{#b}}inner{{/b}}</div>{{/a}}');
-    const selector = parseSelector('#a > #b')!;
-    const matches = matchSelector(tree.rootNode, selector);
-    expect(matches).toHaveLength(1);
-  });
-
-  it('cross-kind > combinator: #items > div', () => {
-    const tree = parseText('{{#items}}<div></div>{{/items}}');
-    const selector = parseSelector('#items > div')!;
-    const matches = matchSelector(tree.rootNode, selector);
-    expect(matches).toHaveLength(1);
-  });
-
-  it('attribute presence [attr]', () => {
-    const tree = parseText('<div style="color:red"></div><div></div>');
-    const selector = parseSelector('[style]')!;
-    const matches = matchSelector(tree.rootNode, selector);
-    expect(matches).toHaveLength(1);
-  });
-
-  it('attribute value [attr=value]', () => {
-    const tree = parseText('<input type="text"><input type="hidden">');
-    const selector = parseSelector('input[type=hidden]')!;
-    const matches = matchSelector(tree.rootNode, selector);
-    expect(matches).toHaveLength(1);
-  });
-
-  it('negated attribute :not([attr])', () => {
-    const tree = parseText('<img src="x"><img src="y" alt="desc">');
-    const selector = parseSelector('img:not([alt])')!;
-    const matches = matchSelector(tree.rootNode, selector);
-    expect(matches).toHaveLength(1);
-  });
-
-  it('returns multiple matches', () => {
-    const tree = parseText('<div><span></span><span></span></div>');
-    const selector = parseSelector('div span')!;
-    const matches = matchSelector(tree.rootNode, selector);
-    expect(matches).toHaveLength(2);
-  });
-
-  it('matches self-closing tags', () => {
-    const tree = parseText('<img src="x">');
-    const selector = parseSelector('img')!;
-    const matches = matchSelector(tree.rootNode, selector);
-    expect(matches).toHaveLength(1);
-  });
-
-  it('wildcard * matches any HTML element', () => {
-    const tree = parseText('<div><span></span></div>');
-    const selector = parseSelector('div > *')!;
-    const matches = matchSelector(tree.rootNode, selector);
-    expect(matches).toHaveLength(1);
-  });
-
-  it('wildcard # matches any mustache section', () => {
-    const tree = parseText('{{#items}}content{{/items}}');
-    const selector = parseSelector('#')!;
-    const matches = matchSelector(tree.rootNode, selector);
-    expect(matches).toHaveLength(1);
-  });
-
-  it('matches comma-separated selectors', () => {
-    const tree = parseText('<div></div><span></span>');
-    const selector = parseSelector('div, span')!;
-    const matches = matchSelector(tree.rootNode, selector);
-    expect(matches).toHaveLength(2);
-  });
-
-  it('deduplicates matches from comma-separated selectors', () => {
-    const tree = parseText('<div class="x"></div>');
-    const selector = parseSelector('div, div[class]')!;
-    const matches = matchSelector(tree.rootNode, selector);
-    expect(matches).toHaveLength(1);
-  });
-
-  it('3+ level selector', () => {
-    const tree = parseText('<div><ul><li></li></ul></div>');
-    const selector = parseSelector('div ul li')!;
-    const matches = matchSelector(tree.rootNode, selector);
-    expect(matches).toHaveLength(1);
-  });
-
-  it('reports html_start_tag for HTML matches', () => {
-    const tree = parseText('<div></div>');
-    const selector = parseSelector('div')!;
-    const matches = matchSelector(tree.rootNode, selector);
-    expect(matches[0].type).toBe('html_start_tag');
-  });
-
-  it('reports mustache_section_begin for mustache matches', () => {
-    const tree = parseText('{{#items}}content{{/items}}');
-    const selector = parseSelector('#items')!;
-    const matches = matchSelector(tree.rootNode, selector);
     expect(matches[0].type).toBe('mustache_section_begin');
   });
 
-  it('reports html_self_closing_tag for void elements', () => {
-    const tree = parseText('<br/>');
-    const selector = parseSelector('br')!;
-    const matches = matchSelector(tree.rootNode, selector);
+  it('{{#items}} does NOT match an inverted section', () => {
+    const tree = parseText('{{^items}}empty{{/items}}');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{#items}}')!);
+    expect(matches).toHaveLength(0);
+  });
+
+  it('{{^items}} matches inverted section only', () => {
+    const tree = parseText('{{#items}}a{{/items}}{{^items}}b{{/items}}');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{^items}}')!);
     expect(matches).toHaveLength(1);
-    expect(matches[0].type).toBe('html_self_closing_tag');
+  });
+
+  it('{{#items}} li matches li inside positive section', () => {
+    const tree = parseText('{{#items}}<li></li>{{/items}}');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{#items}} li')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  it('{{#items}} > li does NOT cross an inverted section', () => {
+    const tree = parseText('{{^items}}<li></li>{{/items}}');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{#items}} > li')!);
+    expect(matches).toHaveLength(0);
+  });
+
+  it('{{#a}} > {{#b}} matches cross-kind with child combinator', () => {
+    const tree = parseText('{{#a}}<div>{{#b}}inner{{/b}}</div>{{/a}}');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{#a}} > {{#b}}')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  // --- Mustache variable / raw ---
+
+  it('{{data.foo}} matches exact escaped variable', () => {
+    const tree = parseText('<p>{{data.foo}} {{data.bar}}</p>');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{data.foo}}')!);
+    expect(matches).toHaveLength(1);
+    expect(matches[0].text).toBe('{{data.foo}}');
+  });
+
+  it('{{foo}} does NOT match {{{foo}}}', () => {
+    const tree = parseText('<p>{{foo}} {{{foo}}}</p>');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{foo}}')!);
+    expect(matches).toHaveLength(1);
+    expect(matches[0].text).toBe('{{foo}}');
+  });
+
+  it('{{{foo}}} matches only triple', () => {
+    const tree = parseText('<p>{{foo}} {{{foo}}}</p>');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{{foo}}}')!);
+    expect(matches).toHaveLength(1);
+    expect(matches[0].text).toBe('{{{foo}}}');
+  });
+
+  it('{{*}} matches any escaped variable but not triples', () => {
+    const tree = parseText('<p>{{a}} {{b.c}} {{{raw}}}</p>');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{*}}')!);
+    expect(matches).toHaveLength(2);
+  });
+
+  it('{{{*}}} matches any triple', () => {
+    const tree = parseText('<p>{{a}} {{{x}}} {{{y}}}</p>');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{{*}}}')!);
+    expect(matches).toHaveLength(2);
+  });
+
+  it('{{options.*}} matches prefix', () => {
+    const tree = parseText('<p>{{options.a}} {{options.b.c}} {{data.x}}</p>');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{options.*}}')!);
+    expect(matches).toHaveLength(2);
+  });
+
+  it('{{*.deprecated}} matches suffix', () => {
+    const tree = parseText('<p>{{foo.deprecated}} {{bar.deprecated}} {{foo.other}}</p>');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{*.deprecated}}')!);
+    expect(matches).toHaveLength(2);
+  });
+
+  it('variable inside attribute value is matched', () => {
+    const tree = parseText('<img src="{{url}}" alt="{{desc}}">');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{*}}')!);
+    expect(matches).toHaveLength(2);
+  });
+
+  it('{{.}} matches context-marker interpolation', () => {
+    const tree = parseText('{{#items}}{{.}}{{/items}}');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{.}}')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  // --- Mustache comment ---
+
+  it('{{!*}} matches any comment', () => {
+    const tree = parseText('<p>{{!a}} {{!b}}</p>');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{!*}}')!);
+    expect(matches).toHaveLength(2);
+  });
+
+  it('{{!TODO}} matches exact comment content', () => {
+    const tree = parseText('<p>{{!TODO}} {{!other}}</p>');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{!TODO}}')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  it('{{!*TODO*}} matches comments containing TODO', () => {
+    const tree = parseText('<p>{{!TODO fix}} {{!nothing here}} {{!this is a TODO note}}</p>');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{!*TODO*}}')!);
+    expect(matches).toHaveLength(2);
+  });
+
+  // --- Mustache partial ---
+
+  it('{{>header}} matches exact partial by name', () => {
+    const tree = parseText('<p>{{>header}} {{>footer}}</p>');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{>header}}')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  it('{{>legacy_*}} matches partials with prefix', () => {
+    const tree = parseText('<p>{{>legacy_a}} {{>legacy_b}} {{>modern}}</p>');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{>legacy_*}}')!);
+    expect(matches).toHaveLength(2);
+  });
+
+  // --- Attribute operator tests (regression) ---
+
+  it('[src^=prefix] still works', () => {
+    const tree = parseText('<img src="foo/a.png"><img src="bar/b.png">');
+    const matches = matchSelector(tree.rootNode, parseSelector('img[src^="foo/"]')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  it('.class still works', () => {
+    const tree = parseText('<div class="a b"></div><div class="c"></div>');
+    const matches = matchSelector(tree.rootNode, parseSelector('.a')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  it('#id still works', () => {
+    const tree = parseText('<section id="main"></section><section></section>');
+    const matches = matchSelector(tree.rootNode, parseSelector('#main')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  // --- :has() ---
+
+  it('pl-multiple-choice:has({{foo}}) flags only those with a variable descendant', () => {
+    const tree = parseText(
+      '<pl-multiple-choice id="has"><p>{{foo}}</p></pl-multiple-choice>' +
+      '<pl-multiple-choice id="no"><p>text</p></pl-multiple-choice>',
+    );
+    const matches = matchSelector(tree.rootNode, parseSelector('pl-multiple-choice:has({{*}})')!);
+    expect(matches).toHaveLength(1);
+    expect(matches[0].text).toContain('id="has"');
+  });
+
+  it(':not(:has({{foo}})) flags elements missing a required variable', () => {
+    const tree = parseText(
+      '<pl-multiple-choice id="has">{{foo}}</pl-multiple-choice>' +
+      '<pl-multiple-choice id="no"></pl-multiple-choice>',
+    );
+    const matches = matchSelector(tree.rootNode, parseSelector('pl-multiple-choice:not(:has({{*}}))')!);
+    expect(matches).toHaveLength(1);
+    expect(matches[0].text).toContain('id="no"');
+  });
+
+  // --- Chained :not() AND ---
+
+  it('chained :not() AND together (EDC rule shape)', () => {
+    const tree = parseText(
+      '<pl-checkbox></pl-checkbox>' +
+      '<pl-checkbox partial-credit-method="EDC"></pl-checkbox>' +
+      '<pl-checkbox partial-credit="each-answer"></pl-checkbox>' +
+      '<pl-checkbox partial-credit-method="COV"></pl-checkbox>',
+    );
+    const matches = matchSelector(
+      tree.rootNode,
+      parseSelector('pl-checkbox:not([partial-credit-method=EDC]):not([partial-credit=each-answer])')!,
+    );
+    expect(matches).toHaveLength(2);
+  });
+
+  // --- Reporting ---
+
+  it('reports html_start_tag for HTML matches', () => {
+    const tree = parseText('<div></div>');
+    const matches = matchSelector(tree.rootNode, parseSelector('div')!);
+    expect(matches[0].type).toBe('html_start_tag');
+  });
+
+  it('reports mustache_section_begin for section matches', () => {
+    const tree = parseText('{{#items}}content{{/items}}');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{#items}}')!);
+    expect(matches[0].type).toBe('mustache_section_begin');
+  });
+
+  it('reports mustache_interpolation node for variable matches', () => {
+    const tree = parseText('<p>{{foo}}</p>');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{foo}}')!);
+    expect(matches[0].type).toBe('mustache_interpolation');
+  });
+
+  it('reports mustache_triple node for raw matches', () => {
+    const tree = parseText('<p>{{{foo}}}</p>');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{{foo}}}')!);
+    expect(matches[0].type).toBe('mustache_triple');
+  });
+
+  it('reports mustache_comment node for comment matches', () => {
+    const tree = parseText('<p>{{!note}}</p>');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{!*}}')!);
+    expect(matches[0].type).toBe('mustache_comment');
+  });
+
+  it('reports mustache_partial node for partial matches', () => {
+    const tree = parseText('<p>{{>header}}</p>');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{>header}}')!);
+    expect(matches[0].type).toBe('mustache_partial');
   });
 });

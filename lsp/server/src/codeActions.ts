@@ -5,7 +5,7 @@ import {
   TextEdit,
 } from 'vscode-languageserver';
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import type { TextReplacement } from './mustacheChecks';
+import type { TextReplacement } from './mustacheChecks.js';
 
 interface DiagnosticFixData {
   fix?: TextReplacement[];

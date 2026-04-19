@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { DiagnosticSeverity } from 'vscode-languageserver';
-import { parseText } from './setup';
-import { getDiagnostics } from '../src/diagnostics';
+import { parseText } from './setup.js';
+import { getDiagnostics } from '../src/diagnostics.js';
 
 describe('Diagnostics', () => {
   describe('mustache section mismatches', () => {
@@ -589,6 +589,22 @@ describe('Diagnostics', () => {
       const diagnostics = getDiagnostics(tree, undefined, undefined, customRules);
 
       expect(diagnostics.some(d => d.message === 'Bad rule')).toBe(false);
+    });
+
+    it('flags relative clientFilesQuestion paths via [src^=]', () => {
+      const tree = parseText(
+        '<img src="clientFilesQuestion/targetPlot.jpeg">' +
+        '<img src="{{options.client_files_question_url}}/targetPlot.jpeg">',
+      );
+      const customRules = [{
+        id: 'no-relative-client-files-question',
+        selector: '[src^="clientFilesQuestion/"], [href^="clientFilesQuestion/"]',
+        message: 'Use {{options.client_files_question_url}}/... instead.',
+      }];
+      const diagnostics = getDiagnostics(tree, undefined, undefined, customRules);
+
+      const hits = diagnostics.filter(d => d.message.startsWith('Use {{options.'));
+      expect(hits).toHaveLength(1);
     });
   });
 
