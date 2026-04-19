@@ -14,9 +14,10 @@ import {
   checkUnescapedEntities,
   checkHtmlComments,
   checkUnrecognizedHtmlTags,
+  checkElementContentTooLong,
 } from './mustacheChecks.js';
 import type { TextReplacement } from './mustacheChecks.js';
-import type { RulesConfig, RuleSeverity, CustomRule } from './configFile.js';
+import type { RulesConfig, RuleSeverity, CustomRule, ElementContentTooLongOptions } from './configFile.js';
 import { RULE_DEFAULTS, KNOWN_RULE_NAMES } from './ruleMetadata.js';
 import { parseSelector, matchSelector } from './selectorMatcher.js';
 
@@ -63,8 +64,20 @@ function errorMessageForNode(nodeType: string, node: BalanceNode): string {
   return `Missing ${nodeType}`;
 }
 
-function resolveRuleSeverity(rules: RulesConfig | undefined, ruleName: keyof RulesConfig): RuleSeverity {
-  return rules?.[ruleName] ?? RULE_DEFAULTS[ruleName] ?? 'off';
+function resolveRuleConfig<K extends keyof RulesConfig>(
+  rules: RulesConfig | undefined,
+  ruleName: K,
+): { severity: RuleSeverity; entry: RulesConfig[K] } {
+  const entry = rules?.[ruleName];
+  let severity: RuleSeverity;
+  if (entry === undefined) {
+    severity = RULE_DEFAULTS[ruleName] ?? 'off';
+  } else if (typeof entry === 'string') {
+    severity = entry;
+  } else {
+    severity = (entry as { severity: RuleSeverity }).severity;
+  }
+  return { severity, entry: entry as RulesConfig[K] };
 }
 
 function parseDisableDirective(node: BalanceNode, customRuleIds?: Set<string>): string | null {
@@ -150,7 +163,7 @@ export function collectErrors(tree: WalkableTree, rules?: RulesConfig, customTag
   // Configurable lint checks
   const sourceText = tree.rootNode.text;
 
-  const ruleChecks: { rule: keyof RulesConfig; errors: () => import('./mustacheChecks.js').FixableError[] }[] = [
+  const ruleChecks: { rule: keyof RulesConfig; errors: (entry: RulesConfig[keyof RulesConfig]) => import('./mustacheChecks.js').FixableError[] }[] = [
     { rule: 'nestedDuplicateSections', errors: () => checkNestedSameNameSections(tree.rootNode) },
     { rule: 'unquotedMustacheAttributes', errors: () => checkUnquotedMustacheAttributes(tree.rootNode) },
     { rule: 'consecutiveDuplicateSections', errors: () => checkConsecutiveSameNameSections(tree.rootNode, sourceText) },
@@ -159,13 +172,20 @@ export function collectErrors(tree: WalkableTree, rules?: RulesConfig, customTag
     { rule: 'unescapedEntities', errors: () => checkUnescapedEntities(tree.rootNode) },
     { rule: 'preferMustacheComments', errors: () => checkHtmlComments(tree.rootNode) },
     { rule: 'unrecognizedHtmlTags', errors: () => checkUnrecognizedHtmlTags(tree.rootNode, customTagNames) },
+    {
+      rule: 'elementContentTooLong',
+      errors: (entry) => {
+        const elements = (entry && typeof entry === 'object' ? (entry as ElementContentTooLongOptions).elements : undefined) ?? [];
+        return checkElementContentTooLong(tree.rootNode, elements);
+      },
+    },
   ];
 
   for (const { rule, errors: getErrors } of ruleChecks) {
-    const severity = resolveRuleSeverity(effectiveRules, rule);
+    const { severity, entry } = resolveRuleConfig(effectiveRules, rule);
     if (severity === 'off') continue;
 
-    for (const error of getErrors()) {
+    for (const error of getErrors(entry)) {
       errors.push({
         node: error.node,
         message: error.message,

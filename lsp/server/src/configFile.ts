@@ -14,18 +14,61 @@ const VALID_CSS_DISPLAY_VALUES = new Set<string>([
 
 export type RuleSeverity = 'error' | 'warning' | 'off';
 
+export interface ElementContentTooLongOptions {
+  elements: Array<{ tag: string; maxBytes: number }>;
+}
+
+export type RuleEntry = RuleSeverity | { severity: RuleSeverity };
+export type RuleEntryWithOptions<TOptions> = RuleSeverity | ({ severity: RuleSeverity } & TOptions);
+
 export interface RulesConfig {
-  nestedDuplicateSections?: RuleSeverity;
-  unquotedMustacheAttributes?: RuleSeverity;
-  consecutiveDuplicateSections?: RuleSeverity;
-  selfClosingNonVoidTags?: RuleSeverity;
-  duplicateAttributes?: RuleSeverity;
-  unescapedEntities?: RuleSeverity;
-  preferMustacheComments?: RuleSeverity;
-  unrecognizedHtmlTags?: RuleSeverity;
+  nestedDuplicateSections?: RuleEntry;
+  unquotedMustacheAttributes?: RuleEntry;
+  consecutiveDuplicateSections?: RuleEntry;
+  selfClosingNonVoidTags?: RuleEntry;
+  duplicateAttributes?: RuleEntry;
+  unescapedEntities?: RuleEntry;
+  preferMustacheComments?: RuleEntry;
+  unrecognizedHtmlTags?: RuleEntry;
+  elementContentTooLong?: RuleEntryWithOptions<ElementContentTooLongOptions>;
 }
 
 const VALID_RULE_SEVERITIES = new Set<string>(['error', 'warning', 'off']);
+
+function parseElementContentTooLongOptions(raw: Record<string, unknown>): ElementContentTooLongOptions | null {
+  if (!Array.isArray(raw.elements)) return null;
+  const elements: ElementContentTooLongOptions['elements'] = [];
+  for (const entry of raw.elements) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+    const e = entry as Record<string, unknown>;
+    if (typeof e.tag !== 'string' || e.tag.length === 0) continue;
+    if (typeof e.maxBytes !== 'number' || !Number.isFinite(e.maxBytes) || e.maxBytes < 0) continue;
+    elements.push({ tag: e.tag, maxBytes: e.maxBytes });
+  }
+  return { elements };
+}
+
+const OPTION_PARSERS: Partial<Record<keyof RulesConfig, (raw: Record<string, unknown>) => object | null>> = {
+  elementContentTooLong: parseElementContentTooLongOptions,
+};
+
+function parseRuleEntry(
+  key: keyof RulesConfig,
+  value: unknown,
+): RuleSeverity | { severity: RuleSeverity; [k: string]: unknown } | null {
+  if (typeof value === 'string') {
+    return VALID_RULE_SEVERITIES.has(value) ? (value as RuleSeverity) : null;
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const obj = value as Record<string, unknown>;
+  if (typeof obj.severity !== 'string' || !VALID_RULE_SEVERITIES.has(obj.severity)) return null;
+  const severity = obj.severity as RuleSeverity;
+  const parser = OPTION_PARSERS[key];
+  if (!parser) return { severity };
+  const options = parser(obj);
+  if (!options) return { severity };
+  return { severity, ...options };
+}
 
 export interface CustomRule {
   id: string;
@@ -219,10 +262,11 @@ export function validateConfig(raw: unknown): HtmlMustacheConfig {
     const rules: RulesConfig = {};
     let hasRules = false;
     for (const [key, value] of Object.entries(rawRules)) {
-      if (KNOWN_RULE_NAMES.has(key) && typeof value === 'string' && VALID_RULE_SEVERITIES.has(value)) {
-        (rules as Record<string, string>)[key] = value;
-        hasRules = true;
-      }
+      if (!KNOWN_RULE_NAMES.has(key)) continue;
+      const entry = parseRuleEntry(key as keyof RulesConfig, value);
+      if (entry === null) continue;
+      (rules as Record<string, unknown>)[key] = entry;
+      hasRules = true;
     }
     if (hasRules) config.rules = rules;
   }

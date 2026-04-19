@@ -484,6 +484,79 @@ describe('Diagnostics', () => {
     });
   });
 
+  describe('elementContentTooLong rule', () => {
+    it('does not flag when rule is off by default', () => {
+      const tree = parseText('<pl-question-panel>' + 'x'.repeat(100) + '</pl-question-panel>');
+      const diagnostics = getDiagnostics(tree);
+      expect(diagnostics.some(d => d.message.includes('exceeds limit'))).toBe(false);
+    });
+
+    it('does not flag when inner content is within the threshold', () => {
+      const tree = parseText('<pl-question-panel>short</pl-question-panel>');
+      const diagnostics = getDiagnostics(tree, {
+        elementContentTooLong: {
+          severity: 'warning',
+          elements: [{ tag: 'pl-question-panel', maxBytes: 100 }],
+        },
+      });
+      expect(diagnostics.some(d => d.message.includes('exceeds limit'))).toBe(false);
+    });
+
+    it('flags elements whose inner content exceeds the threshold', () => {
+      const inner = 'x'.repeat(150);
+      const tree = parseText(`<pl-question-panel>${inner}</pl-question-panel>`);
+      const diagnostics = getDiagnostics(tree, {
+        elementContentTooLong: {
+          severity: 'warning',
+          elements: [{ tag: 'pl-question-panel', maxBytes: 100 }],
+        },
+      });
+      const err = diagnostics.find(d => d.message.includes('exceeds limit'));
+      expect(err).toBeDefined();
+      expect(err!.message).toContain('150 bytes');
+      expect(err!.message).toContain('limit of 100');
+      expect(err!.severity).toBe(DiagnosticSeverity.Warning);
+    });
+
+    it('measures inner content only, not the tags themselves', () => {
+      // Inner content is 10 bytes ("0123456789"); max is 10 — should not flag.
+      const tree = parseText('<pl-question-panel>0123456789</pl-question-panel>');
+      const diagnostics = getDiagnostics(tree, {
+        elementContentTooLong: {
+          severity: 'warning',
+          elements: [{ tag: 'pl-question-panel', maxBytes: 10 }],
+        },
+      });
+      expect(diagnostics.some(d => d.message.includes('exceeds limit'))).toBe(false);
+    });
+
+    it('matches tag names case-insensitively', () => {
+      const inner = 'y'.repeat(50);
+      const tree = parseText(`<PL-Question-Panel>${inner}</PL-Question-Panel>`);
+      const diagnostics = getDiagnostics(tree, {
+        elementContentTooLong: {
+          severity: 'error',
+          elements: [{ tag: 'pl-question-panel', maxBytes: 10 }],
+        },
+      });
+      const err = diagnostics.find(d => d.message.includes('exceeds limit'));
+      expect(err).toBeDefined();
+      expect(err!.severity).toBe(DiagnosticSeverity.Error);
+    });
+
+    it('ignores elements not listed in the options', () => {
+      const inner = 'z'.repeat(500);
+      const tree = parseText(`<div>${inner}</div>`);
+      const diagnostics = getDiagnostics(tree, {
+        elementContentTooLong: {
+          severity: 'warning',
+          elements: [{ tag: 'pl-question-panel', maxBytes: 10 }],
+        },
+      });
+      expect(diagnostics.some(d => d.message.includes('exceeds limit'))).toBe(false);
+    });
+  });
+
   describe('disable directives', () => {
     it('HTML comment disables a specific rule', () => {
       const tree = parseText('<!-- htmlmustache-disable selfClosingNonVoidTags -->\n<div/>');

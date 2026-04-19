@@ -276,6 +276,90 @@ describe('validateConfig', () => {
     expect(validateConfig({ rules: ['error'] })).toEqual({});
   });
 
+  it('accepts object-form rule entry with severity only', () => {
+    const result = validateConfig({
+      rules: {
+        preferMustacheComments: { severity: 'warning' },
+      },
+    });
+    expect(result.rules).toEqual({
+      preferMustacheComments: { severity: 'warning' },
+    });
+  });
+
+  it('rejects object-form rule entry with invalid severity', () => {
+    const result = validateConfig({
+      rules: {
+        preferMustacheComments: { severity: 'warn' },
+      },
+    });
+    expect(result.rules).toBeUndefined();
+  });
+
+  it('rejects object-form rule entry without severity', () => {
+    const result = validateConfig({
+      rules: {
+        preferMustacheComments: { foo: 'bar' },
+      },
+    });
+    expect(result.rules).toBeUndefined();
+  });
+
+  it('parses elementContentTooLong options', () => {
+    const result = validateConfig({
+      rules: {
+        elementContentTooLong: {
+          severity: 'warning',
+          elements: [
+            { tag: 'pl-question-panel', maxBytes: 2000 },
+            { tag: 'pl-answer-panel', maxBytes: 3000 },
+          ],
+        },
+      },
+    });
+    expect(result.rules).toEqual({
+      elementContentTooLong: {
+        severity: 'warning',
+        elements: [
+          { tag: 'pl-question-panel', maxBytes: 2000 },
+          { tag: 'pl-answer-panel', maxBytes: 3000 },
+        ],
+      },
+    });
+  });
+
+  it('filters out malformed element entries but keeps valid ones', () => {
+    const result = validateConfig({
+      rules: {
+        elementContentTooLong: {
+          severity: 'warning',
+          elements: [
+            { tag: 'pl-question-panel', maxBytes: 2000 },
+            { tag: '', maxBytes: 100 },
+            { tag: 'foo', maxBytes: -1 },
+            { tag: 'bar', maxBytes: 'nope' },
+            'not-an-object',
+          ],
+        },
+      },
+    });
+    expect(result.rules).toEqual({
+      elementContentTooLong: {
+        severity: 'warning',
+        elements: [{ tag: 'pl-question-panel', maxBytes: 2000 }],
+      },
+    });
+  });
+
+  it('still accepts string severity for elementContentTooLong', () => {
+    const result = validateConfig({
+      rules: {
+        elementContentTooLong: 'off',
+      },
+    });
+    expect(result.rules).toEqual({ elementContentTooLong: 'off' });
+  });
+
   it('validates customRules with valid entries', () => {
     const result = validateConfig({
       customRules: [

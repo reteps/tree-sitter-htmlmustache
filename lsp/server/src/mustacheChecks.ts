@@ -459,3 +459,46 @@ export function checkDuplicateAttributes(rootNode: BalanceNode): FixableError[] 
   visit(rootNode);
   return errors;
 }
+
+export function checkElementContentTooLong(
+  rootNode: BalanceNode,
+  elements: ReadonlyArray<{ tag: string; maxBytes: number }>,
+): FixableError[] {
+  const errors: FixableError[] = [];
+  if (elements.length === 0) return errors;
+
+  const thresholds = new Map<string, number>();
+  for (const { tag, maxBytes } of elements) {
+    const key = tag.toLowerCase();
+    const existing = thresholds.get(key);
+    if (existing === undefined || maxBytes < existing) thresholds.set(key, maxBytes);
+  }
+
+  function visit(node: BalanceNode) {
+    if (node.type === 'html_element') {
+      const startTag = node.children.find(c => c.type === 'html_start_tag');
+      const endTag = node.children.find(c => c.type === 'html_end_tag');
+      const tagNameNode = startTag?.children.find(c => c.type === 'html_tag_name');
+      const tagName = tagNameNode?.text.toLowerCase();
+      if (tagName && startTag && endTag) {
+        const maxBytes = thresholds.get(tagName);
+        if (maxBytes !== undefined) {
+          const innerBytes = endTag.startIndex - startTag.endIndex;
+          if (innerBytes > maxBytes) {
+            errors.push({
+              node: startTag,
+              message: `<${tagName}> content is ${innerBytes} bytes, exceeds limit of ${maxBytes}`,
+            });
+          }
+        }
+      }
+    }
+
+    for (const child of node.children) {
+      visit(child);
+    }
+  }
+
+  visit(rootNode);
+  return errors;
+}

@@ -47,6 +47,11 @@ export const RULES: RuleDefinition[] = [
     defaultSeverity: 'error',
     description: 'Flags HTML tags that are not standard HTML elements or valid custom elements',
   },
+  {
+    name: 'elementContentTooLong',
+    defaultSeverity: 'off',
+    description: 'Flags configured elements whose inner content exceeds a byte-length threshold (opt-in; requires `elements: [{ tag, maxBytes }]` option)',
+  },
 ];
 
 /** Set of all known rule names (for config validation). */
