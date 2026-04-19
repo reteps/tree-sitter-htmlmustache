@@ -3,11 +3,13 @@ name: Publish to npm
 on:
   release:
     types: [published]
+  workflow_dispatch:
 
 jobs:
   publish:
-    # Only publish for parser releases (v*), not LSP releases (lsp-v*)
-    if: startsWith(github.ref_name, 'v')
+    # Only publish for parser releases (v*), not LSP releases (lsp-v*).
+    # Allow manual dispatch (ref_name will be a branch or tag chosen by the operator).
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref_name, 'v')
     runs-on: ubuntu-latest
     permissions:
       contents: read
