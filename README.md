@@ -294,40 +294,56 @@ Each custom rule requires an `id`, `selector`, and `message`. The `severity` def
 
 **Selector syntax:**
 
-| Selector                                  | Matches                                       |
-| ----------------------------------------- | --------------------------------------------- |
-| `div`                                     | HTML elements by tag name                     |
-| `*`                                       | Any HTML element                              |
-| `#main`                                   | ID (shorthand for `[id="main"]`)              |
-| `.panel`                                  | Class (shorthand for `[class~="panel"]`)      |
-| `div span`                                | Descendant (span anywhere inside div)         |
-| `div > span`                              | Direct child                                  |
-| `[style]`                                 | Attribute presence                            |
-| `input[type=hidden]`                      | Attribute value (exact)                       |
-| `[src^="prefix/"]`                        | Attribute starts with                         |
-| `[href*="substring"]`                     | Attribute contains                            |
-| `[src$=".png"]`                           | Attribute ends with                           |
-| `[class~="warning"]`                      | Attribute contains whitespace-token           |
-| `img:not([alt])`                          | Negated attribute / class / id                |
-| `{{foo}}`                                 | Escaped variable `{{foo}}`                    |
-| `{{data.foo}}`                            | Variable with a dotted path                   |
-| `{{{foo}}}`                               | Triple / unescaped variable                   |
-| `{{options.*}}`                           | Variable path prefix match                    |
-| `{{*.deprecated}}`                        | Variable path suffix match                    |
-| `{{*}}`                                   | Any escaped variable                          |
-| `{{{*}}}`                                 | Any triple                                    |
-| `{{#items}}`                              | Section `{{#items}}...{{/items}}`             |
-| `{{^items}}`                              | Inverted section `{{^items}}...{{/items}}`    |
-| `{{#items}} > li`                         | Direct child inside a section                 |
-| `{{!TODO}}`                               | Comment with exact content                    |
-| `{{!*TODO*}}`                             | Comment containing "TODO"                     |
-| `{{>header}}`                             | Partial invocation                            |
-| `{{>legacy_*}}`                           | Partial name prefix                           |
-| `pl-multiple-choice:has({{foo}})`         | Element containing a given variable           |
-| `pl-multiple-choice:not(:has(pl-answer))` | Element missing a required descendant         |
-| `div, span`                               | Comma-separated alternatives                  |
+| Selector                                  | Matches                                    |
+| ----------------------------------------- | ------------------------------------------ |
+| `div`                                     | HTML elements by tag name                  |
+| `*`                                       | Any HTML element                           |
+| `#main`                                   | ID (shorthand for `[id="main"]`)           |
+| `.panel`                                  | Class (shorthand for `[class~="panel"]`)   |
+| `div span`                                | Descendant (span anywhere inside div)      |
+| `div > span`                              | Direct child                               |
+| `[style]`                                 | Attribute presence                         |
+| `input[type=hidden]`                      | Attribute value (exact)                    |
+| `[src^="prefix/"]`                        | Attribute starts with                      |
+| `[href*="substring"]`                     | Attribute contains                         |
+| `[src$=".png"]`                           | Attribute ends with                        |
+| `[class~="warning"]`                      | Attribute contains whitespace-token        |
+| `img:not([alt])`                          | Negated attribute / class / id             |
+| `{{foo}}`                                 | Escaped variable `{{foo}}`                 |
+| `{{data.foo}}`                            | Variable with a dotted path                |
+| `{{{foo}}}`                               | Triple / unescaped variable                |
+| `{{options.*}}`                           | Variable path prefix match                 |
+| `{{*.deprecated}}`                        | Variable path suffix match                 |
+| `{{*}}`                                   | Any escaped variable                       |
+| `{{{*}}}`                                 | Any triple                                 |
+| `{{#items}}`                              | Section `{{#items}}...{{/items}}`          |
+| `{{^items}}`                              | Inverted section `{{^items}}...{{/items}}` |
+| `{{#items}} > li`                         | Direct child inside a section              |
+| `{{!TODO}}`                               | Comment with exact content                 |
+| `{{!*TODO*}}`                             | Comment containing "TODO"                  |
+| `{{>header}}`                             | Partial invocation                         |
+| `{{>legacy_*}}`                           | Partial name prefix                        |
+| `pl-multiple-choice:has({{foo}})`         | Element containing a given variable        |
+| `pl-multiple-choice:not(:has(pl-answer))` | Element missing a required descendant      |
+| `div, span`                               | Comma-separated alternatives               |
+| `:root`                                   | The document root (the whole parse tree)   |
+| `:root:has(pl-answer-panel)`              | Document contains a descendant anywhere    |
+| `:root:not(:has(pl-answer-panel))`        | Document is missing a descendant anywhere  |
+| `:root > section`                         | Top-level element (direct child of root)   |
 
 The `>` (child) combinator is kind-transparent: `div > span` matches even if a Mustache section sits between them (e.g. `<div>{{#show}}<span>{{/show}}</div>`), and `{{#a}} > {{#b}}` matches across intervening HTML elements. `{{#foo}}` matches only positive sections — to target inverted sections use `{{^foo}}`.
+
+**Document-scoped conditional rules.** Use `:root` with `:has(...)` / `:not(:has(...))` to express rules that depend on the overall document. Chained `:has(...)` acts as AND, so you can combine "contains X" and "missing Y" in one selector:
+
+```jsonc
+{
+  "id": "question-needs-answer-panel",
+  "selector": ":root:has(pl-question-panel):not(:has(pl-answer-panel))",
+  "message": "A question-panel document must also declare a pl-answer-panel.",
+}
+```
+
+When `:root` matches, the diagnostic is reported at the start of the document (row 0, column 0) so the squiggle doesn't span the whole file. `:root` here is the tree-sitter fragment root, so it works on partial templates and fragments — unlike browser CSS, which anchors `:root` on `<html>`. Inside `:has(...)`, `:root` refers to the element being has-checked, not the document.
 
 ### Disabling Lint Rules
 

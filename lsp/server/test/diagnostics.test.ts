@@ -679,6 +679,51 @@ describe('Diagnostics', () => {
       const hits = diagnostics.filter(d => d.message.startsWith('Use {{options.'));
       expect(hits).toHaveLength(1);
     });
+
+    describe(':root document-scoped guards', () => {
+      const customRules = [{
+        id: 'question-without-answer',
+        selector: ':root:has(pl-question-panel):not(:has(pl-answer-panel))',
+        message: 'Question without answer panel',
+      }];
+
+      it('fires when pl-question-panel is present and pl-answer-panel is absent', () => {
+        const tree = parseText('<pl-question-panel>q</pl-question-panel>');
+        const diagnostics = getDiagnostics(tree, undefined, undefined, customRules);
+        expect(diagnostics.some(d => d.message === 'Question without answer panel')).toBe(true);
+      });
+
+      it('fires when pl-question-panel is deeply nested', () => {
+        const tree = parseText(
+          '<div><section><pl-question-panel>q</pl-question-panel></section></div>',
+        );
+        const diagnostics = getDiagnostics(tree, undefined, undefined, customRules);
+        expect(diagnostics.some(d => d.message === 'Question without answer panel')).toBe(true);
+      });
+
+      it('silent when pl-answer-panel is also present', () => {
+        const tree = parseText(
+          '<pl-question-panel>q</pl-question-panel><pl-answer-panel>a</pl-answer-panel>',
+        );
+        const diagnostics = getDiagnostics(tree, undefined, undefined, customRules);
+        expect(diagnostics.some(d => d.message === 'Question without answer panel')).toBe(false);
+      });
+
+      it('silent when pl-question-panel is absent', () => {
+        const tree = parseText('<div><p>content</p></div>');
+        const diagnostics = getDiagnostics(tree, undefined, undefined, customRules);
+        expect(diagnostics.some(d => d.message === 'Question without answer panel')).toBe(false);
+      });
+
+      it('reports a narrowed range at the start of the document', () => {
+        const tree = parseText('<pl-question-panel>\n  q\n</pl-question-panel>');
+        const diagnostics = getDiagnostics(tree, undefined, undefined, customRules);
+        const hit = diagnostics.find(d => d.message === 'Question without answer panel');
+        expect(hit).toBeDefined();
+        expect(hit!.range.start).toEqual({ line: 0, character: 0 });
+        expect(hit!.range.end).toEqual({ line: 0, character: 1 });
+      });
+    });
   });
 
   describe('rules config overrides', () => {

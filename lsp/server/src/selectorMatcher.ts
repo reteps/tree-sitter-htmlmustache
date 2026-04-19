@@ -18,6 +18,14 @@
  *   - Glob wildcard `*` inside the argument: `{{options.*}}`, `{{*.deprecated}}`, `{{*}}`
  *   - `:has(selector)` — element has a matching descendant
  *   - `:not(...)` over any attribute/class/id/:has form
+ *   - `:root` — the tree-sitter fragment root (the whole document). Unlike
+ *     browser CSS where `:root` matches `<html>`, this matches the parse-tree
+ *     root so it works on partials/fragments too. Useful as a document-scoped
+ *     anchor, e.g. `:root:has(pl-question-panel):not(:has(pl-answer-panel))`
+ *     matches the root iff a `pl-question-panel` is present anywhere but no
+ *     `pl-answer-panel` is. Cannot combine with tag/class/id/attribute in the
+ *     same compound (only with `:has` / `:not(:has(...))`). Inside `:has(...)`,
+ *     `:root` refers to the element being checked, not the document.
  *   - Comma-separated alternatives
  *
  * Unsupported (parseSelector returns null, rule is skipped):
@@ -67,6 +75,7 @@ export interface DescendantCheck {
 
 export interface Segment {
   kind: SegmentKind;
+  rootOnly: boolean;          // true for `:root` — matches only the tree-sitter fragment root
   name: string | null;        // lowercased identifier/path, null = wildcard
   pathRegex?: RegExp;         // compiled glob when `name` contains `*`
   attributes: AttributeConstraint[];
@@ -240,6 +249,7 @@ function segmentFromCompound(ast: AST): Segment | null {
   let kind: SegmentKind | undefined;
   let name: string | null = null;
   let pathRegex: RegExp | undefined;
+  let rootOnly = false;
   const attributes: AttributeConstraint[] = [];
   const descendantChecks: DescendantCheck[] = [];
 
@@ -303,6 +313,11 @@ function segmentFromCompound(ast: AST): Segment | null {
           if (!applyNegatedSubtree(token.subtree, attributes, descendantChecks)) return null;
           break;
         }
+        if (token.name === 'root') {
+          rootOnly = true;
+          if (kind === undefined) kind = 'html';
+          break;
+        }
         return null;
       }
       default:
@@ -315,9 +330,15 @@ function segmentFromCompound(ast: AST): Segment | null {
     kind = 'html';
   }
 
+  if (rootOnly) {
+    // `:root` is only meaningful on its own (optionally with :has / :not(:has)).
+    // Reject tag/attribute/class/id combinations — the root isn't an HTML element.
+    if (name !== null || attributes.length > 0 || kind !== 'html') return null;
+  }
+
   const isHtml = kind === 'html';
   const finalAttrs = isHtml ? attributes : [];
-  return { kind, name, pathRegex, attributes: finalAttrs, descendantChecks, combinator: 'descendant' };
+  return { kind, rootOnly, name, pathRegex, attributes: finalAttrs, descendantChecks, combinator: 'descendant' };
 }
 
 function mustacheKindFromMarker(name: string): SegmentKind | null {
@@ -436,7 +457,7 @@ interface AncestorEntry {
   node: BalanceNode;
 }
 
-type AncestorKind = 'html' | 'section' | 'inverted';
+type AncestorKind = 'html' | 'section' | 'inverted' | 'root';
 
 function ancestorKindForNode(node: BalanceNode): AncestorKind | null {
   if (HTML_ELEMENT_TYPES.has(node.type)) return 'html';
@@ -526,7 +547,11 @@ function matchesName(actual: string | null, segment: Segment): boolean {
   return actual === segment.name;
 }
 
-function nodeMatchesSegment(node: BalanceNode, segment: Segment): boolean {
+function nodeMatchesSegment(node: BalanceNode, segment: Segment, rootNode: BalanceNode): boolean {
+  if (segment.rootOnly) {
+    if (node !== rootNode) return false;
+    return checkDescendants(node, segment.descendantChecks);
+  }
   switch (segment.kind) {
     case 'html': {
       if (!HTML_ELEMENT_TYPES.has(node.type)) return false;
@@ -578,7 +603,13 @@ function checkAncestors(
   if (childCombinator === 'child') {
     for (let a = ancestors.length - 1; a >= 0; a--) {
       const entry = ancestors[a];
-      if (entry.kind !== ancestorKind) continue;
+      if (entry.kind !== ancestorKind) {
+        // For `:root > X` (ancestorKind='root'), any html ancestor between
+        // X and the document root breaks the direct-child relationship.
+        // Mustache sections are transparent (existing braided semantics).
+        if (ancestorKind === 'root' && entry.kind === 'html') return false;
+        continue;
+      }
       if (!matchesName(entry.name, segment)) return false;
       if (segment.kind === 'html' && !checkAttributes(entry.node, segment.attributes)) return false;
       if (!checkDescendants(entry.node, segment.descendantChecks)) return false;
@@ -601,13 +632,14 @@ function checkAncestors(
 }
 
 function ancestorKindForSegment(segment: Segment): AncestorKind | null {
+  if (segment.rootOnly) return 'root';
   if (segment.kind === 'html') return 'html';
   if (segment.kind === 'section') return 'section';
   if (segment.kind === 'inverted') return 'inverted';
   return null;
 }
 
-function getReportNode(node: BalanceNode): BalanceNode {
+function getReportNode(node: BalanceNode, rootNode?: BalanceNode): BalanceNode {
   if (HTML_ELEMENT_TYPES.has(node.type)) {
     const startTag = node.children.find(
       c => c.type === 'html_start_tag' || c.type === 'html_self_closing_tag',
@@ -620,6 +652,20 @@ function getReportNode(node: BalanceNode): BalanceNode {
     );
     return begin ?? node;
   }
+  // When `:root` matches, the node covers the whole document. Narrow the
+  // reported range to a 1-char span at the document start so the diagnostic
+  // squiggle isn't the entire file.
+  if (rootNode && node === rootNode) {
+    return {
+      type: node.type,
+      text: '',
+      startPosition: node.startPosition,
+      endPosition: { row: node.startPosition.row, column: node.startPosition.column + 1 },
+      startIndex: node.startIndex,
+      endIndex: Math.min(node.startIndex + 1, node.endIndex),
+      children: [],
+    };
+  }
   return node;
 }
 
@@ -628,12 +674,12 @@ function matchAlternative(rootNode: BalanceNode, segments: Segment[]): BalanceNo
   const lastSegment = segments[segments.length - 1];
 
   function walk(node: BalanceNode, ancestors: AncestorEntry[]) {
-    if (nodeMatchesSegment(node, lastSegment)) {
+    if (nodeMatchesSegment(node, lastSegment, rootNode)) {
       if (
         segments.length === 1 ||
         checkAncestors(ancestors, segments, segments.length - 2, lastSegment.combinator)
       ) {
-        results.push(getReportNode(node));
+        results.push(getReportNode(node, rootNode));
       }
     }
 
@@ -651,7 +697,10 @@ function matchAlternative(rootNode: BalanceNode, segments: Segment[]): BalanceNo
     for (const child of node.children) walk(child, newAncestors);
   }
 
-  walk(rootNode, []);
+  // Seed the ancestor stack with a root entry so `:root X` / `:root > X`
+  // can find the document root as an ancestor. The root node itself is
+  // never an html/section/inverted node, so it's otherwise never pushed.
+  walk(rootNode, [{ kind: 'root', name: '', node: rootNode }]);
   return results;
 }
 

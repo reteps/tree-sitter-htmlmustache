@@ -518,4 +518,119 @@ describe('matchSelector', () => {
     const matches = matchSelector(tree.rootNode, parseSelector('{{>header}}')!);
     expect(matches[0].type).toBe('mustache_partial');
   });
+
+  // --- :root ---
+
+  it(':root matches exactly one node (the document root)', () => {
+    const tree = parseText('<div><p></p></div>');
+    const matches = matchSelector(tree.rootNode, parseSelector(':root')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  it(':root:has(X) matches when X is a direct child', () => {
+    const tree = parseText('<pl-answer-panel></pl-answer-panel>');
+    const matches = matchSelector(tree.rootNode, parseSelector(':root:has(pl-answer-panel)')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  it(':root:has(X) matches when X is deeply nested', () => {
+    const tree = parseText(
+      '<div><section><article><pl-answer-panel></pl-answer-panel></article></section></div>',
+    );
+    const matches = matchSelector(tree.rootNode, parseSelector(':root:has(pl-answer-panel)')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  it(':root:has(X) does not match when X is absent', () => {
+    const tree = parseText('<div><p></p></div>');
+    const matches = matchSelector(tree.rootNode, parseSelector(':root:has(pl-answer-panel)')!);
+    expect(matches).toHaveLength(0);
+  });
+
+  it(':root:not(:has(X)) matches when X is absent', () => {
+    const tree = parseText('<div><p></p></div>');
+    const matches = matchSelector(tree.rootNode, parseSelector(':root:not(:has(pl-answer-panel))')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  it(':root:not(:has(X)) does not match when X is present (deeply nested)', () => {
+    const tree = parseText(
+      '<div><section><pl-answer-panel></pl-answer-panel></section></div>',
+    );
+    const matches = matchSelector(tree.rootNode, parseSelector(':root:not(:has(pl-answer-panel))')!);
+    expect(matches).toHaveLength(0);
+  });
+
+  it(':root:has(A):not(:has(B)) matches when A present and B absent', () => {
+    const tree = parseText(
+      '<div><pl-question-panel>q</pl-question-panel></div>',
+    );
+    const matches = matchSelector(
+      tree.rootNode,
+      parseSelector(':root:has(pl-question-panel):not(:has(pl-answer-panel))')!,
+    );
+    expect(matches).toHaveLength(1);
+  });
+
+  it(':root:has(A):not(:has(B)) does not match when B is present', () => {
+    const tree = parseText(
+      '<pl-question-panel>q</pl-question-panel><pl-answer-panel>a</pl-answer-panel>',
+    );
+    const matches = matchSelector(
+      tree.rootNode,
+      parseSelector(':root:has(pl-question-panel):not(:has(pl-answer-panel))')!,
+    );
+    expect(matches).toHaveLength(0);
+  });
+
+  it(':root:has(A):not(:has(B)) does not match when A is absent', () => {
+    const tree = parseText('<div></div>');
+    const matches = matchSelector(
+      tree.rootNode,
+      parseSelector(':root:has(pl-question-panel):not(:has(pl-answer-panel))')!,
+    );
+    expect(matches).toHaveLength(0);
+  });
+
+  it(':root X descendant matches any X under the document', () => {
+    const tree = parseText('<div><section><span></span></section></div>');
+    const matches = matchSelector(tree.rootNode, parseSelector(':root span')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  it(':root > X child matches only top-level X', () => {
+    const tree = parseText('<div><span></span></div><span></span>');
+    const matches = matchSelector(tree.rootNode, parseSelector(':root > span')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  it(':root > X does not match nested X', () => {
+    const tree = parseText('<div><span></span></div>');
+    const matches = matchSelector(tree.rootNode, parseSelector(':root > span')!);
+    expect(matches).toHaveLength(0);
+  });
+
+  it(':root.foo is rejected (parse returns null)', () => {
+    expect(parseSelector(':root.foo')).toBeNull();
+  });
+
+  it(':root[attr] is rejected (parse returns null)', () => {
+    expect(parseSelector(':root[lang]')).toBeNull();
+  });
+
+  it(':rootFoo is rejected (parse returns null)', () => {
+    expect(parseSelector('div:rootfoo')).toBeNull();
+  });
+
+  it(':root reports a narrowed range (not the whole document)', () => {
+    const tree = parseText('<pl-question-panel>\n  hello\n</pl-question-panel>');
+    const matches = matchSelector(
+      tree.rootNode,
+      parseSelector(':root:has(pl-question-panel)')!,
+    );
+    expect(matches).toHaveLength(1);
+    const m = matches[0];
+    expect(m.startPosition).toEqual({ row: 0, column: 0 });
+    expect(m.endPosition).toEqual({ row: 0, column: 1 });
+  });
 });
