@@ -98,7 +98,7 @@
   "scripts": {
     "install": "node-gyp-build || exit 0",
     "build": "tree-sitter build --wasm",
-    "prepack": "tree-sitter build --wasm && node cli/esbuild.mjs && pnpm run build:browser",
+    "prepack": "tree-sitter build --wasm && node cli/esbuild.mjs && node browser/esbuild.mjs && tsc -p src/browser/tsconfig.json",
     "build:cli": "node cli/esbuild.mjs",
     "build:browser": "node browser/esbuild.mjs && tsc -p src/browser/tsconfig.json",
     "check": "node cli/out/check.js check",

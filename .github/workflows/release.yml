@@ -57,6 +57,11 @@ jobs:
       - name: Build WASM (needed by extension)
         run: tree-sitter build --wasm
 
+      # Install root deps so shared modules under `src/core/` can resolve
+      # their dependencies (e.g. parsel-js) from root node_modules at bundle time.
+      - name: Install root dependencies
+        run: pnpm install
+
       - name: Install extension dependencies
         working-directory: lsp
         run: pnpm install

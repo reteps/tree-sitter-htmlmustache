@@ -7,6 +7,10 @@ await build({
   format: 'esm',
   target: 'es2022',
   outfile: 'browser/out/browser/index.mjs',
-  external: ['web-tree-sitter', 'prettier', 'vscode-languageserver-textdocument'],
+  external: [
+    'web-tree-sitter',
+    'prettier',
+    'vscode-languageserver-textdocument',
+  ],
   sourcemap: true,
 });
