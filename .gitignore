@@ -60,3 +60,4 @@ lsp/server/debug-*.ts
 *.tsbuildinfo
 
 cli/out
+browser/out

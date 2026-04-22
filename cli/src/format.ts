@@ -4,13 +4,13 @@ import { pathToFileURL } from 'node:url';
 import chalk from 'chalk';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-import { formatDocument } from '../../lsp/server/src/formatting/index';
-import type { FormattingOptions, FormatDocumentParams } from '../../lsp/server/src/formatting/index';
+import { formatDocument } from '../../src/core/formatting/index';
+import type { FormattingOptions, FormatDocumentParams } from '../../src/core/formatting/index';
+import { formatEmbeddedRegions } from '../../src/core/formatting/embedded';
 import { getEditorConfigOptions } from '../../lsp/server/src/formatting/editorconfig';
 import { loadConfigFileForPath } from '../../lsp/server/src/configFile';
-import type { NoBreakDelimiter } from '../../lsp/server/src/configFile';
-import type { CustomCodeTagConfig } from '../../lsp/server/src/customCodeTags';
-import { collectEmbeddedRegions } from '../../lsp/server/src/embeddedRegions';
+import type { NoBreakDelimiter } from '../../src/core/configSchema';
+import type { CustomCodeTagConfig } from '../../src/core/customCodeTags';
 import { initializeParser, parseDocument } from './wasm';
 import { resolveFiles } from './check';
 
@@ -145,15 +145,8 @@ function resolveSettings(flags: FormatFlags, filePath?: string): {
     mustacheSpaces,
     noBreakDelimiters,
     customTags,
-    configFile,
   };
 }
-
-const LANGUAGE_TO_PRETTIER_PARSER: Record<string, string> = {
-  javascript: 'babel',
-  typescript: 'typescript',
-  css: 'css',
-};
 
 let prettierModule: typeof import('prettier') | null | undefined;
 
@@ -168,40 +161,12 @@ async function getPrettier(): Promise<typeof import('prettier') | null> {
   }
 }
 
-/** @internal Override the cached prettier module (for testing). Pass undefined to reset. */
+/**
+ * Override the cached prettier module (for testing). Pass undefined to reset.
+ * @internal
+ */
 export function _setPrettierForTesting(value: typeof import('prettier') | null | undefined) {
   prettierModule = value;
-}
-
-async function formatEmbeddedRegions(
-  tree: ReturnType<typeof parseDocument>,
-  options: FormattingOptions,
-): Promise<Map<number, string>> {
-  const result = new Map<number, string>();
-  const prettier = await getPrettier();
-  if (!prettier) return result;
-
-  const regions = collectEmbeddedRegions(tree.rootNode);
-  if (regions.length === 0) return result;
-
-  await Promise.all(
-    regions.map(async (region) => {
-      const parser = LANGUAGE_TO_PRETTIER_PARSER[region.languageId];
-      if (!parser) return;
-      try {
-        const formatted = await prettier.format(region.content, {
-          parser,
-          tabWidth: options.tabSize,
-          useTabs: !options.insertSpaces,
-        });
-        result.set(region.startIndex, formatted);
-      } catch {
-        // Formatting failed (e.g. syntax error in snippet) — skip
-      }
-    })
-  );
-
-  return result;
 }
 
 export async function formatSource(
@@ -210,7 +175,7 @@ export async function formatSource(
   params: FormatDocumentParams = {},
 ): Promise<string> {
   const tree = parseDocument(source);
-  const embeddedFormatted = await formatEmbeddedRegions(tree, options);
+  const embeddedFormatted = await formatEmbeddedRegions(tree.rootNode, options, await getPrettier());
   const document = TextDocument.create('file:///stdin', 'htmlmustache', 1, source);
   const edits = formatDocument(tree, document, options, {
     ...params,

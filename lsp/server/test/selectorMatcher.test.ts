@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseText } from './setup.js';
-import { parseSelector, matchSelector, preprocessMustacheLiterals } from '../src/selectorMatcher.js';
+import { parseSelector, matchSelector, preprocessMustacheLiterals } from '../../../src/core/selectorMatcher.js';
 
 // --- Preprocessor tests ---
 

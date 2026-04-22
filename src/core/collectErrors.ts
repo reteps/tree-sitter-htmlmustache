@@ -17,9 +17,23 @@ import {
   checkElementContentTooLong,
 } from './mustacheChecks.js';
 import type { TextReplacement } from './mustacheChecks.js';
-import type { RulesConfig, RuleSeverity, CustomRule, ElementContentTooLongOptions } from './configFile.js';
+import type { RulesConfig, RuleSeverity, CustomRule, ElementContentTooLongOptions } from './configSchema.js';
 import { RULE_DEFAULTS, KNOWN_RULE_NAMES } from './ruleMetadata.js';
 import { parseSelector, matchSelector } from './selectorMatcher.js';
+import type { ParsedSelector } from './selectorMatcher.js';
+
+// Parsing a selector is non-trivial (runs parsel-js) and lint() is called
+// per-keystroke in browsers, so cache by raw selector string. `null` cached
+// when the selector is unparseable to avoid retrying.
+const selectorCache = new Map<string, ParsedSelector | null>();
+
+function parseSelectorCached(raw: string): ParsedSelector | null {
+  const hit = selectorCache.get(raw);
+  if (hit !== undefined) return hit;
+  const parsed = parseSelector(raw);
+  selectorCache.set(raw, parsed);
+  return parsed;
+}
 
 /** A tree that provides walk() and rootNode, compatible with both web-tree-sitter and CLI wasm. */
 export interface WalkableTree {
@@ -203,7 +217,7 @@ export function collectErrors(tree: WalkableTree, rules?: RulesConfig, customTag
       if (disabledRules.has(rule.id)) continue;
       const severity = rule.severity ?? 'error';
       if (severity === 'off') continue;
-      const parsed = parseSelector(rule.selector);
+      const parsed = parseSelectorCached(rule.selector);
       if (!parsed) continue;
       const matches = matchSelector(tree.rootNode, parsed);
       for (const node of matches) {

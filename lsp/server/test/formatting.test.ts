@@ -2,9 +2,11 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { FormattingOptions } from 'vscode-languageserver/node';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { parseText, createMockDocument } from './setup.js';
-import { formatDocument, formatDocumentRange } from '../src/formatting/index.js';
-import type { CustomCodeTagConfig } from '../src/customCodeTags.js';
-import type { HtmlMustacheConfig } from '../src/configFile.js';
+import { formatDocument, formatDocumentRange } from '../../../src/core/formatting/index.js';
+import { mergeOptions } from '../../../src/core/formatting/mergeOptions.js';
+import { getEditorConfigOptions } from '../src/formatting/editorconfig.js';
+import type { CustomCodeTagConfig } from '../../../src/core/customCodeTags.js';
+import type { HtmlMustacheConfig } from '../../../src/core/configSchema.js';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -771,8 +773,8 @@ indent_style = tab
     const filePath = path.join(tempDir, filename);
     const uri = pathToFileURL(filePath).toString();
     const document = TextDocument.create(uri, 'htmlmustache', 1, content);
-    // Pass default options - editorconfig should override
-    const edits = formatDocument(tree, document, { tabSize: 2, insertSpaces: true });
+    const resolved = mergeOptions({ tabSize: 2, insertSpaces: true }, null, getEditorConfigOptions(uri));
+    const edits = formatDocument(tree, document, resolved);
     expect(edits.length).toBe(1);
     return edits[0].newText;
   }
@@ -1042,8 +1044,9 @@ describe('Config File Integration', () => {
     const filePath = path.join(tempDir, filename);
     const uri = pathToFileURL(filePath).toString();
     const document = TextDocument.create(uri, 'htmlmustache', 1, content);
-    const edits = formatDocument(tree, document, defaultOptions, {
-      printWidth: config.printWidth, mustacheSpaces: config.mustacheSpaces, configFile: config,
+    const resolved = mergeOptions(defaultOptions, config, getEditorConfigOptions(uri));
+    const edits = formatDocument(tree, document, resolved, {
+      printWidth: config.printWidth, mustacheSpaces: config.mustacheSpaces,
     });
     expect(edits.length).toBe(1);
     return edits[0].newText;
@@ -1077,7 +1080,8 @@ describe('Config File Integration', () => {
     const document = TextDocument.create(uri, 'htmlmustache', 1, '<div><p>text</p></div>');
     // Config file says indentSize: 2, but editorconfig says 8
     const config: HtmlMustacheConfig = { indentSize: 2 };
-    const edits = formatDocument(tree, document, defaultOptions, { configFile: config });
+    const resolved = mergeOptions(defaultOptions, config, getEditorConfigOptions(uri));
+    const edits = formatDocument(tree, document, resolved);
     expect(edits.length).toBe(1);
     // Editorconfig's 8-space indent should win over config file's 2
     expect(edits[0].newText).toBe('<div>\n        <p>text</p>\n</div>\n');

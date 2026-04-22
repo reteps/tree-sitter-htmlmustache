@@ -1,4 +1,4 @@
-import type { RuleSeverity } from './configFile.js';
+import type { RuleSeverity } from './configSchema.js';
 
 export interface RuleDefinition {
   name: string;

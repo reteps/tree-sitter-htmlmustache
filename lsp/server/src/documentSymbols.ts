@@ -2,7 +2,7 @@ import { Node as SyntaxNode } from 'web-tree-sitter';
 import type { Tree } from './parser.js';
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import { DocumentSymbol, SymbolKind, Range } from 'vscode-languageserver/node.js';
-import { getTagName, getSectionName, isMustacheSection, isRawContentElement } from './nodeHelpers.js';
+import { getTagName, getSectionName, isMustacheSection, isRawContentElement } from '../../../src/core/nodeHelpers.js';
 
 /**
  * Extract document symbols (outline) from the syntax tree.

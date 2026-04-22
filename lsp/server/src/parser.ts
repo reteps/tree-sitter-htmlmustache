@@ -2,6 +2,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Parser, Language, Query, Tree } from 'web-tree-sitter';
+import { GRAMMAR_WASM_FILENAME } from '../../../src/core/grammar.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -61,12 +62,12 @@ export async function initializeParser(): Promise<void> {
 
   // Load the grammar WASM file - copied to extension root during build
   // server/out -> server -> extension root
-  const grammarWasmPath = path.resolve(__dirname, '..', '..', 'tree-sitter-htmlmustache.wasm');
+  const grammarWasmPath = path.resolve(__dirname, '..', '..', GRAMMAR_WASM_FILENAME);
   log(`Grammar WASM path: ${grammarWasmPath}`);
   log(`Grammar WASM exists: ${fs.existsSync(grammarWasmPath)}`);
 
   if (!fs.existsSync(grammarWasmPath)) {
-    throw new Error(`tree-sitter-htmlmustache.wasm not found at ${grammarWasmPath}`);
+    throw new Error(`${GRAMMAR_WASM_FILENAME} not found at ${grammarWasmPath}`);
   }
 
   try {
@@ -75,7 +76,7 @@ export async function initializeParser(): Promise<void> {
     parser.setLanguage(language);
     log(`Parser language set successfully`);
   } catch (error) {
-    log(`Failed to load tree-sitter-htmlmustache.wasm from ${grammarWasmPath}: ${error}`);
+    log(`Failed to load ${GRAMMAR_WASM_FILENAME} from ${grammarWasmPath}: ${error}`);
     throw error;
   }
 }

@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeAll, afterEach } from 'vitest';
 import { initializeParser } from './wasm';
 import { formatSource, _setPrettierForTesting } from './format';
-import type { FormattingOptions } from '../../lsp/server/src/formatting/index';
-import type { HtmlMustacheConfig } from '../../lsp/server/src/configFile';
+import type { FormattingOptions } from '../../src/core/formatting/index';
+import type { HtmlMustacheConfig } from '../../src/core/configSchema';
+import { mergeOptions } from '../../src/core/formatting/mergeOptions';
 
 beforeAll(async () => {
   await initializeParser();
@@ -199,40 +200,34 @@ describe('formatSource', () => {
   });
 
   describe('config file integration', () => {
-    it('applies config file settings via configFile param', async () => {
+    it('applies config file settings via pre-resolved options', async () => {
       const config: HtmlMustacheConfig = { indentSize: 4 };
       const result = await formatSource(
         '<div><p>hello</p></div>',
-        defaultOptions,
-        { configFile: config },
+        mergeOptions(defaultOptions, config),
       );
       expect(result).toBe('<div>\n    <p>hello</p>\n</div>\n');
     });
 
     it('applies mustacheSpaces from config file via caller', async () => {
-      // Config file mustacheSpaces is resolved by the caller (resolveSettings),
-      // not by formatDocument itself. The configFile param only affects indentation.
+      // Caller resolves mustacheSpaces + indentSize from config before calling formatSource.
       const config: HtmlMustacheConfig = { mustacheSpaces: true };
       const result = await formatSource(
         '<p>{{name}}</p>',
         defaultOptions,
-        { mustacheSpaces: config.mustacheSpaces, configFile: config },
+        { mustacheSpaces: config.mustacheSpaces },
       );
       expect(result).toBe('<p>{{ name }}</p>\n');
     });
 
-    it('CLI flags override config file', async () => {
-      // Config says indentSize 4, but we pass options with tabSize 2
+    it('editorConfig overrides config file indentSize', async () => {
+      // config says 4, editorconfig says 2 — editorconfig wins.
       const config: HtmlMustacheConfig = { indentSize: 4 };
-      // The options param represents already-resolved settings (CLI flags win)
       const result = await formatSource(
         '<div><p>hello</p></div>',
-        { tabSize: 2, insertSpaces: true },
-        { configFile: config },
+        mergeOptions(defaultOptions, config, { tabSize: 2 }),
       );
-      // Config file indentSize=4 still wins because it's applied via mergeOptions
-      // but editorconfig would override it (not tested here since no .editorconfig)
-      expect(result).toBe('<div>\n    <p>hello</p>\n</div>\n');
+      expect(result).toBe('<div>\n  <p>hello</p>\n</div>\n');
     });
   });
 });

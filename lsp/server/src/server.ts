@@ -21,14 +21,16 @@ import type { TokenInfo } from './semanticTokens.js';
 import { getDocumentSymbols } from './documentSymbols.js';
 import { getHoverInfo } from './hover.js';
 import { getFoldingRanges } from './folding.js';
-import { formatDocument, formatDocumentRange } from './formatting/index.js';
+import { formatDocument, formatDocumentRange } from '../../../src/core/formatting/index.js';
+import { mergeOptions } from '../../../src/core/formatting/mergeOptions.js';
+import { getEditorConfigOptions } from './formatting/editorconfig.js';
 import { getDiagnostics } from './diagnostics.js';
 import { getCodeActions } from './codeActions.js';
 import { initializeTextMateRegistry, isTextMateReady, tokenizeEmbeddedContent, setEmbeddedTokenizerLogger } from './embeddedTokenizer.js';
-import { findCustomCodeTagContent, isCodeTag } from './customCodeTags.js';
-import type { CustomCodeTagConfig } from './customCodeTags.js';
+import { findCustomCodeTagContent, isCodeTag } from '../../../src/core/customCodeTags.js';
+import type { CustomCodeTagConfig } from '../../../src/core/customCodeTags.js';
 import { loadConfigFile } from './configFile.js';
-import type { HtmlMustacheConfig, NoBreakDelimiter } from './configFile.js';
+import type { HtmlMustacheConfig, NoBreakDelimiter } from '../../../src/core/configSchema.js';
 
 // Create connection and document manager
 const connection = createConnection(ProposedFeatures.all);
@@ -348,7 +350,7 @@ connection.onCodeAction((params) => {
 
 // Embedded script/style formatting helpers
 
-import { collectEmbeddedRegions } from './embeddedRegions.js';
+import { collectEmbeddedRegions } from '../../../src/core/embeddedRegions.js';
 
 /**
  * Send embedded regions to the client for formatting via custom request.
@@ -403,9 +405,10 @@ connection.onDocumentFormatting(async (params) => {
   }
 
   const { config, customTags, printWidth, mustacheSpaces, noBreakDelimiters } = resolveConfig(document.uri);
-  const embeddedFormatted = await formatEmbeddedRegions(tree.rootNode, params.options);
-  return formatDocument(tree, document, params.options, {
-    customTags, printWidth, embeddedFormatted, mustacheSpaces, noBreakDelimiters, configFile: config,
+  const resolvedOptions = mergeOptions(params.options, config, getEditorConfigOptions(document.uri));
+  const embeddedFormatted = await formatEmbeddedRegions(tree.rootNode, resolvedOptions);
+  return formatDocument(tree, document, resolvedOptions, {
+    customTags, printWidth, embeddedFormatted, mustacheSpaces, noBreakDelimiters,
   });
 });
 
@@ -422,9 +425,10 @@ connection.onDocumentRangeFormatting(async (params) => {
   }
 
   const { config, customTags, printWidth, mustacheSpaces, noBreakDelimiters } = resolveConfig(document.uri);
-  const embeddedFormatted = await formatEmbeddedRegions(tree.rootNode, params.options);
-  return formatDocumentRange(tree, document, params.range, params.options, {
-    customTags, printWidth, embeddedFormatted, mustacheSpaces, noBreakDelimiters, configFile: config,
+  const resolvedOptions = mergeOptions(params.options, config, getEditorConfigOptions(document.uri));
+  const embeddedFormatted = await formatEmbeddedRegions(tree.rootNode, resolvedOptions);
+  return formatDocumentRange(tree, document, params.range, resolvedOptions, {
+    customTags, printWidth, embeddedFormatted, mustacheSpaces, noBreakDelimiters,
   });
 });
 

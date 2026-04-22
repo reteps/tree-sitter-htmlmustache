@@ -9,8 +9,7 @@
  * 3. IR → String - Print with proper indentation
  */
 
-import type { Node as SyntaxNode } from 'web-tree-sitter';
-import type { Tree } from '../parser.js';
+import type { Node as SyntaxNode, Tree } from 'web-tree-sitter';
 import type { TextDocument } from 'vscode-languageserver-textdocument';
 
 /** Formatting options (structurally compatible with LSP FormattingOptions). */
@@ -39,8 +38,8 @@ export interface TextEdit {
 
 import { print } from './printer.js';
 import { formatDocument as formatDocumentToDoc, FormatterContext } from './formatters.js';
-import { mergeOptions, createIndentUnit } from './editorconfig.js';
-import type { HtmlMustacheConfig, NoBreakDelimiter } from '../configFile.js';
+import { createIndentUnit } from './mergeOptions.js';
+import type { NoBreakDelimiter } from '../configSchema.js';
 import { findContainingNode, calculateIndentLevel } from './utils.js';
 import { isBlockLevel, getContentNodes, hasImplicitEndTags } from './classifier.js';
 import type { CustomCodeTagConfig } from '../customCodeTags.js';
@@ -51,12 +50,8 @@ export interface FormatDocumentParams {
   embeddedFormatted?: Map<number, string>;
   mustacheSpaces?: boolean;
   noBreakDelimiters?: NoBreakDelimiter[];
-  configFile?: HtmlMustacheConfig | null;
 }
 
-/**
- * Build a Map<string, CustomCodeTagConfig> from the customTags array.
- */
 function buildCustomTagMap(customTags?: CustomCodeTagConfig[]): Map<string, CustomCodeTagConfig> | undefined {
   if (!customTags || customTags.length === 0) return undefined;
   const map = new Map<string, CustomCodeTagConfig>();
@@ -66,23 +61,16 @@ function buildCustomTagMap(customTags?: CustomCodeTagConfig[]): Map<string, Cust
   return map;
 }
 
-/**
- * Format an entire document.
- */
 export function formatDocument(
   tree: Tree,
   document: TextDocument,
   options: FormattingOptions,
   params: FormatDocumentParams = {},
 ): TextEdit[] {
-  const { printWidth = 80, embeddedFormatted, mustacheSpaces, noBreakDelimiters, configFile } = params;
-  const mergedOptions = mergeOptions(options, document.uri, configFile);
-  const indentUnit = createIndentUnit(mergedOptions);
+  const { printWidth = 80, embeddedFormatted, mustacheSpaces, noBreakDelimiters } = params;
+  const indentUnit = createIndentUnit(options);
 
-  // Bail out if the tree has parse errors to avoid mangling content
-  if (tree.rootNode.hasError) {
-    return [];
-  }
+  if (tree.rootNode.hasError) return [];
 
   const customTagMap = buildCustomTagMap(params.customTags);
   const context: FormatterContext = {
@@ -95,7 +83,6 @@ export function formatDocument(
   const doc = formatDocumentToDoc(tree.rootNode, context);
   const formatted = print(doc, { indentUnit, printWidth });
 
-  // Return a single edit that replaces the entire document
   const fullRange: Range = {
     start: { line: 0, character: 0 },
     end: document.positionAt(document.getText().length),
@@ -104,9 +91,6 @@ export function formatDocument(
   return [{ range: fullRange, newText: formatted }];
 }
 
-/**
- * Format a range within a document.
- */
 export function formatDocumentRange(
   tree: Tree,
   document: TextDocument,
@@ -114,28 +98,20 @@ export function formatDocumentRange(
   options: FormattingOptions,
   params: FormatDocumentParams = {},
 ): TextEdit[] {
-  const { customTags, printWidth = 80, embeddedFormatted, mustacheSpaces, noBreakDelimiters, configFile } = params;
-  const mergedOptions = mergeOptions(options, document.uri, configFile);
-  const indentUnit = createIndentUnit(mergedOptions);
+  const { customTags, printWidth = 80, embeddedFormatted, mustacheSpaces, noBreakDelimiters } = params;
+  const indentUnit = createIndentUnit(options);
 
-  // Bail out if the tree has parse errors to avoid mangling content
-  if (tree.rootNode.hasError) {
-    return [];
-  }
+  if (tree.rootNode.hasError) return [];
 
   const customTagMap = buildCustomTagMap(customTags);
 
-  // Find nodes that overlap with the range
   const startOffset = document.offsetAt(range.start);
   const endOffset = document.offsetAt(range.end);
 
-  // Find the smallest node that contains the entire range
-  let targetNode = findContainingNode(tree.rootNode, startOffset, endOffset);
-  if (!targetNode) {
-    targetNode = tree.rootNode;
-  }
+  let targetNode = findContainingNode(tree.rootNode, startOffset, endOffset) ?? tree.rootNode;
 
-  // Expand to include complete block-level elements
+  // Walk up to the nearest block-level boundary so the output is anchored to a
+  // whole element, not mid-inline content.
   while (
     targetNode.parent &&
     !isBlockLevel(targetNode, customTagMap) &&
@@ -144,7 +120,6 @@ export function formatDocumentRange(
     targetNode = targetNode.parent;
   }
 
-  // Calculate the indent level of the target node
   const indentLevel = calculateIndentLevel(
     targetNode,
     isBlockLevel,
@@ -162,7 +137,6 @@ export function formatDocumentRange(
   const doc = formatNodeForRange(targetNode, context);
   const formatted = print(doc, { indentUnit, printWidth });
 
-  // Apply the base indent level
   const indentedFormatted = applyBaseIndent(formatted, indentLevel, indentUnit);
 
   const nodeRange: Range = {
@@ -179,9 +153,6 @@ export function formatDocumentRange(
   return [{ range: nodeRange, newText: indentedFormatted }];
 }
 
-/**
- * Format a single node for range formatting (without the document wrapper).
- */
 import { formatNode } from './formatters.js';
 
 function formatNodeForRange(

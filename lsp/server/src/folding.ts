@@ -1,7 +1,7 @@
 import { Node as SyntaxNode } from 'web-tree-sitter';
 import type { Tree } from './parser.js';
 import { FoldingRange, FoldingRangeKind } from 'vscode-languageserver/node.js';
-import { isHtmlElementType, isMustacheSection } from './nodeHelpers.js';
+import { isHtmlElementType, isMustacheSection } from '../../../src/core/nodeHelpers.js';
 
 /**
  * Extract folding ranges from the syntax tree.

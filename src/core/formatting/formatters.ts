@@ -37,7 +37,7 @@ import { normalizeText, getVisibleChildren, normalizeMustacheWhitespace, normali
 import type { CustomCodeTagConfig } from '../customCodeTags.js';
 import { getAttributeValue } from '../customCodeTags.js';
 import { isRawContentElement } from '../nodeHelpers.js';
-import type { NoBreakDelimiter } from '../configFile.js';
+import type { NoBreakDelimiter } from '../configSchema.js';
 
 export interface FormatterContext {
   document: TextDocument;

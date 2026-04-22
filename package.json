@@ -1,6 +1,6 @@
 {
   "name": "@reteps/tree-sitter-htmlmustache",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "description": "HTML with Mustache/Handlebars template syntax grammar for tree-sitter",
   "repository": {
     "type": "git",
@@ -15,6 +15,18 @@
     "htmlmustache": "cli/out/main.js"
   },
   "types": "bindings/node",
+  "exports": {
+    ".": {
+      "types": "./bindings/node/index.d.ts",
+      "default": "./bindings/node/index.js"
+    },
+    "./browser": {
+      "types": "./browser/out/browser/index.d.ts",
+      "import": "./browser/out/browser/index.mjs"
+    },
+    "./tree-sitter-htmlmustache.wasm": "./tree-sitter-htmlmustache.wasm",
+    "./package.json": "./package.json"
+  },
   "keywords": [
     "incremental",
     "parsing",
@@ -32,7 +44,8 @@
     "queries/*",
     "src/**",
     "*.wasm",
-    "cli/out/*"
+    "cli/out/*",
+    "browser/out/**"
   ],
   "dependencies": {
     "chalk": "^5.6.2",
@@ -43,6 +56,7 @@
   "peerDependencies": {
     "node-addon-api": "^8.2.2",
     "node-gyp-build": "^4.8.2",
+    "prettier": "^3.0.0",
     "tree-sitter": "^0.25.0"
   },
   "peerDependenciesMeta": {
@@ -50,6 +64,9 @@
       "optional": true
     },
     "node-gyp-build": {
+      "optional": true
+    },
+    "prettier": {
       "optional": true
     },
     "tree-sitter": {
@@ -81,8 +98,9 @@
   "scripts": {
     "install": "node-gyp-build || exit 0",
     "build": "tree-sitter build --wasm",
-    "prepack": "tree-sitter build --wasm && node cli/esbuild.mjs",
+    "prepack": "tree-sitter build --wasm && node cli/esbuild.mjs && pnpm run build:browser",
     "build:cli": "node cli/esbuild.mjs",
+    "build:browser": "node browser/esbuild.mjs && tsc -p src/browser/tsconfig.json",
     "check": "node cli/out/check.js check",
     "lint": "eslint .",
     "format": "prettier --write .",

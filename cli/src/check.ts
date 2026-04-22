@@ -5,25 +5,19 @@ import path from 'node:path';
 import chalk from 'chalk';
 import type { Tree } from './wasm';
 import { initializeParser, parseDocument } from './wasm';
-import { findConfigFile, parseJsonc, validateConfig } from '../../lsp/server/src/configFile';
-import type { HtmlMustacheConfig } from '../../lsp/server/src/configFile';
-import { collectErrors as collectTreeErrors } from '../../lsp/server/src/collectErrors';
-import type { RulesConfig } from '../../lsp/server/src/configFile';
-import type { TextReplacement } from '../../lsp/server/src/mustacheChecks';
+import { findConfigFile } from '../../lsp/server/src/configFile';
+import { parseJsonc, validateConfig } from '../../src/core/configSchema';
+import type { HtmlMustacheConfig, RulesConfig, CustomRule } from '../../src/core/configSchema';
+import { collectErrors as collectTreeErrors } from '../../src/core/collectErrors';
+import type { WalkableTree } from '../../src/core/collectErrors';
+import { toDiagnostic } from '../../src/core/diagnostic';
+import type { Diagnostic } from '../../src/core/diagnostic';
 
 // ── Types ──
 
-export interface CheckError {
+export interface CheckError extends Diagnostic {
   file: string;
-  line: number;
-  column: number;
-  endLine: number;
-  endColumn: number;
-  message: string;
   nodeText: string;
-  severity?: 'error' | 'warning';
-  fix?: TextReplacement[];
-  fixDescription?: string;
 }
 
 export interface CheckResult {
@@ -33,21 +27,12 @@ export interface CheckResult {
 
 // ── Error collection ──
 
-import type { CustomRule } from '../../lsp/server/src/configFile';
-
 export function collectErrors(tree: Tree, file: string, rules?: RulesConfig, customTagNames?: string[], customRules?: CustomRule[]): CheckError[] {
-  const errors = collectTreeErrors(tree as any, rules, customTagNames, customRules);
+  const errors = collectTreeErrors(tree as unknown as WalkableTree, rules, customTagNames, customRules);
   return errors.map(error => ({
     file,
-    line: error.node.startPosition.row + 1,
-    column: error.node.startPosition.column + 1,
-    endLine: error.node.endPosition.row + 1,
-    endColumn: error.node.endPosition.column + 1,
-    message: error.message,
     nodeText: error.node.text,
-    severity: error.severity,
-    fix: error.fix,
-    fixDescription: error.fixDescription,
+    ...toDiagnostic(error),
   }));
 }
 
@@ -206,20 +191,18 @@ export function resolveFiles(cliPatterns: string[]): { files: string[]; config: 
 // ── Fix application ──
 
 export function applyFixes(source: string, errors: CheckError[]): string {
-  // Collect all fix replacements
-  const replacements: TextReplacement[] = [];
+  const replacements: Array<{ startIndex: number; endIndex: number; newText: string }> = [];
   for (const error of errors) {
-    if (error.fix) {
-      replacements.push(...error.fix);
+    if (!error.fix) continue;
+    for (const edit of error.fix) {
+      replacements.push({ startIndex: edit.range[0], endIndex: edit.range[1], newText: edit.newText });
     }
   }
 
   if (replacements.length === 0) return source;
 
-  // Sort by startIndex descending to apply back-to-front
   replacements.sort((a, b) => b.startIndex - a.startIndex);
 
-  // Apply, skipping overlapping replacements
   let result = source;
   let minIndex = Infinity;
   for (const r of replacements) {

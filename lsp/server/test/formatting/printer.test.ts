@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { print } from '../../src/formatting/printer.js';
+import { print } from '../../../../src/core/formatting/printer.js';
 import {
   concat,
   indent,
@@ -10,7 +10,7 @@ import {
   line,
   ifBreak,
   breakParent,
-} from '../../src/formatting/ir.js';
+} from '../../../../src/core/formatting/ir.js';
 
 const defaultOptions = { indentUnit: '  ' };
 const tabOptions = { indentUnit: '\t' };

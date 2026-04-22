@@ -12,8 +12,8 @@ import {
   getCSSDisplay,
   INLINE_ELEMENTS,
   PRESERVE_CONTENT_ELEMENTS,
-} from '../../src/formatting/classifier.js';
-import type { CustomCodeTagConfig } from '../../src/customCodeTags.js';
+} from '../../../../src/core/formatting/classifier.js';
+import type { CustomCodeTagConfig } from '../../../../src/core/customCodeTags.js';
 
 describe('Classifier', () => {
   describe('INLINE_ELEMENTS', () => {
