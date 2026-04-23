@@ -38,7 +38,7 @@ jobs:
       - name: Build WASM
         run: tree-sitter build --wasm
       - name: Install root dependencies
-        run: pnpm install
+        run: pnpm install --ignore-scripts
       - name: Install LSP dependencies
         run: pnpm install
         working-directory: lsp
