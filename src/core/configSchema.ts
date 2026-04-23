@@ -79,6 +79,14 @@ export interface CustomRule {
   selector: string;
   message: string;
   severity?: RuleSeverity;
+  /**
+   * Optional glob patterns (relative to the config file) restricting which
+   * files this rule applies to. Applied as an additional filter on top of the
+   * top-level `include`/`exclude` — a rule only fires for files that both
+   * the top-level settings include AND the per-rule settings include.
+   */
+  include?: string[];
+  exclude?: string[];
 }
 
 export interface NoBreakDelimiter {
@@ -263,6 +271,14 @@ export function validateConfig(raw: unknown): HtmlMustacheConfig {
       const rule: CustomRule = { id: e.id, selector: e.selector, message: e.message };
       if (typeof e.severity === 'string' && VALID_RULE_SEVERITIES.has(e.severity)) {
         rule.severity = e.severity as RuleSeverity;
+      }
+      if (Array.isArray(e.include)) {
+        const items = e.include.filter((s: unknown) => typeof s === 'string' && s.length > 0);
+        if (items.length > 0) rule.include = items as string[];
+      }
+      if (Array.isArray(e.exclude)) {
+        const items = e.exclude.filter((s: unknown) => typeof s === 'string' && s.length > 0);
+        if (items.length > 0) rule.exclude = items as string[];
       }
       rules.push(rule);
     }

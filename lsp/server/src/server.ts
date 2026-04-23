@@ -31,6 +31,7 @@ import { findCustomCodeTagContent, isCodeTag } from '../../../src/core/customCod
 import type { CustomCodeTagConfig } from '../../../src/core/customCodeTags.js';
 import { loadConfigFile } from './configFile.js';
 import type { HtmlMustacheConfig, NoBreakDelimiter } from '../../../src/core/configSchema.js';
+import { filterCustomRulesForPath } from '../../../src/core/customRuleFilter.js';
 
 // Create connection and document manager
 const connection = createConnection(ProposedFeatures.all);
@@ -51,19 +52,36 @@ let rawTextQuery: Query | null = null;
  */
 function resolveConfig(uri: string): {
   config: HtmlMustacheConfig | null;
+  configDir: string | null;
   customTags: CustomCodeTagConfig[];
   printWidth: number;
   mustacheSpaces: boolean | undefined;
   noBreakDelimiters: NoBreakDelimiter[] | undefined;
 } {
-  const config = loadConfigFile(uri);
+  const loaded = loadConfigFile(uri);
+  const config = loaded?.config ?? null;
   return {
     config,
+    configDir: loaded?.configDir ?? null,
     customTags: config?.customTags ?? [],
     printWidth: config?.printWidth ?? 80,
     mustacheSpaces: config?.mustacheSpaces,
     noBreakDelimiters: config?.noBreakDelimiters,
   };
+}
+
+/** Filter a config's customRules against the document URI (when path-known). */
+function applicableCustomRules(uri: string, config: HtmlMustacheConfig | null, configDir: string | null) {
+  if (!config?.customRules || !configDir || !uri.startsWith('file://')) {
+    return config?.customRules;
+  }
+  try {
+    const filePath = fileURLToPath(uri);
+    const rel = path.relative(configDir, filePath) || filePath;
+    return filterCustomRulesForPath(config.customRules, rel);
+  } catch {
+    return config.customRules;
+  }
 }
 
 connection.onInitialize(async (params: InitializeParams): Promise<InitializeResult> => {
@@ -183,9 +201,10 @@ documents.onDidOpen((event) => {
   connection.console.log(`Document opened: ${event.document.uri} (language: ${event.document.languageId})`);
   const tree = parseAndCacheDocument(event.document);
   if (tree) {
-    const { config } = resolveConfig(event.document.uri);
+    const { config, configDir } = resolveConfig(event.document.uri);
     const customTagNames = config?.customTags?.map(t => t.name);
-    connection.sendDiagnostics({ uri: event.document.uri, diagnostics: getDiagnostics(tree, config?.rules, customTagNames, config?.customRules) });
+    const customRules = applicableCustomRules(event.document.uri, config, configDir);
+    connection.sendDiagnostics({ uri: event.document.uri, diagnostics: getDiagnostics(tree, config?.rules, customTagNames, customRules) });
   }
 });
 
@@ -193,9 +212,10 @@ documents.onDidOpen((event) => {
 documents.onDidChangeContent((change) => {
   const tree = parseAndCacheDocument(change.document);
   if (tree) {
-    const { config } = resolveConfig(change.document.uri);
+    const { config, configDir } = resolveConfig(change.document.uri);
     const customTagNames = config?.customTags?.map(t => t.name);
-    connection.sendDiagnostics({ uri: change.document.uri, diagnostics: getDiagnostics(tree, config?.rules, customTagNames, config?.customRules) });
+    const customRules = applicableCustomRules(change.document.uri, config, configDir);
+    connection.sendDiagnostics({ uri: change.document.uri, diagnostics: getDiagnostics(tree, config?.rules, customTagNames, customRules) });
   }
 });
 

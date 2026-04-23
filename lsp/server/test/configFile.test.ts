@@ -423,6 +423,44 @@ describe('validateConfig', () => {
   it('ignores non-array customRules', () => {
     expect(validateConfig({ customRules: 'font' })).toEqual({});
   });
+
+  it('parses customRules with per-rule include/exclude', () => {
+    const result = validateConfig({
+      customRules: [
+        {
+          id: 'no-font', selector: 'font', message: 'Deprecated',
+          include: ['questions/**/*.mustache'],
+          exclude: ['**/legacy/**'],
+        },
+      ],
+    });
+    expect(result.customRules![0].include).toEqual(['questions/**/*.mustache']);
+    expect(result.customRules![0].exclude).toEqual(['**/legacy/**']);
+  });
+
+  it('drops empty / non-string entries in rule include/exclude', () => {
+    const result = validateConfig({
+      customRules: [
+        {
+          id: 'x', selector: 'div', message: 'm',
+          include: ['keep/**', '', 42, null],
+          exclude: [123, 'drop/**'],
+        },
+      ],
+    });
+    expect(result.customRules![0].include).toEqual(['keep/**']);
+    expect(result.customRules![0].exclude).toEqual(['drop/**']);
+  });
+
+  it('omits rule include/exclude when all entries are invalid', () => {
+    const result = validateConfig({
+      customRules: [
+        { id: 'x', selector: 'div', message: 'm', include: ['', 42], exclude: [null] },
+      ],
+    });
+    expect(result.customRules![0].include).toBeUndefined();
+    expect(result.customRules![0].exclude).toBeUndefined();
+  });
 });
 
 describe('findConfigFile', () => {
@@ -480,10 +518,11 @@ describe('loadConfigFile', () => {
 
   it('loads config from file:// URI', () => {
     const uri = pathToFileURL(path.join(tempDir, 'test.mustache')).href;
-    const config = loadConfigFile(uri);
-    expect(config).not.toBeNull();
-    expect(config!.printWidth).toBe(120);
-    expect(config!.mustacheSpaces).toBe(true);
+    const loaded = loadConfigFile(uri);
+    expect(loaded).not.toBeNull();
+    expect(loaded!.config.printWidth).toBe(120);
+    expect(loaded!.config.mustacheSpaces).toBe(true);
+    expect(loaded!.configDir).toBe(tempDir);
   });
 
   it('returns null for non-file URI', () => {
@@ -507,9 +546,10 @@ describe('loadConfigFileForPath', () => {
   });
 
   it('loads config for a file path', () => {
-    const config = loadConfigFileForPath(path.join(tempDir, 'test.mustache'));
-    expect(config).not.toBeNull();
-    expect(config!.indentSize).toBe(8);
+    const loaded = loadConfigFileForPath(path.join(tempDir, 'test.mustache'));
+    expect(loaded).not.toBeNull();
+    expect(loaded!.config.indentSize).toBe(8);
+    expect(loaded!.configDir).toBe(tempDir);
   });
 
   it('returns null when no config exists', () => {

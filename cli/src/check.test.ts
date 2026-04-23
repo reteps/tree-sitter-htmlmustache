@@ -461,6 +461,17 @@ describe('resolveFiles', () => {
     expect(config).not.toBeNull();
     expect(config!.include).toBeUndefined();
   });
+
+  it('returns configDir pointing at the config file location', () => {
+    fs.writeFileSync(
+      path.join(tempDir, '.htmlmustache.jsonc'),
+      JSON.stringify({ include: ['**/*.mustache'] }),
+    );
+    const { configDir } = resolveFiles([]);
+    // On macOS, process.cwd() resolves symlinks (/var -> /private/var),
+    // so compare via realpath to stay portable.
+    expect(configDir).toBe(fs.realpathSync(tempDir));
+  });
 });
 
 describe('consecutive same-name sections', () => {

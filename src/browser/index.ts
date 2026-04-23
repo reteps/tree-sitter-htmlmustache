@@ -28,8 +28,17 @@ import type {
 } from '../core/configSchema.js';
 import type { CustomCodeTagConfig } from '../core/customCodeTags.js';
 
-export type Config = Omit<HtmlMustacheConfig, 'include' | 'exclude'>;
-export type CustomRule = CustomRuleType;
+/**
+ * `include`/`exclude` on custom rules are stripped from the browser surface:
+ * the browser API has no filesystem path to match against, so those fields
+ * would silently do nothing. Users who share a `.htmlmustache.jsonc` config
+ * between the CLI and a web playground should strip them before passing, or
+ * let TypeScript catch the mismatch.
+ */
+export type CustomRule = Omit<CustomRuleType, 'include' | 'exclude'>;
+export type Config =
+  Omit<HtmlMustacheConfig, 'include' | 'exclude' | 'customRules'>
+  & { customRules?: CustomRule[] };
 export type CustomTag = CustomCodeTagConfig;
 export type { RulesConfig, RuleSeverity, PrettierLike, Diagnostic };
 

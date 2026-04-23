@@ -35,10 +35,17 @@ export function findConfigFile(startDir: string): string | null {
   }
 }
 
+export interface LoadedConfig {
+  config: HtmlMustacheConfig;
+  /** Directory containing the .htmlmustache.jsonc — used to resolve relative globs. */
+  configDir: string;
+}
+
 /**
- * Load config file for a file:// URI. Returns the parsed config or null.
+ * Load config file for a file:// URI. Returns the parsed config + its
+ * containing directory, or null if not found / not parseable.
  */
-export function loadConfigFile(uri: string): HtmlMustacheConfig | null {
+export function loadConfigFile(uri: string): LoadedConfig | null {
   if (!uri.startsWith('file://')) return null;
   try {
     const filePath = fileURLToPath(uri);
@@ -49,16 +56,18 @@ export function loadConfigFile(uri: string): HtmlMustacheConfig | null {
 }
 
 /**
- * Load config file for a filesystem path. Returns the parsed config or null.
+ * Load config file for a filesystem path. Returns the parsed config + its
+ * containing directory, or null.
  */
-export function loadConfigFileForPath(filePath: string): HtmlMustacheConfig | null {
+export function loadConfigFileForPath(filePath: string): LoadedConfig | null {
   const dir = path.dirname(path.resolve(filePath));
   const configPath = findConfigFile(dir);
   if (!configPath) return null;
   try {
     const text = fs.readFileSync(configPath, 'utf-8');
     const raw = parseJsonc(text);
-    return validateConfig(raw);
+    const config = validateConfig(raw);
+    return { config, configDir: path.dirname(configPath) };
   } catch {
     return null;
   }

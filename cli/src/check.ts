@@ -10,6 +10,7 @@ import { parseJsonc, validateConfig } from '../../src/core/configSchema';
 import type { HtmlMustacheConfig, RulesConfig, CustomRule } from '../../src/core/configSchema';
 import { collectErrors as collectTreeErrors } from '../../src/core/collectErrors';
 import type { WalkableTree } from '../../src/core/collectErrors';
+import { filterCustomRulesForPath } from '../../src/core/customRuleFilter';
 import { toDiagnostic } from '../../src/core/diagnostic';
 import type { Diagnostic } from '../../src/core/diagnostic';
 
@@ -139,10 +140,11 @@ export function expandGlobs(patterns: string[]): string[] {
 
 const DEFAULT_EXCLUDE_SEGMENTS = ['/node_modules/', '/.git/'];
 
-export function resolveFiles(cliPatterns: string[]): { files: string[]; config: HtmlMustacheConfig | null } {
+export function resolveFiles(cliPatterns: string[]): { files: string[]; config: HtmlMustacheConfig | null; configDir: string | null } {
   // Load config from cwd
   const configPath = findConfigFile(process.cwd());
   let config: HtmlMustacheConfig | null = null;
+  const configDir = configPath ? path.dirname(configPath) : null;
   if (configPath) {
     try {
       const text = fs.readFileSync(configPath, 'utf-8');
@@ -160,7 +162,7 @@ export function resolveFiles(cliPatterns: string[]): { files: string[]; config: 
   } else if (config?.include && config.include.length > 0) {
     patterns = config.include;
   } else {
-    return { files: [], config };
+    return { files: [], config, configDir };
   }
 
   // Expand globs
@@ -185,7 +187,7 @@ export function resolveFiles(cliPatterns: string[]): { files: string[]; config: 
     files = files.filter(f => !excludeSet.has(f));
   }
 
-  return { files, config };
+  return { files, config, configDir };
 }
 
 // ── Fix application ──
@@ -247,7 +249,7 @@ export async function run(args: string[]): Promise<number> {
   const fixMode = args.includes('--fix');
   const patterns = args.filter(a => a !== '--fix');
 
-  const { files, config } = resolveFiles(patterns);
+  const { files, config, configDir } = resolveFiles(patterns);
 
   if (files.length === 0) {
     if (patterns.length === 0 && (!config?.include || config.include.length === 0)) {
@@ -275,15 +277,18 @@ export async function run(args: string[]): Promise<number> {
   const rules = config?.rules;
   const customTagNames = config?.customTags?.map(t => t.name);
   const customRules = config?.customRules;
+  const ruleFilterBase = configDir ?? cwd;
 
   for (const file of files) {
     const displayPath = path.relative(cwd, file) || file;
+    const ruleFilterPath = path.relative(ruleFilterBase, file) || displayPath;
+    const applicableCustomRules = filterCustomRulesForPath(customRules, ruleFilterPath);
     let source = fs.readFileSync(file, 'utf-8');
 
     if (fixMode) {
       // Apply fixes, then re-parse to report remaining errors
       const tree = parseDocument(source);
-      const errors = collectErrors(tree, displayPath, rules, customTagNames, customRules);
+      const errors = collectErrors(tree, displayPath, rules, customTagNames, applicableCustomRules);
       const fixed = applyFixes(source, errors);
       if (fixed !== source) {
         fs.writeFileSync(file, fixed, 'utf-8');
@@ -292,7 +297,7 @@ export async function run(args: string[]): Promise<number> {
     }
 
     const tree = parseDocument(source);
-    const errors = collectErrors(tree, displayPath, rules, customTagNames, customRules);
+    const errors = collectErrors(tree, displayPath, rules, customTagNames, applicableCustomRules);
 
     const fileErrors = errors.filter(e => e.severity !== 'warning');
     const fileWarnings = errors.filter(e => e.severity === 'warning');

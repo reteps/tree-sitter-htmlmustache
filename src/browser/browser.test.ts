@@ -107,6 +107,20 @@ describe('lint', () => {
     expect(d.some((x) => x.ruleName === 'no-script')).toBe(true);
   });
 
+  it('rejects per-rule include/exclude at the type level', () => {
+    linter.lint('<script>x</script>', {
+      customRules: [{
+        id: 'no-script',
+        selector: 'script',
+        message: 'Bare <script> is disallowed',
+        // @ts-expect-error include is stripped from the browser CustomRule type
+        include: ['questions/**'],
+        // @ts-expect-error exclude is stripped from the browser CustomRule type
+        exclude: ['**/legacy/**'],
+      }],
+    });
+  });
+
   it('honors <!-- htmlmustache-disable ruleName --> directives', () => {
     const src = '<!-- htmlmustache-disable duplicateAttributes -->\n<p id="a" id="b"></p>';
     const d = linter.lint(src, DEFAULT_CONFIG);
