@@ -664,6 +664,90 @@ describe('matchSelector', () => {
     expect(matches[0].text).toContain('id="no"');
   });
 
+  // --- Multi-segment :not() (descendant / child / sibling context) ---
+
+  it(':not(ancestor descendant) excludes nodes under the named ancestor', () => {
+    const tree = parseText(
+      '<pl-overlay><pl-background><img src="bg.png"></pl-background></pl-overlay>' +
+      '<figure><img src="other.png"></figure>' +
+      '<img src="standalone.png">',
+    );
+    const matches = matchSelector(
+      tree.rootNode,
+      parseSelector('img:not([style]):not([class]):not(pl-overlay img)')!,
+    );
+    // Only the figure img and the standalone img qualify; the pl-overlay img is excluded.
+    expect(matches).toHaveLength(2);
+    expect(matches.map(m => m.text).join(' ')).toMatch(/other\.png/);
+    expect(matches.map(m => m.text).join(' ')).toMatch(/standalone\.png/);
+    expect(matches.map(m => m.text).join(' ')).not.toMatch(/bg\.png/);
+  });
+
+  it(':not(ancestor descendant) still matches nodes without that ancestor', () => {
+    const tree = parseText('<section><img></section>');
+    const matches = matchSelector(
+      tree.rootNode,
+      parseSelector('img:not(pl-overlay img)')!,
+    );
+    expect(matches).toHaveLength(1);
+  });
+
+  it(':not(parent > child) excludes only direct children', () => {
+    const tree = parseText(
+      '<table><thead><td>a</td></thead><tbody><tr><td>b</td></tr></tbody></table>',
+    );
+    // Matches the td inside tbody > tr (not a direct child of thead), but excludes the
+    // td inside thead. Note the tbody-nested td is NOT excluded because the selector
+    // targets `thead > td`, and the nested td is a child of tr not thead.
+    const matches = matchSelector(
+      tree.rootNode,
+      parseSelector('td:not(thead > td)')!,
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0].text).toContain('<td');
+  });
+
+  it(':not(a + b) excludes adjacent-sibling matches', () => {
+    const tree = parseText(
+      '<section><h2></h2><p id="after"></p></section>' +
+      '<section><div></div><p id="lonely"></p></section>',
+    );
+    const matches = matchSelector(
+      tree.rootNode,
+      parseSelector('p:not(h2 + p)')!,
+    );
+    // Only the p that is NOT directly after an h2 should match.
+    expect(matches).toHaveLength(1);
+    expect(matches[0].text).toContain('id="lonely"');
+  });
+
+  it(':not(ancestor descendant) nested in :has() composes correctly', () => {
+    const tree = parseText(
+      '<section><pl-overlay><img></pl-overlay><img id="raw"></section>' +
+      '<section><img id="alone"></section>',
+    );
+    // Section that contains an img not under pl-overlay.
+    const matches = matchSelector(
+      tree.rootNode,
+      parseSelector('section:has(img:not(pl-overlay img))')!,
+    );
+    // Both sections qualify: one has id="raw" outside pl-overlay, the other has id="alone".
+    expect(matches).toHaveLength(2);
+  });
+
+  it(':not(Mustache-section descendant) excludes nodes inside that section', () => {
+    const tree = parseText(
+      '{{#admin}}<button id="delete">x</button>{{/admin}}' +
+      '<button id="cancel">x</button>',
+    );
+    const matches = matchSelector(
+      tree.rootNode,
+      parseSelector('button:not({{#admin}} button)')!,
+    );
+    expect(matches).toHaveLength(1);
+    expect(matches[0].text).toContain('id="cancel"');
+  });
+
   // --- Chained :not() AND ---
 
   it('chained :not() AND together (EDC rule shape)', () => {

@@ -24,7 +24,11 @@
  *     the outer compound), plus any other selector (including Mustache
  *     literals and type selectors) as a whole-selector check against the
  *     node itself. Example: `{{*}}:not({{internal.*}})` matches any
- *     interpolation whose path does not start with `internal.`.
+ *     interpolation whose path does not start with `internal.`. Multi-segment
+ *     selectors with combinators are supported and tested against the node's
+ *     ancestor/sibling context, matching `Element.matches` semantics — e.g.
+ *     `img:not(pl-overlay img)` matches any `img` that is not a descendant of
+ *     `pl-overlay`, and `td:not(thead td)` matches `td`s outside a `thead`.
  *   - `:root` — the tree-sitter fragment root (the whole document). Unlike
  *     browser CSS where `:root` matches `<html>`, this matches the parse-tree
  *     root so it works on partials/fragments too. Useful as a document-scoped
@@ -651,14 +655,25 @@ function hasDescendantMatch(node: BalanceNode, selector: ParsedSelector): boolea
   return false;
 }
 
-function checkSelfNegations(node: BalanceNode, negations: ParsedSelector[], rootNode: BalanceNode): boolean {
+function checkSelfNegations(
+  node: BalanceNode,
+  negations: ParsedSelector[],
+  rootNode: BalanceNode,
+  cursor: Cursor,
+): boolean {
   for (const sel of negations) {
     for (const alt of sel) {
-      // A selfNegation selector is a single-segment check against the node itself.
-      // Multi-segment alternatives (e.g. `:not(a b)`) aren't sensibly testable
-      // against a single node, so they're treated as never matching => pass.
-      if (alt.length !== 1) continue;
-      if (nodeMatchesSegment(node, alt[0], rootNode)) return false;
+      if (alt.length === 0) continue;
+      const lastSegment = alt[alt.length - 1];
+      if (!nodeMatchesSegment(node, lastSegment, rootNode, cursor)) continue;
+      if (alt.length === 1) return false;
+      // Multi-segment negation (e.g. `:not(ancestor descendant)`): the last
+      // segment matched the node itself; walk back through the remaining
+      // segments against the node's ancestor/sibling cursor. If the chain
+      // also matches, the negation fires.
+      if (checkPrefix(cursor, alt, alt.length - 2, lastSegment.combinator, rootNode)) {
+        return false;
+      }
     }
   }
   return true;
@@ -671,11 +686,16 @@ function matchesName(actual: string | null, segment: Segment): boolean {
   return actual === segment.name;
 }
 
-function nodeMatchesSegment(node: BalanceNode, segment: Segment, rootNode: BalanceNode): boolean {
+function nodeMatchesSegment(
+  node: BalanceNode,
+  segment: Segment,
+  rootNode: BalanceNode,
+  cursor: Cursor,
+): boolean {
   if (segment.rootOnly) {
     if (node !== rootNode) return false;
     return checkDescendants(node, segment.descendantChecks)
-        && checkSelfNegations(node, segment.selfNegations, rootNode);
+        && checkSelfNegations(node, segment.selfNegations, rootNode, cursor);
   }
   const baseMatches = (() => {
     switch (segment.kind) {
@@ -714,7 +734,7 @@ function nodeMatchesSegment(node: BalanceNode, segment: Segment, rootNode: Balan
     }
   })();
   if (!baseMatches) return false;
-  return checkSelfNegations(node, segment.selfNegations, rootNode);
+  return checkSelfNegations(node, segment.selfNegations, rootNode, cursor);
 }
 
 interface Cursor {
@@ -738,16 +758,16 @@ function checkPrefix(
     for (let i = cursor.indexInSiblings - 1; i >= 0; i--) {
       const sib = cursor.siblings[i];
       if (!isMatchableNode(sib)) continue;
-      if (!nodeMatchesSegment(sib, segment, rootNode)) {
-        if (stepCombinator === 'adjacent-sibling') return false;
-        continue;
-      }
-      const newCursor: Cursor = {
+      const sibCursor: Cursor = {
         ancestors: cursor.ancestors,
         siblings: cursor.siblings,
         indexInSiblings: i,
       };
-      if (checkPrefix(newCursor, segments, segIdx - 1, segment.combinator, rootNode)) return true;
+      if (!nodeMatchesSegment(sib, segment, rootNode, sibCursor)) {
+        if (stepCombinator === 'adjacent-sibling') return false;
+        continue;
+      }
+      if (checkPrefix(sibCursor, segments, segIdx - 1, segment.combinator, rootNode)) return true;
       if (stepCombinator === 'adjacent-sibling') return false;
     }
     return false;
@@ -770,13 +790,13 @@ function checkPrefix(
       if (!matchesName(entry.name, segment)) return false;
       if (segment.kind === 'html' && !checkAttributes(entry.node, segment.attributes)) return false;
       if (!checkDescendants(entry.node, segment.descendantChecks)) return false;
-      if (!checkSelfNegations(entry.node, segment.selfNegations, rootNode)) return false;
-      const newCursor: Cursor = {
+      const ancestorCursor: Cursor = {
         ancestors: cursor.ancestors.slice(0, a),
         siblings: entry.siblings,
         indexInSiblings: entry.indexInSiblings,
       };
-      return checkPrefix(newCursor, segments, segIdx - 1, segment.combinator, rootNode);
+      if (!checkSelfNegations(entry.node, segment.selfNegations, rootNode, ancestorCursor)) return false;
+      return checkPrefix(ancestorCursor, segments, segIdx - 1, segment.combinator, rootNode);
     }
     return false;
   }
@@ -787,13 +807,13 @@ function checkPrefix(
     if (!matchesName(entry.name, segment)) continue;
     if (segment.kind === 'html' && !checkAttributes(entry.node, segment.attributes)) continue;
     if (!checkDescendants(entry.node, segment.descendantChecks)) continue;
-    if (!checkSelfNegations(entry.node, segment.selfNegations, rootNode)) continue;
-    const newCursor: Cursor = {
+    const ancestorCursor: Cursor = {
       ancestors: cursor.ancestors.slice(0, a),
       siblings: entry.siblings,
       indexInSiblings: entry.indexInSiblings,
     };
-    if (checkPrefix(newCursor, segments, segIdx - 1, segment.combinator, rootNode)) return true;
+    if (!checkSelfNegations(entry.node, segment.selfNegations, rootNode, ancestorCursor)) continue;
+    if (checkPrefix(ancestorCursor, segments, segIdx - 1, segment.combinator, rootNode)) return true;
   }
   return false;
 }
@@ -862,8 +882,8 @@ function matchAlternative(
     siblings: BalanceNode[],
     indexInSiblings: number,
   ) {
-    if (nodeMatchesSegment(node, lastSegment, rootNode)) {
-      const cursor: Cursor = { ancestors, siblings, indexInSiblings };
+    const cursor: Cursor = { ancestors, siblings, indexInSiblings };
+    if (nodeMatchesSegment(node, lastSegment, rootNode, cursor)) {
       if (
         segments.length === 1 ||
         checkPrefix(cursor, segments, segments.length - 2, lastSegment.combinator, rootNode)
