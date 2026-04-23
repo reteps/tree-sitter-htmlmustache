@@ -224,6 +224,55 @@ describe('parseSelector', () => {
     expect(result[1][0]).toMatchObject({ kind: 'variable', name: 'foo' });
   });
 
+  it('parses :is(a, b) into alternatives', () => {
+    const result = parseSelector(':is(div, span)')!;
+    expect(result).toHaveLength(2);
+    expect(result[0][0]).toMatchObject({ kind: 'html', name: 'div' });
+    expect(result[1][0]).toMatchObject({ kind: 'html', name: 'span' });
+  });
+
+  it('parses :is with descendant combinator into Cartesian product', () => {
+    const result = parseSelector(':is(a, b) :is(c, d)')!;
+    expect(result).toHaveLength(4);
+    expect(result.map(r => [r[0].name, r[1].name])).toEqual([
+      ['a', 'c'], ['a', 'd'], ['b', 'c'], ['b', 'd'],
+    ]);
+  });
+
+  it('parses :is mixed with tag in compound (div:is(.foo, .bar))', () => {
+    const result = parseSelector('div:is(.foo, .bar)')!;
+    expect(result).toHaveLength(2);
+    expect(result[0][0]).toMatchObject({ kind: 'html', name: 'div' });
+    expect(result[0][0].attributes).toHaveLength(1);
+    expect(result[0][0].attributes[0]).toMatchObject({ name: 'class', value: 'foo' });
+    expect(result[1][0].attributes[0]).toMatchObject({ name: 'class', value: 'bar' });
+  });
+
+  it('parses nested :is', () => {
+    const result = parseSelector(':is(:is(a, b), c)')!;
+    expect(result).toHaveLength(3);
+    expect(result.map(r => r[0].name)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('parses :is with Mustache literals', () => {
+    const result = parseSelector(':is({{foo}}, {{bar}})')!;
+    expect(result).toHaveLength(2);
+    expect(result[0][0]).toMatchObject({ kind: 'variable', name: 'foo' });
+    expect(result[1][0]).toMatchObject({ kind: 'variable', name: 'bar' });
+  });
+
+  it('returns null for :is(a b) mixed with other tokens in compound', () => {
+    // A combinator-bearing alternative can't be merged into a larger compound.
+    expect(parseSelector('div:is(a b, c)')).toBeNull();
+  });
+
+  it('allows :is with combinator when it is the only compound token', () => {
+    const result = parseSelector(':is(a b, c)')!;
+    expect(result).toHaveLength(2);
+    expect(result[0]).toHaveLength(2); // a b → two segments
+    expect(result[1]).toHaveLength(1); // c → one segment
+  });
+
   it('returns null for empty string', () => {
     expect(parseSelector('')).toBeNull();
   });
@@ -232,8 +281,41 @@ describe('parseSelector', () => {
     expect(parseSelector('   ')).toBeNull();
   });
 
-  it('returns null for sibling combinator +', () => {
-    expect(parseSelector('div + span')).toBeNull();
+  it('parses adjacent sibling (+)', () => {
+    const segs = parseSelector('div + span')!;
+    expect(segs[0]).toHaveLength(2);
+    expect(segs[0][1]).toMatchObject({ kind: 'html', name: 'span', combinator: 'adjacent-sibling' });
+  });
+
+  it('parses general sibling (~)', () => {
+    const segs = parseSelector('h2 ~ p')!;
+    expect(segs[0][1]).toMatchObject({ kind: 'html', name: 'p', combinator: 'general-sibling' });
+  });
+
+  it('parses mixed descendant + sibling combinators', () => {
+    const segs = parseSelector('section label + input')!;
+    expect(segs[0]).toHaveLength(3);
+    expect(segs[0][1].combinator).toBe('descendant');
+    expect(segs[0][2].combinator).toBe('adjacent-sibling');
+  });
+
+  it('parses :not with Mustache literal into a self-negation', () => {
+    const seg = parseSelector('{{*}}:not({{internal.*}})')![0][0];
+    expect(seg.kind).toBe('variable');
+    expect(seg.selfNegations).toHaveLength(1);
+    expect(seg.selfNegations[0][0][0]).toMatchObject({ kind: 'variable', name: 'internal.*' });
+  });
+
+  it('parses :not with type selector into a self-negation', () => {
+    const seg = parseSelector(':not(div)')![0][0];
+    expect(seg.selfNegations).toHaveLength(1);
+    expect(seg.selfNegations[0][0][0]).toMatchObject({ kind: 'html', name: 'div' });
+  });
+
+  it('keeps :not([attr]) on attributes (not selfNegations)', () => {
+    const seg = parseSelector('img:not([alt])')![0][0];
+    expect(seg.attributes[0]).toMatchObject({ name: 'alt', negated: true });
+    expect(seg.selfNegations).toHaveLength(0);
   });
 
   it('returns null for unsupported [attr|=v]', () => {
@@ -289,6 +371,123 @@ describe('matchSelector', () => {
     const tree = parseText('<div><p><span></span></p></div>');
     const matches = matchSelector(tree.rootNode, parseSelector('div > span')!);
     expect(matches).toHaveLength(0);
+  });
+
+  it(':is at both ends matches Cartesian product of descendants', () => {
+    const tree = parseText('<section><b></b></section><aside><i></i></aside>');
+    const matches = matchSelector(
+      tree.rootNode,
+      parseSelector(':is(section, aside) :is(b, i)')!,
+    );
+    expect(matches).toHaveLength(2);
+  });
+
+  // --- Sibling combinators ---
+
+  it('matches adjacent sibling a + b', () => {
+    const tree = parseText('<a></a><b></b>');
+    const matches = matchSelector(tree.rootNode, parseSelector('a + b')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  it('adjacent sibling skips whitespace between siblings', () => {
+    const tree = parseText('<a></a>\n  <b></b>');
+    const matches = matchSelector(tree.rootNode, parseSelector('a + b')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  it('adjacent sibling does not match when another element is between', () => {
+    const tree = parseText('<a></a><i></i><b></b>');
+    const matches = matchSelector(tree.rootNode, parseSelector('a + b')!);
+    expect(matches).toHaveLength(0);
+  });
+
+  it('general sibling matches when another element is between', () => {
+    const tree = parseText('<a></a><i></i><b></b>');
+    const matches = matchSelector(tree.rootNode, parseSelector('a ~ b')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  it('general sibling matches multiple following siblings', () => {
+    const tree = parseText('<h2></h2><p></p><p></p>');
+    const matches = matchSelector(tree.rootNode, parseSelector('h2 ~ p')!);
+    expect(matches).toHaveLength(2);
+  });
+
+  it('sibling combinator only considers siblings in the same parent', () => {
+    // <a> in one div, <b> in another — not siblings.
+    const tree = parseText('<div><a></a></div><div><b></b></div>');
+    const matches = matchSelector(tree.rootNode, parseSelector('a + b')!);
+    expect(matches).toHaveLength(0);
+  });
+
+  it('mixed descendant + sibling: section a + b', () => {
+    const tree = parseText('<section><a></a><b></b></section><a></a><b></b>');
+    // Only the pair inside <section> should match.
+    const matches = matchSelector(tree.rootNode, parseSelector('section a + b')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  it('Mustache variable + element sibling', () => {
+    const tree = parseText('<div>{{foo}}<p></p></div>');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{foo}} + p')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  it('element ~ mustache variable', () => {
+    const tree = parseText('<div><h2></h2><p></p>{{foo}}</div>');
+    const matches = matchSelector(tree.rootNode, parseSelector('h2 ~ {{foo}}')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  it('mustache section + mustache section', () => {
+    const tree = parseText('<div>{{#a}}x{{/a}}\n  {{#b}}y{{/b}}</div>');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{#a}} + {{#b}}')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  it('mustache section + mustache interpolation', () => {
+    const tree = parseText('<div>{{#items}}x{{/items}}{{foo}}</div>');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{#items}} + {{foo}}')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  it('mustache comment ~ partial', () => {
+    const tree = parseText('<div>{{!note}}<p></p>{{>header}}</div>');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{!note}} ~ {{>header}}')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  it('element + mustache section (across whitespace)', () => {
+    const tree = parseText('<ul>\n  <li></li>\n  {{#items}}<li></li>{{/items}}\n</ul>');
+    const matches = matchSelector(tree.rootNode, parseSelector('li + {{#items}}')!);
+    expect(matches).toHaveLength(1);
+  });
+
+  // --- :not with Mustache / type selector ---
+
+  it('selfNegation filters out matching mustache variables', () => {
+    const tree = parseText('{{public.name}}{{internal.secret}}{{regular}}');
+    const matches = matchSelector(tree.rootNode, parseSelector('{{*}}:not({{internal.*}})')!);
+    // {{public.name}} and {{regular}} match; {{internal.secret}} is excluded.
+    expect(matches).toHaveLength(2);
+  });
+
+  it(':not(div) excludes div elements', () => {
+    const tree = parseText('<div></div><span></span><p></p>');
+    const matches = matchSelector(tree.rootNode, parseSelector(':not(div)')!);
+    // All element-like matches except <div>. With implicit html kind.
+    const names = matches.map(m => m.text.match(/<(\w+)/)?.[1]).filter(Boolean);
+    expect(names).toEqual(expect.arrayContaining(['span', 'p']));
+    expect(names).not.toContain('div');
+  });
+
+  // --- :has containing a sibling combinator (uses threaded sibling info) ---
+
+  it(':has(a + b) sees top-level sibling pairs of the element', () => {
+    const tree = parseText('<section><a></a><b></b></section>');
+    const matches = matchSelector(tree.rootNode, parseSelector('section:has(a + b)')!);
+    expect(matches).toHaveLength(1);
   });
 
   // --- Mustache section ---

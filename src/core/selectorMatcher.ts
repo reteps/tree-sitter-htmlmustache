@@ -10,14 +10,21 @@
  * Supported user-facing syntax:
  *   - Tag names (`div`), universal (`*`), classes (`.foo`), ids (`#foo`)
  *   - Attributes: `[attr]`, `[attr=v]`, `[attr^=v]`, `[attr*=v]`, `[attr$=v]`, `[attr~=v]`
- *   - Descendant (space) and child (`>`) combinators
+ *   - Descendant (space), child (`>`), adjacent-sibling (`+`), and
+ *     general-sibling (`~`) combinators. Sibling combinators skip over text /
+ *     whitespace nodes (CSS semantics) and work across HTML and Mustache
+ *     constructs: e.g. `label + input`, `{{foo}} + p`, `h2 ~ {{#items}}`.
  *   - Mustache variables: `{{path}}` and `{{{path}}}` (raw)
  *   - Mustache sections: `{{#name}}` and `{{^name}}` (inverted)
  *   - Mustache comments: `{{!content}}`
  *   - Mustache partials: `{{>name}}`
  *   - Glob wildcard `*` inside the argument: `{{options.*}}`, `{{*.deprecated}}`, `{{*}}`
  *   - `:has(selector)` — element has a matching descendant
- *   - `:not(...)` over any attribute/class/id/:has form
+ *   - `:not(...)` — negation. Accepts attributes/class/id/`:has` (folded into
+ *     the outer compound), plus any other selector (including Mustache
+ *     literals and type selectors) as a whole-selector check against the
+ *     node itself. Example: `{{*}}:not({{internal.*}})` matches any
+ *     interpolation whose path does not start with `internal.`.
  *   - `:root` — the tree-sitter fragment root (the whole document). Unlike
  *     browser CSS where `:root` matches `<html>`, this matches the parse-tree
  *     root so it works on partials/fragments too. Useful as a document-scoped
@@ -26,15 +33,19 @@
  *     `pl-answer-panel` is. Cannot combine with tag/class/id/attribute in the
  *     same compound (only with `:has` / `:not(:has(...))`). Inside `:has(...)`,
  *     `:root` refers to the element being checked, not the document.
+ *   - `:is(a, b, ...)` — matches if any alternative matches. Expanded at parse
+ *     time into the Cartesian product of alternatives, so `:is(a, b) :is(c, d)`
+ *     is equivalent to `a c, a d, b c, b d`. Alternatives inside `:is` that
+ *     contain combinators are only allowed when the `:is(...)` stands alone in
+ *     its compound (e.g. `:is(div > span, p)` works; `x:is(div > span, p)`
+ *     does not, since a combinator can't be merged into another compound).
  *   - Comma-separated alternatives
  *
  * Unsupported (parseSelector returns null, rule is skipped):
- *   - Sibling combinators (`+`, `~`)
  *   - `[attr|=v]`, case-insensitive `i` flag
  *   - Mixed HTML + Mustache kinds in one compound (e.g. `img{{foo}}`)
  *   - `{{/end}}` (end tags aren't standalone nodes)
  *   - `{{=<% %>=}}` (delimiter changes aren't grammar-tracked)
- *   - Mustache literals inside `:not(...)` (only attribute/class/id/:has)
  */
 
 import { parse as parselParse, type AST, type Token, type AttributeToken, type ClassToken, type IdToken } from 'parsel-js';
@@ -73,6 +84,8 @@ export interface DescendantCheck {
   negated: boolean;           // true for :not(:has(...))
 }
 
+export type Combinator = 'descendant' | 'child' | 'adjacent-sibling' | 'general-sibling';
+
 export interface Segment {
   kind: SegmentKind;
   rootOnly: boolean;          // true for `:root` — matches only the tree-sitter fragment root
@@ -80,7 +93,8 @@ export interface Segment {
   pathRegex?: RegExp;         // compiled glob when `name` contains `*`
   attributes: AttributeConstraint[];
   descendantChecks: DescendantCheck[];
-  combinator: 'descendant' | 'child';
+  selfNegations: ParsedSelector[]; // :not(X) where X is a full sub-selector tested against the node itself
+  combinator: Combinator;
 }
 
 /** A parsed selector is a list of alternatives (from comma-separated parts). */
@@ -208,17 +222,101 @@ export function parseSelector(raw: string): ParsedSelector | null {
   const tops = ast.type === 'list' ? ast.list : [ast];
   const alts: Segment[][] = [];
   for (const top of tops) {
-    const segments: Segment[] = [];
-    if (!collectSegments(top, 'descendant', segments)) return null;
-    if (segments.length === 0) return null;
-    alts.push(segments);
+    const expanded = expandIs(top);
+    if (expanded === null) return null;
+    for (const exp of expanded) {
+      const segments: Segment[] = [];
+      if (!collectSegments(exp, 'descendant', segments)) return null;
+      if (segments.length === 0) return null;
+      alts.push(segments);
+    }
   }
   return alts.length > 0 ? alts : null;
 }
 
+/**
+ * Expand `:is(...)` pseudo-classes into explicit alternatives. Returns an
+ * array of equivalent ASTs with every `:is` removed (Cartesian product over
+ * alternatives), or `null` if the expansion contains an unsupported shape
+ * (e.g. complex alternatives inside a mixed compound).
+ */
+function expandIs(ast: AST): AST[] | null {
+  switch (ast.type) {
+    case 'list': {
+      const out: AST[] = [];
+      for (const alt of ast.list) {
+        const expanded = expandIs(alt);
+        if (expanded === null) return null;
+        out.push(...expanded);
+      }
+      return out;
+    }
+    case 'complex': {
+      const lefts = expandIs(ast.left);
+      if (lefts === null) return null;
+      const rights = expandIs(ast.right);
+      if (rights === null) return null;
+      const out: AST[] = [];
+      for (const l of lefts) for (const r of rights) {
+        out.push({ ...ast, left: l, right: r });
+      }
+      return out;
+    }
+    case 'compound': {
+      // A compound whose sole token is `:is(...)` can be replaced by any
+      // shape (including complex alternatives). Mixed compounds require each
+      // alternative to be mergeable token-by-token.
+      if (ast.list.length === 1) {
+        const tok = ast.list[0];
+        if (tok.type === 'pseudo-class' && tok.name === 'is') {
+          if (!tok.subtree) return null;
+          return expandIs(tok.subtree);
+        }
+      }
+      return expandCompoundWithIs(ast.list);
+    }
+    default:
+      if (ast.type === 'pseudo-class' && ast.name === 'is') {
+        if (!ast.subtree) return null;
+        return expandIs(ast.subtree);
+      }
+      return [ast];
+  }
+}
+
+function expandCompoundWithIs(tokens: Token[]): AST[] | null {
+  let variants: Token[][] = [[]];
+  for (const tok of tokens) {
+    if (tok.type === 'pseudo-class' && tok.name === 'is') {
+      if (!tok.subtree) return null;
+      const alts = expandIs(tok.subtree);
+      if (alts === null) return null;
+      const next: Token[][] = [];
+      for (const base of variants) {
+        for (const alt of alts) {
+          if (alt.type === 'compound') {
+            next.push([...base, ...alt.list]);
+          } else if (alt.type === 'complex' || alt.type === 'list' || alt.type === 'relative') {
+            // Can't splice a combinator-bearing selector into a compound.
+            return null;
+          } else {
+            next.push([...base, alt]);
+          }
+        }
+      }
+      variants = next;
+    } else {
+      variants = variants.map(v => [...v, tok]);
+    }
+  }
+  return variants.map(list =>
+    list.length === 1 ? (list[0] as AST) : ({ type: 'compound', list } as AST),
+  );
+}
+
 function collectSegments(
   ast: AST,
-  combinator: 'descendant' | 'child',
+  combinator: Combinator,
   out: Segment[],
 ): boolean {
   if (ast.type === 'complex') {
@@ -236,10 +334,12 @@ function collectSegments(
   return true;
 }
 
-function mapCombinator(c: string): 'descendant' | 'child' | null {
+function mapCombinator(c: string): Combinator | null {
   const trimmed = c.trim();
   if (trimmed === '') return 'descendant';
   if (trimmed === '>') return 'child';
+  if (trimmed === '+') return 'adjacent-sibling';
+  if (trimmed === '~') return 'general-sibling';
   return null;
 }
 
@@ -252,6 +352,7 @@ function segmentFromCompound(ast: AST): Segment | null {
   let rootOnly = false;
   const attributes: AttributeConstraint[] = [];
   const descendantChecks: DescendantCheck[] = [];
+  const selfNegations: ParsedSelector[] = [];
 
   // Once a Mustache kind is picked, no other kind tokens may appear.
   const forbidChange = (requested: SegmentKind): boolean => {
@@ -310,7 +411,7 @@ function segmentFromCompound(ast: AST): Segment | null {
           break;
         }
         if (token.name === 'not') {
-          if (!applyNegatedSubtree(token.subtree, attributes, descendantChecks)) return null;
+          if (!applyNegatedSubtree(token.subtree, attributes, descendantChecks, selfNegations)) return null;
           break;
         }
         if (token.name === 'root') {
@@ -338,7 +439,7 @@ function segmentFromCompound(ast: AST): Segment | null {
 
   const isHtml = kind === 'html';
   const finalAttrs = isHtml ? attributes : [];
-  return { kind, rootOnly, name, pathRegex, attributes: finalAttrs, descendantChecks, combinator: 'descendant' };
+  return { kind, rootOnly, name, pathRegex, attributes: finalAttrs, descendantChecks, selfNegations, combinator: 'descendant' };
 }
 
 function mustacheKindFromMarker(name: string): SegmentKind | null {
@@ -401,6 +502,7 @@ function applyNegatedSubtree(
   subtree: AST | undefined,
   attributes: AttributeConstraint[],
   descendantChecks: DescendantCheck[],
+  selfNegations: ParsedSelector[],
 ): boolean {
   if (!subtree) return false;
   if (subtree.type === 'attribute') {
@@ -421,6 +523,13 @@ function applyNegatedSubtree(
     const sel = subtreeToSelector(subtree.subtree);
     if (!sel) return false;
     descendantChecks.push({ selector: sel, negated: true });
+    return true;
+  }
+  // Fall back to a whole-selector negation: `:not(X)` where X is a Mustache
+  // literal or any other parseable selector, tested against the node itself.
+  const sel = subtreeToSelector(subtree);
+  if (sel) {
+    selfNegations.push(sel);
     return true;
   }
   return false;
@@ -455,6 +564,8 @@ interface AncestorEntry {
   kind: AncestorKind;
   name: string; // lowercased
   node: BalanceNode;
+  siblings: BalanceNode[];    // the node's parent's children; empty for root
+  indexInSiblings: number;    // 0 for root
 }
 
 type AncestorKind = 'html' | 'section' | 'inverted' | 'root';
@@ -534,10 +645,23 @@ function checkDescendants(node: BalanceNode, checks: DescendantCheck[]): boolean
 }
 
 function hasDescendantMatch(node: BalanceNode, selector: ParsedSelector): boolean {
-  for (const child of node.children) {
-    if (matchSelector(child, selector).length > 0) return true;
+  for (let i = 0; i < node.children.length; i++) {
+    if (matchSelector(node.children[i], selector, node.children, i).length > 0) return true;
   }
   return false;
+}
+
+function checkSelfNegations(node: BalanceNode, negations: ParsedSelector[], rootNode: BalanceNode): boolean {
+  for (const sel of negations) {
+    for (const alt of sel) {
+      // A selfNegation selector is a single-segment check against the node itself.
+      // Multi-segment alternatives (e.g. `:not(a b)`) aren't sensibly testable
+      // against a single node, so they're treated as never matching => pass.
+      if (alt.length !== 1) continue;
+      if (nodeMatchesSegment(node, alt[0], rootNode)) return false;
+    }
+  }
+  return true;
 }
 
 function matchesName(actual: string | null, segment: Segment): boolean {
@@ -550,59 +674,92 @@ function matchesName(actual: string | null, segment: Segment): boolean {
 function nodeMatchesSegment(node: BalanceNode, segment: Segment, rootNode: BalanceNode): boolean {
   if (segment.rootOnly) {
     if (node !== rootNode) return false;
-    return checkDescendants(node, segment.descendantChecks);
+    return checkDescendants(node, segment.descendantChecks)
+        && checkSelfNegations(node, segment.selfNegations, rootNode);
   }
-  switch (segment.kind) {
-    case 'html': {
-      if (!HTML_ELEMENT_TYPES.has(node.type)) return false;
-      if (segment.name !== null) {
-        const tagName = getTagName(node)?.toLowerCase();
-        if (tagName !== segment.name) return false;
+  const baseMatches = (() => {
+    switch (segment.kind) {
+      case 'html': {
+        if (!HTML_ELEMENT_TYPES.has(node.type)) return false;
+        if (segment.name !== null) {
+          const tagName = getTagName(node)?.toLowerCase();
+          if (tagName !== segment.name) return false;
+        }
+        return checkAttributes(node, segment.attributes) && checkDescendants(node, segment.descendantChecks);
       }
-      return checkAttributes(node, segment.attributes) && checkDescendants(node, segment.descendantChecks);
+      case 'section':
+        if (node.type !== 'mustache_section') return false;
+        if (!matchesName(getSectionName(node)?.toLowerCase() ?? null, segment)) return false;
+        return checkDescendants(node, segment.descendantChecks);
+      case 'inverted':
+        if (node.type !== 'mustache_inverted_section') return false;
+        if (!matchesName(getSectionName(node)?.toLowerCase() ?? null, segment)) return false;
+        return checkDescendants(node, segment.descendantChecks);
+      case 'variable':
+        if (node.type !== 'mustache_interpolation') return false;
+        if (!matchesName(getInterpolationPath(node)?.toLowerCase() ?? null, segment)) return false;
+        return checkDescendants(node, segment.descendantChecks);
+      case 'raw':
+        if (node.type !== 'mustache_triple') return false;
+        if (!matchesName(getInterpolationPath(node)?.toLowerCase() ?? null, segment)) return false;
+        return checkDescendants(node, segment.descendantChecks);
+      case 'comment':
+        if (node.type !== 'mustache_comment') return false;
+        if (!matchesName(getCommentContent(node)?.toLowerCase() ?? null, segment)) return false;
+        return checkDescendants(node, segment.descendantChecks);
+      case 'partial':
+        if (node.type !== 'mustache_partial') return false;
+        if (!matchesName(getPartialName(node)?.toLowerCase() ?? null, segment)) return false;
+        return checkDescendants(node, segment.descendantChecks);
     }
-    case 'section':
-      if (node.type !== 'mustache_section') return false;
-      if (!matchesName(getSectionName(node)?.toLowerCase() ?? null, segment)) return false;
-      return checkDescendants(node, segment.descendantChecks);
-    case 'inverted':
-      if (node.type !== 'mustache_inverted_section') return false;
-      if (!matchesName(getSectionName(node)?.toLowerCase() ?? null, segment)) return false;
-      return checkDescendants(node, segment.descendantChecks);
-    case 'variable':
-      if (node.type !== 'mustache_interpolation') return false;
-      if (!matchesName(getInterpolationPath(node)?.toLowerCase() ?? null, segment)) return false;
-      return checkDescendants(node, segment.descendantChecks);
-    case 'raw':
-      if (node.type !== 'mustache_triple') return false;
-      if (!matchesName(getInterpolationPath(node)?.toLowerCase() ?? null, segment)) return false;
-      return checkDescendants(node, segment.descendantChecks);
-    case 'comment':
-      if (node.type !== 'mustache_comment') return false;
-      if (!matchesName(getCommentContent(node)?.toLowerCase() ?? null, segment)) return false;
-      return checkDescendants(node, segment.descendantChecks);
-    case 'partial':
-      if (node.type !== 'mustache_partial') return false;
-      if (!matchesName(getPartialName(node)?.toLowerCase() ?? null, segment)) return false;
-      return checkDescendants(node, segment.descendantChecks);
-  }
+  })();
+  if (!baseMatches) return false;
+  return checkSelfNegations(node, segment.selfNegations, rootNode);
 }
 
-/** Does the ancestor stack satisfy remaining segments? */
-function checkAncestors(
-  ancestors: AncestorEntry[],
+interface Cursor {
+  ancestors: AncestorEntry[];  // nodes on the path from root, excluding the match pointer itself
+  siblings: BalanceNode[];     // siblings of the current match pointer
+  indexInSiblings: number;     // index of the current match pointer in its siblings
+}
+
+/** Does the prefix of segments up to segIdx satisfy the path/sibling context? */
+function checkPrefix(
+  cursor: Cursor,
   segments: Segment[],
   segIdx: number,
-  childCombinator: 'descendant' | 'child',
+  stepCombinator: Combinator,
+  rootNode: BalanceNode,
 ): boolean {
   if (segIdx < 0) return true;
   const segment = segments[segIdx];
+
+  if (stepCombinator === 'adjacent-sibling' || stepCombinator === 'general-sibling') {
+    for (let i = cursor.indexInSiblings - 1; i >= 0; i--) {
+      const sib = cursor.siblings[i];
+      if (!isMatchableNode(sib)) continue;
+      if (!nodeMatchesSegment(sib, segment, rootNode)) {
+        if (stepCombinator === 'adjacent-sibling') return false;
+        continue;
+      }
+      const newCursor: Cursor = {
+        ancestors: cursor.ancestors,
+        siblings: cursor.siblings,
+        indexInSiblings: i,
+      };
+      if (checkPrefix(newCursor, segments, segIdx - 1, segment.combinator, rootNode)) return true;
+      if (stepCombinator === 'adjacent-sibling') return false;
+    }
+    return false;
+  }
+
+  // descendant or child — walk up the ancestor stack
   const ancestorKind = ancestorKindForSegment(segment);
   if (ancestorKind === null) return false; // variable/raw/comment/partial can't be ancestors
 
-  if (childCombinator === 'child') {
-    for (let a = ancestors.length - 1; a >= 0; a--) {
-      const entry = ancestors[a];
+  if (stepCombinator === 'child') {
+    for (let a = cursor.ancestors.length - 1; a >= 0; a--) {
+      const entry = cursor.ancestors[a];
       if (entry.kind !== ancestorKind) {
         // For `:root > X` (ancestorKind='root'), any html ancestor between
         // X and the document root breaks the direct-child relationship.
@@ -613,22 +770,43 @@ function checkAncestors(
       if (!matchesName(entry.name, segment)) return false;
       if (segment.kind === 'html' && !checkAttributes(entry.node, segment.attributes)) return false;
       if (!checkDescendants(entry.node, segment.descendantChecks)) return false;
-      return checkAncestors(ancestors.slice(0, a), segments, segIdx - 1, segment.combinator);
+      if (!checkSelfNegations(entry.node, segment.selfNegations, rootNode)) return false;
+      const newCursor: Cursor = {
+        ancestors: cursor.ancestors.slice(0, a),
+        siblings: entry.siblings,
+        indexInSiblings: entry.indexInSiblings,
+      };
+      return checkPrefix(newCursor, segments, segIdx - 1, segment.combinator, rootNode);
     }
     return false;
   }
 
-  for (let a = ancestors.length - 1; a >= 0; a--) {
-    const entry = ancestors[a];
+  for (let a = cursor.ancestors.length - 1; a >= 0; a--) {
+    const entry = cursor.ancestors[a];
     if (entry.kind !== ancestorKind) continue;
     if (!matchesName(entry.name, segment)) continue;
     if (segment.kind === 'html' && !checkAttributes(entry.node, segment.attributes)) continue;
     if (!checkDescendants(entry.node, segment.descendantChecks)) continue;
-    if (checkAncestors(ancestors.slice(0, a), segments, segIdx - 1, segment.combinator)) {
-      return true;
-    }
+    if (!checkSelfNegations(entry.node, segment.selfNegations, rootNode)) continue;
+    const newCursor: Cursor = {
+      ancestors: cursor.ancestors.slice(0, a),
+      siblings: entry.siblings,
+      indexInSiblings: entry.indexInSiblings,
+    };
+    if (checkPrefix(newCursor, segments, segIdx - 1, segment.combinator, rootNode)) return true;
   }
   return false;
+}
+
+/** True for nodes that a segment could ever match — used to skip text/whitespace when walking siblings. */
+function isMatchableNode(node: BalanceNode): boolean {
+  return HTML_ELEMENT_TYPES.has(node.type)
+      || node.type === 'mustache_section'
+      || node.type === 'mustache_inverted_section'
+      || node.type === 'mustache_interpolation'
+      || node.type === 'mustache_triple'
+      || node.type === 'mustache_comment'
+      || node.type === 'mustache_partial';
 }
 
 function ancestorKindForSegment(segment: Segment): AncestorKind | null {
@@ -669,15 +847,26 @@ function getReportNode(node: BalanceNode, rootNode?: BalanceNode): BalanceNode {
   return node;
 }
 
-function matchAlternative(rootNode: BalanceNode, segments: Segment[]): BalanceNode[] {
+function matchAlternative(
+  rootNode: BalanceNode,
+  segments: Segment[],
+  rootSiblings: BalanceNode[],
+  rootIndexInSiblings: number,
+): BalanceNode[] {
   const results: BalanceNode[] = [];
   const lastSegment = segments[segments.length - 1];
 
-  function walk(node: BalanceNode, ancestors: AncestorEntry[]) {
+  function walk(
+    node: BalanceNode,
+    ancestors: AncestorEntry[],
+    siblings: BalanceNode[],
+    indexInSiblings: number,
+  ) {
     if (nodeMatchesSegment(node, lastSegment, rootNode)) {
+      const cursor: Cursor = { ancestors, siblings, indexInSiblings };
       if (
         segments.length === 1 ||
-        checkAncestors(ancestors, segments, segments.length - 2, lastSegment.combinator)
+        checkPrefix(cursor, segments, segments.length - 2, lastSegment.combinator, rootNode)
       ) {
         results.push(getReportNode(node, rootNode));
       }
@@ -690,25 +879,36 @@ function matchAlternative(rootNode: BalanceNode, segments: Segment[]): BalanceNo
         ancestorKind === 'html' ? getTagName(node)?.toLowerCase() :
         getSectionName(node)?.toLowerCase();
       if (name) {
-        newAncestors = [...ancestors, { kind: ancestorKind, name, node }];
+        newAncestors = [...ancestors, { kind: ancestorKind, name, node, siblings, indexInSiblings }];
       }
     }
 
-    for (const child of node.children) walk(child, newAncestors);
+    for (let i = 0; i < node.children.length; i++) {
+      walk(node.children[i], newAncestors, node.children, i);
+    }
   }
 
   // Seed the ancestor stack with a root entry so `:root X` / `:root > X`
   // can find the document root as an ancestor. The root node itself is
   // never an html/section/inverted node, so it's otherwise never pushed.
-  walk(rootNode, [{ kind: 'root', name: '', node: rootNode }]);
+  const rootEntry: AncestorEntry = {
+    kind: 'root', name: '', node: rootNode,
+    siblings: rootSiblings, indexInSiblings: rootIndexInSiblings,
+  };
+  walk(rootNode, [rootEntry], rootSiblings, rootIndexInSiblings);
   return results;
 }
 
-export function matchSelector(rootNode: BalanceNode, selector: ParsedSelector): BalanceNode[] {
+export function matchSelector(
+  rootNode: BalanceNode,
+  selector: ParsedSelector,
+  siblings: BalanceNode[] = [],
+  indexInSiblings = 0,
+): BalanceNode[] {
   const allResults: BalanceNode[] = [];
   const seen = new Set<BalanceNode>();
   for (const alt of selector) {
-    for (const node of matchAlternative(rootNode, alt)) {
+    for (const node of matchAlternative(rootNode, alt, siblings, indexInSiblings)) {
       if (!seen.has(node)) {
         seen.add(node);
         allResults.push(node);
